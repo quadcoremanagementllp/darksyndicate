@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Hostinger's managed Next.js runner uses `next start`.
   compress: true,
+  
+   experimental: {
+    cpus: 1,
+  },
 
   images: {
     formats: ['image/avif', 'image/webp'],
