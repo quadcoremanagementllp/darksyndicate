@@ -1,0 +1,669 @@
+// DARK SYNDICATE GAMING WORLD — Database Schema
+// All monetary values stored as Integer (paise). 1 INR = 100 paise.
+// All timestamps stored as UTC. Application converts using Asia/Kolkata.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── ENUMS ─────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  DEACTIVATED
+}
+
+enum StationType {
+  PS5
+  POOL_TABLE
+  PC
+  VR
+  OTHER
+}
+
+enum StationStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  DEACTIVATED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  PAYMENT_FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  CASHFREE
+  CASH
+  UPI
+  OTHER
+}
+
+enum SessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXTENDED
+  OVERDUE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PricingType {
+  STANDARD
+  PEAK
+  OFF_PEAK
+  SPECIAL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  STATUS_CHANGE
+  PAYMENT
+  REFUND
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_RECEIVED
+  SESSION_REMINDER
+  SESSION_ENDING
+  ACCOUNT_UPDATE
+  SYSTEM
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// ─── MODELS ────────────────────────────────────────────────────────────────────
+
+/// Core user model for all roles (Admin, Staff, Customer)
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  phone        String?    @unique
+  passwordHash String     @map("password_hash")
+  firstName    String     @map("first_name")
+  lastName     String     @map("last_name")
+  role         UserRole   @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  avatarUrl    String?    @map("avatar_url")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  customerProfile    CustomerProfile?
+  staffProfile       StaffProfile?
+  bookings           Booking[]
+  payments           Payment[]
+  gamingSessions     GamingSession[]     @relation("SessionStaff")
+  staffActivityLogs  StaffActivityLog[]
+  staffShifts        StaffShift[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  couponRedemptions  CouponRedemption[]
+  passwordResets     PasswordReset[]
+  refundsProcessed   Refund[]            @relation("RefundProcessor")
+  memberships        Membership[]
+
+  @@index([role])
+  @@index([status])
+  @@index([email])
+  @@map("users")
+}
+
+/// Extended profile for customers
+model CustomerProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  address      String?  @db.Text
+  dateOfBirth  DateTime? @map("date_of_birth")
+  totalSpent   Int      @default(0) @map("total_spent") // paise
+  totalBookings Int     @default(0) @map("total_bookings")
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+/// Extended profile and KYC identification for staff operators
+model StaffProfile {
+  id                 String    @id @default(uuid())
+  userId             String    @unique @map("user_id")
+  address            String?   @db.Text
+  aadhaarNumber      String?   @map("aadhaar_number")
+  aadhaarDocumentUrl String?   @map("aadhaar_document_url") @db.LongText
+  emergencyContact   String?   @map("emergency_contact")
+  dateOfBirth        DateTime? @map("date_of_birth")
+  joiningDate        DateTime? @default(now()) @map("joining_date")
+  notes              String?   @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_profiles")
+}
+
+/// Category of gaming facilities (PS5, Pool, etc.)
+model GamingFacility {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  description  String?  @db.Text
+  shortDesc    String?  @map("short_desc")
+  images       Json?    // Array of image URLs
+  icon         String?  // Lucide icon name
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  stations GamingStation[]
+
+  @@index([isActive])
+  @@map("gaming_facilities")
+}
+
+/// Individual gaming station/table
+model GamingStation {
+  id               String        @id @default(uuid())
+  facilityId       String        @map("facility_id")
+  name             String        // e.g., "PS5 Station 1", "Pool Table A"
+  stationType      StationType   @map("station_type")
+  description      String?       @db.Text
+  pricePerHourPaise Int          @map("price_per_hour_paise") // Base price in paise
+  status           StationStatus @default(AVAILABLE)
+  displayOrder     Int           @default(0) @map("display_order")
+  metadata         Json?         // Extra station config (e.g., console serial, table size)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  facility       GamingFacility  @relation(fields: [facilityId], references: [id])
+  bookings       Booking[]
+  sessions       GamingSession[]
+  pricingRules   PricingRule[]
+
+  @@index([facilityId])
+  @@index([status])
+  @@index([stationType])
+  @@map("gaming_stations")
+}
+
+/// Flexible pricing rules (peak/off-peak/special)
+model PricingRule {
+  id               String      @id @default(uuid())
+  stationId        String?     @map("station_id")
+  stationType      StationType? @map("station_type") // Apply to all of a type
+  pricingType      PricingType @map("pricing_type")
+  name             String      // e.g., "Weekend Peak Rate"
+  pricePerHourPaise Int        @map("price_per_hour_paise")
+  dayOfWeek        Json?       @map("day_of_week") // Array of 0-6 (Sun-Sat), null = all days
+  startTime        String?     @map("start_time") // HH:mm format
+  endTime          String?     @map("end_time")   // HH:mm format
+  validFrom        DateTime?   @map("valid_from")
+  validUntil       DateTime?   @map("valid_until")
+  priority         Int         @default(0) // Higher = overrides lower
+  isActive         Boolean     @default(true) @map("is_active")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  station GamingStation? @relation(fields: [stationId], references: [id])
+
+  @@index([stationId])
+  @@index([stationType])
+  @@index([isActive])
+  @@map("pricing_rules")
+}
+
+/// Booking / Reservation
+model Booking {
+  id               String        @id @default(uuid())
+  bookingRef       String        @unique @map("booking_ref") // Human-readable reference
+  userId           String        @map("user_id")
+  stationId        String        @map("station_id")
+  date             DateTime      @db.Date
+  startTime        DateTime      @map("start_time")
+  endTime          DateTime      @map("end_time")
+  durationMinutes  Int           @map("duration_minutes")
+  subtotalPaise    Int           @map("subtotal_paise")
+  discountPaise           Int           @default(0) @map("discount_paise")
+  membershipDiscountPaise Int           @default(0) @map("membership_discount_paise")
+  membershipPlanName      String?       @map("membership_plan_name")
+  totalPricePaise         Int           @map("total_price_paise")
+  status           BookingStatus @default(PENDING)
+  qrToken          String        @unique @map("qr_token") // Opaque UUID for QR
+  isWalkIn         Boolean       @default(false) @map("is_walk_in")
+  customerName     String?       @map("customer_name") // For walk-ins
+  customerPhone    String?       @map("customer_phone") // For walk-ins
+  gameTitle        String?       @map("game_title")
+  notes            String?       @db.Text
+  cancelledAt      DateTime?     @map("cancelled_at")
+  cancelReason     String?       @map("cancel_reason") @db.Text
+  cancelledBy      String?       @map("cancelled_by") // userId of who cancelled
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id])
+  station           GamingStation      @relation(fields: [stationId], references: [id])
+  session           GamingSession?
+  payments          Payment[]
+  couponRedemptions CouponRedemption[]
+
+  // Prevent overlapping confirmed bookings for same station
+  @@unique([stationId, date, startTime], name: "unique_station_booking")
+  @@index([userId])
+  @@index([stationId])
+  @@index([status])
+  @@index([date])
+  @@index([bookingRef])
+  @@index([qrToken])
+  @@map("bookings")
+}
+
+/// Live gaming session tracking
+model GamingSession {
+  id                 String        @id @default(uuid())
+  bookingId          String        @unique @map("booking_id")
+  stationId          String        @map("station_id")
+  staffId            String?       @map("staff_id") // Staff who started/manages session
+  status             SessionStatus @default(ACTIVE)
+  startedAt          DateTime      @map("started_at")
+  scheduledEndAt     DateTime      @map("scheduled_end_at")
+  pausedAt           DateTime?     @map("paused_at")
+  resumedAt          DateTime?     @map("resumed_at")
+  endedAt            DateTime?     @map("ended_at")
+  totalPausedSeconds Int           @default(0) @map("total_paused_seconds")
+  extensionMinutes   Int           @default(0) @map("extension_minutes")
+  extensionPaise     Int           @default(0) @map("extension_paise")
+  notes              String?       @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  booking  Booking       @relation(fields: [bookingId], references: [id])
+  station  GamingStation @relation(fields: [stationId], references: [id])
+  staff    User?         @relation("SessionStaff", fields: [staffId], references: [id])
+
+  @@index([stationId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("gaming_sessions")
+}
+
+/// Payment records
+model Payment {
+  id                 String        @id @default(uuid())
+  bookingId          String        @map("booking_id")
+  userId             String        @map("user_id")
+  amountPaise        Int           @map("amount_paise")
+  method             PaymentMethod
+  status             PaymentStatus @default(PENDING)
+  gatewayOrderId     String?       @map("gateway_order_id")
+  gatewayPaymentId   String?       @unique @map("gateway_payment_id")
+  gatewaySignature   String?       @map("gateway_signature")
+  gatewayResponse    Json?         @map("gateway_response")
+  receiptNumber      String?       @map("receipt_number")
+  paidAt             DateTime?     @map("paid_at")
+  failureReason      String?       @map("failure_reason") @db.Text
+  notes              String?       @db.Text
+  recordedByStaffId  String?       @map("recorded_by_staff_id")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  refunds  Refund[]
+
+  @@index([bookingId])
+  @@index([userId])
+  @@index([status])
+  @@index([method])
+  @@index([gatewayOrderId])
+  @@map("payments")
+}
+
+/// Refund tracking
+model Refund {
+  id              String       @id @default(uuid())
+  paymentId       String       @map("payment_id")
+  amountPaise     Int          @map("amount_paise")
+  reason          String?      @db.Text
+  status          RefundStatus @default(PENDING)
+  gatewayRefundId String?      @map("gateway_refund_id")
+  processedById   String?      @map("processed_by_id")
+  processedAt     DateTime?    @map("processed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  payment     Payment @relation(fields: [paymentId], references: [id])
+  processedBy User?   @relation("RefundProcessor", fields: [processedById], references: [id])
+
+  @@index([paymentId])
+  @@index([status])
+  @@map("refunds")
+}
+
+/// Discount coupons
+model Coupon {
+  id               String       @id @default(uuid())
+  code             String       @unique
+  name             String
+  description      String?      @db.Text
+  discountType     DiscountType @map("discount_type")
+  discountValue    Int          @map("discount_value") // paise or percentage * 100
+  minOrderPaise    Int?         @map("min_order_paise")
+  maxDiscountPaise Int?         @map("max_discount_paise")
+  validFrom        DateTime     @map("valid_from")
+  validUntil       DateTime     @map("valid_until")
+  maxUses          Int?         @map("max_uses")
+  maxUsesPerUser   Int          @default(1) @map("max_uses_per_user")
+  usedCount        Int          @default(0) @map("used_count")
+  isActive         Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  redemptions CouponRedemption[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("coupons")
+}
+
+/// Coupon usage tracking
+model CouponRedemption {
+  id                String   @id @default(uuid())
+  couponId          String   @map("coupon_id")
+  userId            String   @map("user_id")
+  bookingId         String   @map("booking_id")
+  discountAmountPaise Int    @map("discount_amount_paise")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  coupon  Coupon  @relation(fields: [couponId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@unique([couponId, userId, bookingId])
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+/// Staff activity logging
+model StaffActivityLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String
+  entityType String?  @map("entity_type") // e.g., "booking", "session"
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("staff_activity_logs")
+}
+
+/// Staff attendance, login/logout shifts, and working hours measurement
+model StaffShift {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  loginAt         DateTime  @default(now()) @map("login_at")
+  logoutAt        DateTime? @map("logout_at")
+  logoutReason    String?   @map("logout_reason") // "MANUAL", "SYSTEM_INACTIVE"
+  durationMinutes Int?      @map("duration_minutes")
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([loginAt])
+  @@index([logoutAt])
+  @@map("staff_shifts")
+}
+
+/// System-wide audit trail
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?     @map("user_id")
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String      @map("entity_id")
+  oldValue   Json?       @map("old_value")
+  newValue   Json?       @map("new_value")
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent") @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Customer testimonials (admin-managed)
+model Testimonial {
+  id           String   @id @default(uuid())
+  customerName String   @map("customer_name")
+  content      String   @db.Text
+  rating       Int      @default(5) // 1-5
+  avatarUrl    String?  @map("avatar_url")
+  isApproved   Boolean  @default(false) @map("is_approved")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isApproved])
+  @@map("testimonials")
+}
+
+/// Website gallery images
+model GalleryImage {
+  id           String   @id @default(uuid())
+  url          String
+  altText      String?  @map("alt_text")
+  category     String?  // e.g., "gaming", "venue", "events"
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([category])
+  @@map("gallery_images")
+}
+
+/// Dynamic website settings (key-value store)
+model WebsiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String   @db.LongText
+  group     String   // e.g., "general", "booking", "payment", "notification"
+  dataType  String   @default("string") @map("data_type") // string, number, boolean, json
+  label     String?  // Human-readable label for admin UI
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([group])
+  @@map("website_settings")
+}
+
+/// User notifications
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  isRead    Boolean          @default(false) @map("is_read")
+  metadata  Json?            // Extra data (e.g., bookingId, link)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// Password reset tokens
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_resets")
+}
+
+/// Admin-configured customer membership plans
+model MembershipPlan {
+  id              String        @id @default(uuid())
+  slug            String        @unique
+  name            String
+  tier            String        @default("STANDARD") // SILVER, GOLD, VIP
+  description     String?       @db.Text
+  pricePaise      Int           @map("price_paise")
+  durationDays    Int           @default(30) @map("duration_days")
+  discountPercent Int           @default(10) @map("discount_percent")
+  freeHours       Int           @default(0) @map("free_hours")
+  perks           Json?
+  badgeColor      String?       @map("badge_color")
+  displayOrder    Int           @default(0) @map("display_order")
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  memberships     Membership[]
+
+  @@map("membership_plans")
+}
+
+/// Active and historical user memberships
+model Membership {
+  id               String           @id @default(uuid())
+  userId           String           @map("user_id")
+  planId           String           @map("plan_id")
+  planNameSnapshot String           @map("plan_name_snapshot")
+  tierSnapshot     String           @default("SILVER") @map("tier_snapshot")
+  discountPercent  Int              @default(10) @map("discount_percent")
+  pricePaidPaise   Int              @default(0) @map("price_paid_paise")
+  paymentMethod    PaymentMethod    @default(UPI) @map("payment_method")
+  paymentId        String?          @map("payment_id")
+  status           MembershipStatus @default(ACTIVE)
+  startsAt         DateTime         @default(now()) @map("starts_at")
+  expiresAt        DateTime         @map("expires_at")
+  notes            String?          @db.Text
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             MembershipPlan   @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("memberships")
+}
+
+/// Arena games catalog available across consoles and tables
+model Game {
+  id           String      @id @default(uuid())
+  title        String
+  slug         String      @unique
+  platform     StationType @default(PS5)
+  genre        String?
+  description  String?     @db.Text
+  coverImage   String?     @map("cover_image")
+  maxPlayers   Int         @default(2) @map("max_players")
+  stationIds   Json?       @map("station_ids") // Array of station IDs where installed, or null = all of platform
+  isFeatured   Boolean     @default(false) @map("is_featured")
+  isActive     Boolean     @default(true) @map("is_active")
+  displayOrder Int         @default(0) @map("display_order")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@index([platform])
+  @@index([isActive])
+  @@map("games")
+}
+
