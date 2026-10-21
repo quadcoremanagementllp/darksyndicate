@@ -36,8 +36,8 @@ export function MobileBottomBar() {
       <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-ds-accent/60 to-transparent" />
 
       {/* Main Glassmorphic Dock */}
-      <div className="bg-ds-dark/95 backdrop-blur-2xl border-t border-ds-border/80 px-3 py-2 sm:px-6 shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
-        <div className="max-w-md mx-auto flex items-center justify-between gap-2">
+      <div className="bg-ds-dark/95 backdrop-blur-2xl border-t border-ds-border/80 px-3 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] sm:px-6 shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-2">
           {/* Sign In / Account Link */}
           {isAuthenticated && user ? (
             <Link

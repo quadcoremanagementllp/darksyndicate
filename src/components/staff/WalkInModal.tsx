@@ -964,7 +964,7 @@ export function WalkInModal({
         </div>
 
         {/* ─── BOTTOM ACTION STRIP (STICKY AT BOTTOM) ─── */}
-        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3.5 bg-ds-surface/95 backdrop-blur-md border-t border-ds-border/80 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl z-20 mt-6">
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3.5 bg-ds-surface/95 backdrop-blur-md border-t border-ds-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-2xl z-20 mt-6">
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-2">
               <Badge variant="accent" size="md" className="font-heading font-bold text-xs uppercase">

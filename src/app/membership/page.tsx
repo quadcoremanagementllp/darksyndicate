@@ -74,7 +74,7 @@ export default function MembershipPlansPage() {
     <div className="min-h-screen bg-ds-darker text-ds-text flex flex-col selection:bg-ds-accent selection:text-white">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 space-y-16">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-28 lg:pb-24 space-y-16">
         {/* Hero Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <Badge variant="accent" size="sm" className="shadow-glow-sm">

@@ -318,19 +318,19 @@ export default function StaffStationGridPage() {
         </div>
 
         {/* Right Search & Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <Input
               placeholder="Search station or player..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs py-1.5 pl-8 w-44 sm:w-52"
+              className="text-xs py-1.5 pl-8 w-full sm:w-52"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
           </div>
 
           {/* Status Filter */}
-          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
             {[
               { id: 'ALL', label: 'All Floor' },
               { id: 'AVAILABLE', label: `Ready (${stats.availableCount})` },
@@ -340,7 +340,7 @@ export default function StaffStationGridPage() {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id as any)}
-                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] whitespace-nowrap ${
                   statusFilter === tab.id
                     ? 'bg-ds-surface text-ds-ice border border-ds-ice/30 shadow-sm'
                     : 'text-ds-text-dim hover:text-white'
@@ -352,7 +352,7 @@ export default function StaffStationGridPage() {
           </div>
 
           {/* Platform / Category Filter */}
-          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
             {[
               { id: 'ALL', label: 'All' },
               { id: 'PS5', label: 'PS5 Pro' },
@@ -361,7 +361,7 @@ export default function StaffStationGridPage() {
               <button
                 key={tab.id}
                 onClick={() => setFilterType(tab.id)}
-                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] ${
+                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] whitespace-nowrap ${
                   filterType === tab.id
                     ? 'bg-ds-accent text-white shadow-sm'
                     : 'text-ds-text-dim hover:text-white'
@@ -612,20 +612,20 @@ export default function StaffStationGridPage() {
                         variant="secondary"
                         size="sm"
                         onClick={() => setExtendModalStation(station)}
-                        className="flex-1 justify-center text-xs"
+                        className="flex-1 justify-center text-xs px-2"
                       >
-                        <PlusCircle className="w-3.5 h-3.5 mr-1" />
-                        <span>Extend</span>
+                        <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                        <span className="truncate">Extend</span>
                       </Button>
 
                       <Button
                         variant="danger"
                         size="sm"
                         onClick={() => handleEndSession(station)}
-                        className="flex-1 justify-center text-xs"
+                        className="flex-1 justify-center text-xs px-2"
                       >
-                        <Square className="w-3.5 h-3.5 mr-1" />
-                        <span>End Session</span>
+                        <Square className="w-3.5 h-3.5 mr-1 shrink-0" />
+                        <span className="truncate">End Session</span>
                       </Button>
                     </>
                   ) : isMaintenance ? (

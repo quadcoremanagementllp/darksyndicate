@@ -59,7 +59,7 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -74,25 +74,25 @@ export function Modal({
         aria-labelledby={title ? 'modal-title' : undefined}
         className={cn(
           'relative w-full bg-ds-surface border border-ds-border rounded-xl',
-          'shadow-elevated animate-scale-in overflow-hidden',
+          'shadow-elevated animate-scale-in overflow-hidden max-h-[92vh] flex flex-col',
           sizeStyles[size],
           className
         )}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-start justify-between p-6 pb-0">
+          <div className="flex items-start justify-between p-4 sm:p-6 pb-0 shrink-0">
             <div>
               {title && (
                 <h2
                   id="modal-title"
-                  className="text-xl font-heading font-bold text-ds-text"
+                  className="text-lg sm:text-xl font-heading font-bold text-ds-text"
                 >
                   {title}
                 </h2>
               )}
               {description && (
-                <p className="mt-1 text-sm text-ds-text-muted">
+                <p className="mt-1 text-xs sm:text-sm text-ds-text-muted">
                   {description}
                 </p>
               )}
@@ -103,7 +103,7 @@ export function Modal({
                 className={cn(
                   'p-1.5 rounded-lg text-ds-text-muted',
                   'hover:text-ds-text hover:bg-ds-surface-2',
-                  'transition-colors duration-[var(--transition-fast)]'
+                  'transition-colors duration-[var(--transition-fast)] shrink-0 ml-2'
                 )}
                 aria-label="Close modal"
               >
@@ -116,8 +116,8 @@ export function Modal({
         {/* Body */}
         <div
           className={cn(
-            'p-6 overflow-y-auto',
-            size === 'full' ? 'flex-1 max-h-[calc(92vh-80px)]' : 'max-h-[70vh]'
+            'p-4 sm:p-6 overflow-y-auto overscroll-contain',
+            size === 'full' ? 'flex-1 max-h-[calc(92vh-80px)]' : 'max-h-[82vh] sm:max-h-[75vh]'
           )}
         >
           {children}

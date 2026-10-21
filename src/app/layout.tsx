@@ -1,8 +1,15 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import { MobileBottomBar } from '@/components/layout/MobileBottomBar';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#0A111C',
+};
 
 const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://darksyndicate.in';
 const appBaseUrl = rawAppUrl.startsWith('http://') || rawAppUrl.startsWith('https://')

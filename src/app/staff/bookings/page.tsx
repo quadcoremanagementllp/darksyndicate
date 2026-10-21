@@ -485,9 +485,9 @@ export default function StaffBookingsSchedulePage() {
       {/* Filter & View Switcher Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-ds-surface/50 p-4 rounded-2xl border border-ds-border">
         {/* Left Side: Status Tabs + Date Scope + Staff Scope */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 max-w-full">
           {/* Status Tabs */}
-          <div className="flex flex-wrap items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
             {[
               {
                 id: 'ALL',
@@ -506,7 +506,7 @@ export default function StaffBookingsSchedulePage() {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all ${
+                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs ${
                   statusFilter === tab.id
                     ? 'bg-ds-accent text-white shadow-sm'
                     : 'text-ds-text-dim hover:text-white'
@@ -518,7 +518,7 @@ export default function StaffBookingsSchedulePage() {
           </div>
 
           {/* Date Scope Filter */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
             <button
               onClick={() => setDateScope('TODAY')}
               className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
@@ -812,8 +812,8 @@ export default function StaffBookingsSchedulePage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto no-scrollbar sm:[scrollbar-width:auto]">
+              <table className="w-full text-left text-xs min-w-[780px]">
                 <thead className="bg-ds-dark/60 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
                   <tr>
                     <th className="py-3 px-4">Booking Ref</th>

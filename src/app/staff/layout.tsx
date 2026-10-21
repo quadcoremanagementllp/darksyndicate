@@ -205,12 +205,14 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return () => clearInterval(interval);
   }, []);
 
-  // Load saved sidebar state from localStorage
+  // Load saved sidebar state from localStorage (default to collapsed on tablets <1024px)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ds_staff_sidebar_open');
       if (saved !== null) {
         setIsSidebarOpen(saved === 'true');
+      } else if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
       }
     } catch {}
   }, []);

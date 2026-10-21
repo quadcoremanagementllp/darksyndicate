@@ -228,7 +228,7 @@ function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
         )}
 
         {/* Auth Card */}
-        <div className="glass-strong rounded-2xl p-6 sm:p-8 shadow-elevated">
+        <div className="glass-strong rounded-2xl p-5 sm:p-8 shadow-elevated">
           {/* Tab Switcher for Player Portal */}
           {portal === 'player' && (
             <div className="grid grid-cols-2 p-1 bg-ds-dark/90 rounded-xl border border-ds-border mb-6 shadow-inner">

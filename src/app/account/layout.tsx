@@ -242,6 +242,30 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
+          {/* Mobile & Tablet Quick Navigation Bar */}
+          <div className="lg:hidden border-t border-ds-border/60 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto no-scrollbar scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-1.5 min-w-max">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-heading font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+                      active
+                        ? 'bg-ds-accent text-ds-dark shadow-glow-sm'
+                        : 'text-ds-text-muted hover:text-ds-text hover:bg-ds-surface/60 border border-ds-border/50'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{item.shortName || item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Desktop Top Bar */}
           <div className="hidden lg:flex items-center justify-between h-16">
             <div className="flex items-center gap-4">

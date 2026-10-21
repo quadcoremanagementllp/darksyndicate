@@ -1030,8 +1030,8 @@ function BookingContent() {
                           e.currentTarget.scrollLeft += e.deltaY;
                         }
                       }}
-                      className="flex gap-2.5 overflow-x-auto py-1.5 scroll-smooth no-scrollbar select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                      className="flex gap-2.5 overflow-x-auto py-1.5 scroll-smooth no-scrollbar select-none touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
                     >
                       {dateList.map((item) => {
                         const isSelected = selectedDate === item.dateStr;
@@ -1075,7 +1075,7 @@ function BookingContent() {
                       </div>
 
                       {(selectedZone === 'PS5' || (!selectedZone && selectedStation?.stationType === 'PS5') || (!selectedZone && !selectedStation)) ? (
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
                           {[
                             { count: 1, label: 'Single Player', sub: '1 Player', rate: '₹150 / hr' },
                             { count: 2, label: 'Two Player', sub: '2 Players', rate: '₹200 / hr' },
@@ -1085,20 +1085,20 @@ function BookingContent() {
                               key={opt.count}
                               type="button"
                               onClick={() => setPlayerCount(opt.count)}
-                              className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              className={`p-2 sm:p-3 rounded-xl border text-center transition-all cursor-pointer ${
                                 playerCount === opt.count
                                   ? 'bg-ds-surface border-ds-accent text-ds-ice ring-1 ring-ds-accent shadow-md'
                                   : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
                               }`}
                             >
-                              <div className="text-xs font-heading font-bold">{opt.label}</div>
-                              <span className="text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
-                              <span className="text-[10px] text-ds-accent font-mono font-bold block mt-1">{opt.rate}</span>
+                              <div className="text-[11px] sm:text-xs font-heading font-bold">{opt.label}</div>
+                              <span className="text-[9px] sm:text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
+                              <span className="text-[9px] sm:text-[10px] text-ds-accent font-mono font-bold block mt-1">{opt.rate}</span>
                             </button>
                           ))}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
                           {[
                             { count: 1, label: 'Solo Practice', sub: '1 Player', rate: '₹250 / hr' },
                             { count: 2, label: '1v1 Match', sub: '2 Players', rate: '₹250 / hr' },
@@ -1108,15 +1108,15 @@ function BookingContent() {
                               key={opt.count}
                               type="button"
                               onClick={() => setPlayerCount(opt.count)}
-                              className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              className={`p-2 sm:p-3 rounded-xl border text-center transition-all cursor-pointer ${
                                 playerCount === opt.count
                                   ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-md'
                                   : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
                               }`}
                             >
-                              <div className="text-xs font-heading font-bold">{opt.label}</div>
-                              <span className="text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
-                              <span className="text-[10px] text-emerald-400 font-mono font-bold block mt-1">{opt.rate}</span>
+                              <div className="text-[11px] sm:text-xs font-heading font-bold">{opt.label}</div>
+                              <span className="text-[9px] sm:text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
+                              <span className="text-[9px] sm:text-[10px] text-emerald-400 font-mono font-bold block mt-1">{opt.rate}</span>
                             </button>
                           ))}
                         </div>
@@ -2113,8 +2113,8 @@ function BookingContent() {
           )}
 
           {/* Floating Bottom Drawer & Bar */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0B0F17]/95 backdrop-blur-2xl border-t border-ds-border shadow-[0_-12px_40px_rgba(0,0,0,0.85)] px-4 pt-2.5 pb-3">
-            <div className="max-w-md mx-auto">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0B0F17]/95 backdrop-blur-2xl border-t border-ds-border shadow-[0_-12px_40px_rgba(0,0,0,0.85)] px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="max-w-2xl mx-auto">
               {/* Top Pull Handle / Tap Indicator */}
               <div
                 onClick={() => setIsSummaryOpen((prev) => !prev)}
@@ -2350,7 +2350,7 @@ function BookingContent() {
                   onClick={handleMobileBack}
                   disabled={isMobileBackDisabled}
                   aria-label="Previous step"
-                  className="w-[30%] shrink-0 h-10 rounded-lg bg-ds-surface border border-ds-border hover:border-ds-accent/60 flex items-center justify-center gap-1 text-xs font-heading font-bold text-ds-text hover:text-white active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  className="w-[30%] shrink-0 h-11 sm:h-12 rounded-xl bg-ds-surface border border-ds-border hover:border-ds-accent/60 flex items-center justify-center gap-1 text-xs font-heading font-bold text-ds-text hover:text-white active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
                 >
                   <ChevronLeft className="w-4 h-4 text-ds-text" />
                   <span>Back</span>
@@ -2361,7 +2361,7 @@ function BookingContent() {
                   type="button"
                   onClick={handleMobileContinue}
                   disabled={submitting}
-                  className="w-[70%] flex-1 h-10 rounded-lg bg-gradient-to-r from-ds-accent to-ds-ice hover:brightness-110 active:scale-[0.98] text-ds-darker font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-ds-accent/25 transition-all disabled:opacity-50"
+                  className="w-[70%] flex-1 h-11 sm:h-12 rounded-xl bg-gradient-to-r from-ds-accent to-ds-ice hover:brightness-110 active:scale-[0.98] text-ds-darker font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-ds-accent/25 transition-all disabled:opacity-50"
                 >
                   {submitting ? (
                     <div className="flex items-center gap-1.5">

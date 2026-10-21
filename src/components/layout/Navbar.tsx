@@ -266,7 +266,7 @@ export function Navbar() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-ds-dark/95 backdrop-blur-2xl border-b border-ds-border px-4 py-5 space-y-3 animate-fade-in-down">
+        <div className="md:hidden bg-ds-dark/95 backdrop-blur-2xl border-b border-ds-border px-4 py-5 pb-6 space-y-3 animate-fade-in-down max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain">
           {/* Live Status indicator */}
           <div className="flex items-center justify-between pb-2 border-b border-ds-border/60 text-xs">
             <span className="text-ds-text-muted flex items-center gap-1.5">

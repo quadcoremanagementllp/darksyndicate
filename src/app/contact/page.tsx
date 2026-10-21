@@ -95,7 +95,7 @@ export default function ContactPage() {
             {/* Left Column: Venue Info & Operating Hours */}
             <div className="lg:col-span-5 space-y-6">
               {/* Arena Info Card */}
-              <Card glass className="p-8 border-ds-accent/30 space-y-6">
+              <Card glass className="p-5 sm:p-8 border-ds-accent/30 space-y-6">
                 <h3 className="font-heading font-bold text-xl text-ds-text uppercase">
                   Arena Headquarters
                 </h3>
@@ -197,7 +197,7 @@ export default function ContactPage() {
 
             {/* Right Column: Interactive Contact Form */}
             <div className="lg:col-span-7">
-              <Card glass className="p-8 border-ds-border space-y-6">
+              <Card glass className="p-5 sm:p-8 border-ds-border space-y-6">
                 <div>
                   <h3 className="font-heading font-bold text-2xl text-ds-text uppercase">
                     SEND US A <span className="gradient-text">MESSAGE</span>

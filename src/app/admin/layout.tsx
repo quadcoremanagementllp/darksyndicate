@@ -205,12 +205,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, isLoading, isAdmin]);
 
-  // Load saved sidebar state from localStorage
+  // Load saved sidebar state from localStorage (default to collapsed on tablets <1024px)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('ds_admin_sidebar_open');
       if (saved !== null) {
         setIsSidebarOpen(saved === 'true');
+      } else if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
       }
     } catch {}
   }, []);

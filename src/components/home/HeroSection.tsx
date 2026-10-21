@@ -12,7 +12,7 @@ export function HeroSection() {
         className="absolute inset-0 -z-20 bg-cover bg-center lg:bg-[center_top]"
         style={{ backgroundImage: "url('/DD.png')" }}
       />
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,7,13,0.96)_0%,rgba(2,7,13,0.88)_35%,rgba(2,7,13,0.35)_65%,rgba(2,7,13,0.15)_100%)]" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#02070d]/95 via-[#02070d]/85 to-[#02070d]/90 sm:bg-[linear-gradient(90deg,rgba(2,7,13,0.96)_0%,rgba(2,7,13,0.88)_35%,rgba(2,7,13,0.35)_65%,rgba(2,7,13,0.15)_100%)]" />
       <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-[#02070d] to-transparent" />
 
       {/* Main Content Container */}
@@ -25,7 +25,7 @@ export function HeroSection() {
           </div>
 
           {/* Headline - Zero Gap Esports Stack */}
-          <h1 className="font-heading text-5xl sm:text-6xl md:text-7xl lg:text-[4.75rem] font-black uppercase tracking-tight text-white drop-shadow-2xl leading-none">
+          <h1 className="font-heading text-4xl sm:text-6xl md:text-7xl lg:text-[4.75rem] font-black uppercase tracking-tight text-white drop-shadow-2xl leading-none">
             <span className="block">Play</span>
             <span className="block -mt-1.5 sm:-mt-2.5 lg:-mt-3.5 bg-gradient-to-r from-[#3299ff] via-[#18d6ea] to-[#58e0ef] bg-clip-text text-transparent">
               Beyond
