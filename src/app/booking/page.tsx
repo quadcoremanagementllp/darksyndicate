@@ -873,9 +873,22 @@ function BookingContent() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
                           <div className="absolute top-3 right-3">
-                            <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm">
-                              {stations.filter((s) => s.stationType === 'PS5' && s.status === 'AVAILABLE').length} Consoles Ready
-                            </span>
+                            {(() => {
+                              const ps5List = stations.filter((s) => s.stationType === 'PS5');
+                              const ps5Avail = ps5List.filter((s) => s.status === 'AVAILABLE').length;
+                              const ps5Total = ps5List.length || 3;
+                              return ps5Avail > 0 ? (
+                                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                                  {ps5Avail} of {ps5Total} Available Now
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-ds-surface/90 border border-ds-accent/50 text-ds-ice shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                  {ps5Total} Consoles • Advance Slots Open
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -916,9 +929,22 @@ function BookingContent() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
                           <div className="absolute top-3 right-3">
-                            <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm">
-                              {stations.filter((s) => s.stationType === 'POOL_TABLE' && s.status === 'AVAILABLE').length} Tables Ready
-                            </span>
+                            {(() => {
+                              const poolList = stations.filter((s) => s.stationType === 'POOL_TABLE');
+                              const poolAvail = poolList.filter((s) => s.status === 'AVAILABLE').length;
+                              const poolTotal = poolList.length || 3;
+                              return poolAvail > 0 ? (
+                                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                                  {poolAvail} of {poolTotal} Available Now
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-ds-surface/90 border border-emerald-500/50 text-emerald-400 shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                  {poolTotal} Tables • Advance Slots Open
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -1252,6 +1278,13 @@ function BookingContent() {
                         })}
                       </div>
                     )}
+
+                    <div className="mt-3 flex items-start sm:items-center gap-2 px-3 py-2 rounded-lg bg-ds-surface/40 border border-ds-border/60 text-[11px] text-ds-text-muted">
+                      <span className="text-ds-ice text-sm mt-0.5 sm:mt-0">⚡</span>
+                      <span>
+                        <strong className="text-ds-text">Dynamic Arena Availability:</strong> Time slots reflect real-time station schedules. Ongoing live gaming sessions automatically release consoles for upcoming booking slots upon completion.
+                      </span>
+                    </div>
                   </div>
 
                   {/* Bottom Navigation */}
