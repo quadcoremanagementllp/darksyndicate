@@ -27,16 +27,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch('/api/auth/me');
+      const res = await fetch('/api/auth/me', {
+        headers: {
+          'Cache-Control': 'no-cache, no-store',
+        },
+      });
       if (res.ok) {
         const json = await res.json();
         setUser(json.data?.user || null);
         lastRefreshTimeRef.current = Date.now();
-      } else {
+      } else if (res.status === 401 || res.status === 403) {
         setUser(null);
       }
     } catch {
-      setUser(null);
+      // Network hiccup or server restart: preserve active session
     } finally {
       setIsLoading(false);
     }

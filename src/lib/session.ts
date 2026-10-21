@@ -24,6 +24,7 @@ export async function setSessionCookie(payload: {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: AUTH_COOKIE_MAX_AGE,
+    expires: new Date(Date.now() + AUTH_COOKIE_MAX_AGE * 1000),
     path: '/',
   });
 

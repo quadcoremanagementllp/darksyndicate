@@ -2,6 +2,8 @@ import { getSession, setSessionCookie } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { handleApiError, apiSuccess } from '@/lib/errors';
 
+export const dynamic = 'force-dynamic';
+
 // ─── GET /api/auth/me ───────────────────────────────────────────────────────
 // Returns the current authenticated user's profile, or { user: null } if guest
 export async function GET() {
@@ -33,13 +35,17 @@ export async function GET() {
     }
 
     // Refresh the session cookie so active users remain logged in seamlessly (sliding expiration)
-    await setSessionCookie({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    });
+    try {
+      await setSessionCookie({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+    } catch (cookieErr) {
+      console.warn('Sliding session cookie refresh skipped in /api/auth/me:', cookieErr);
+    }
 
     // Ensure active shift exists only for on-duty floor STAFF (not Admins or Super Admins)
     if (user.role === 'STAFF') {

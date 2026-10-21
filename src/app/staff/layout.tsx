@@ -244,20 +244,18 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ─── 2-HOUR INACTIVITY AUTO-LOGOUT MEASUREMENT ───
-  const INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000; // 2 hours
+  // ─── 12-HOUR SHIFT INACTIVITY TIMEOUT ───
+  const INACTIVITY_LIMIT_MS = 12 * 60 * 60 * 1000; // 12 hours full shift duration
 
   useEffect(() => {
-    // Record initial active timestamp if not already set
+    // Record active timestamp on mount (always start fresh on page load)
     const markActivity = () => {
       try {
         localStorage.setItem('ds_staff_last_active', String(Date.now()));
       } catch {}
     };
 
-    if (!localStorage.getItem('ds_staff_last_active')) {
-      markActivity();
-    }
+    markActivity();
 
     // User activity listeners (throttled to at most once every 5 seconds)
     let lastThrottledTime = 0;
@@ -272,15 +270,22 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const trackedEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
     trackedEvents.forEach((evt) => window.addEventListener(evt, onUserInteraction, { passive: true }));
 
-    // Periodic check every 15 seconds
+    // Reset activity when tab/screen becomes visible again
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markActivity();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Periodic check every 60 seconds
     const inactivityInterval = setInterval(async () => {
       try {
         const lastActiveTimestamp = Number(localStorage.getItem('ds_staff_last_active')) || Date.now();
         const inactiveTime = Date.now() - lastActiveTimestamp;
 
         if (inactiveTime >= INACTIVITY_LIMIT_MS) {
-          // Logged out by system due to 2 hours of inactivity
-          console.warn('[Staff Portal] 2 hours of inactivity reached. Logging out by system.');
+          console.warn('[Staff Portal] Shift duration exceeded. Logging out.');
           try {
             await logout('SYSTEM_INACTIVE');
           } finally {
@@ -290,10 +295,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       } catch (err) {
         console.error('Inactivity check error:', err);
       }
-    }, 15000);
+    }, 60000);
 
     return () => {
       trackedEvents.forEach((evt) => window.removeEventListener(evt, onUserInteraction));
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(inactivityInterval);
     };
   }, [logout]);

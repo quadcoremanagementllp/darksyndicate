@@ -110,6 +110,10 @@ function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
       const loggedInUser = await login(data.email, data.password, portal);
       toast.success('Welcome back!', 'You have been logged in successfully.');
 
+      try {
+        localStorage.setItem('ds_staff_last_active', String(Date.now()));
+      } catch {}
+
       if (redirectParam) {
         window.location.href = redirectParam;
       } else if (loggedInUser?.role && ['SUPER_ADMIN', 'ADMIN'].includes(loggedInUser.role)) {
