@@ -24,6 +24,8 @@ interface Station {
   name: string;
   stationType: string;
   facilityName: string;
+  imageUrl?: string;
+  capacity?: number;
   pricePerHourPaise: number;
   status: string;
   games?: StationGame[];
@@ -215,6 +217,7 @@ export function WalkInModal({
   const [upiPayeeName, setUpiPayeeName] = useState<string>('Dark Syndicate Gaming World');
   const [dynamicQrUrl, setDynamicQrUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [isManualStationPicker, setIsManualStationPicker] = useState<boolean>(false);
 
   // Ref to track modal transition so 10-second polling does not wipe what staff is typing
   const prevIsOpenRef = React.useRef(false);
@@ -225,8 +228,10 @@ export function WalkInModal({
     prevIsOpenRef.current = isOpen;
 
     if (isOpen && !wasOpen) {
+      setIsManualStationPicker(false);
       const target =
         stations.find((s) => s.id === preselectedStationId && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
+        stations.find((s) => s.id === preselectedStationId) ||
         stations.find((s) => getStationAvailabilityState(s, durationMinutes).isAvailable) ||
         stations[0];
       if (target) {
@@ -271,6 +276,7 @@ export function WalkInModal({
 
   const isPs5 = selectedStation?.stationType === 'PS5';
   const isPool = selectedStation?.stationType === 'POOL_TABLE';
+  const showSingleAllocatedStation = Boolean(preselectedStationId && selectedStation && !isManualStationPicker);
   let dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
   if (isPs5) {
     if (playerCount === 2) dynamicHourlyRate = 20000;
@@ -446,174 +452,192 @@ export function WalkInModal({
       size="full"
     >
       <form onSubmit={handleSubmit} className="flex flex-col justify-between" noValidate>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-32 sm:pb-36">
           {/* ─── LEFT COLUMN: CATEGORY, STATION & GAME (7 COLS) ─── */}
           <div className="lg:col-span-7 space-y-4">
-            {/* 1. Category Switcher Tabs */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">1</span>
-                  <span>Select Arena Category</span>
-                </label>
-                <span className="text-[11px] font-mono text-ds-text-dim">
-                  {stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Available Units
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {availableCategories.map((catKey) => {
-                  const isSelected = activeCategory === catKey;
-                  const count = stations.filter(
-                    (s) => s.stationType === catKey && getStationAvailabilityState(s, durationMinutes).isAvailable
-                  ).length;
-                  const totalCount = stations.filter((s) => s.stationType === catKey).length;
-                  const meta = CATEGORY_META[catKey] || { label: catKey, icon: '🎯' };
-
-                  return (
-                    <button
-                      type="button"
-                      key={catKey}
-                      onClick={() => handleCategoryChange(catKey)}
-                      className={`p-3 rounded-xl font-heading font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-ds-accent text-white border-ds-accent shadow-lg shadow-ds-accent/25 ring-1 ring-ds-accent'
-                          : 'bg-ds-dark/80 border-ds-border text-ds-text-muted hover:text-white hover:border-ds-accent/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-lg">{meta.icon}</span>
-                        <span className="truncate">{meta.label}</span>
-                      </div>
-                      <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ml-1.5 ${
-                          isSelected ? 'bg-black/35 text-white font-bold' : 'bg-ds-surface text-ds-text-dim'
-                        }`}
+            {/* 1. Station Selection: If preselectedStationId, show ONLY that allocated station; else allow direct station choice */}
+            {showSingleAllocatedStation && selectedStation ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
+                    <span>Allocated Station</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Unit Ready
+                    </span>
+                    {stations.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsManualStationPicker(true)}
+                        className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 hover:underline px-2 py-0.5 rounded bg-cyan-950/40 border border-cyan-800/60"
                       >
-                        {count}/{totalCount}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 2. Choose Station (1-click Cards with Console Logo) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">2</span>
-                  <span>Choose {CATEGORY_META[activeCategory]?.label || 'Station'}</span>
-                </label>
-                <span className="text-[11px] font-mono text-ds-text-dim">
-                  {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Available
-                </span>
-              </div>
-
-              {formErrors.station && (
-                <div className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-lg font-medium">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{formErrors.station}</span>
+                        Change Station
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                {categoryStations.map((st) => {
-                  const isSelected = selectedStationId === st.id;
-                  const state = getStationAvailabilityState(st, durationMinutes);
-                  const isAvailable = state.isAvailable;
+                <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-cyan-950/40 via-[#0a1424] to-[#08101a] border border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-cyan-500/20 border border-cyan-400 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(6,182,212,0.3)]">
+                      {getStationIcon(selectedStation.stationType)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-heading font-black text-sm text-white tracking-wide truncate">
+                        {selectedStation.name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono text-cyan-400">
+                        <span className="font-bold">₹{((selectedStation.pricePerHourPaise || 15000) / 100).toFixed(0)}/hr</span>
+                        <span className="text-ds-text-dim">•</span>
+                        <span className="text-ds-text-dim">{selectedStation.facilityName || 'Console Arena'}</span>
+                        <span className="text-ds-text-dim">•</span>
+                        <span className="text-emerald-400 font-semibold">{selectedStation.capacity || 4} Max Players</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-cyan-950/70 border border-cyan-500/40 text-cyan-300">
+                      Selected
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
+                    <span>Choose Arena Station</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-ds-text-dim">
+                      {stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Available
+                    </span>
+                    {preselectedStationId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const orig = stations.find((s) => s.id === preselectedStationId);
+                          if (orig) {
+                            setSelectedStationId(orig.id);
+                            setActiveCategory(orig.stationType);
+                          }
+                          setIsManualStationPicker(false);
+                        }}
+                        className="text-[10px] font-mono text-ds-text-dim hover:text-white hover:underline"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                  return (
-                    <button
-                      type="button"
-                      key={st.id}
-                      disabled={!isAvailable}
-                      onClick={() => {
-                        setSelectedStationId(st.id);
-                        setSelectedGameTitle('');
-                        setFormErrors((prev) => ({ ...prev, station: undefined }));
-                      }}
-                      className={`p-2.5 rounded-xl border text-left transition-all relative flex items-center gap-2.5 group h-[52px] sm:h-[54px] ${
-                        isSelected
-                          ? 'bg-cyan-950/40 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                          : isAvailable
-                          ? 'bg-[#08101a] border-cyan-950/70 text-ds-text hover:border-cyan-400/50 hover:bg-[#0c1827]'
-                          : 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim opacity-50 cursor-not-allowed'
-                      }`}
-                    >
-                      {/* Console / Station Icon */}
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                {formErrors.station && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-lg font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{formErrors.station}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {stations.map((st) => {
+                    const isSelected = selectedStationId === st.id;
+                    const state = getStationAvailabilityState(st, durationMinutes);
+                    const isAvailable = state.isAvailable;
+
+                    return (
+                      <button
+                        type="button"
+                        key={st.id}
+                        disabled={!isAvailable}
+                        onClick={() => {
+                          setSelectedStationId(st.id);
+                          setActiveCategory(st.stationType);
+                          setSelectedGameTitle('');
+                          setFormErrors((prev) => ({ ...prev, station: undefined }));
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all relative flex items-center gap-2.5 group h-[52px] sm:h-[54px] ${
                           isSelected
-                            ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
-                            : 'bg-ds-surface border-ds-border group-hover:border-cyan-500/40'
+                            ? 'bg-cyan-950/40 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                            : isAvailable
+                            ? 'bg-[#08101a] border-cyan-950/70 text-ds-text hover:border-cyan-400/50 hover:bg-[#0c1827]'
+                            : 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim opacity-50 cursor-not-allowed'
                         }`}
                       >
-                        {getStationIcon(st.stationType)}
-                      </div>
-
-                      {/* Station Details */}
-                      <div className="flex-1 min-w-0 pr-14">
-                        <div className="font-heading font-bold text-xs text-ds-ice group-hover:text-white truncate">
-                          {st.name}
+                        {/* Station Icon */}
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                            isSelected
+                              ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                              : 'bg-ds-surface border-ds-border group-hover:border-cyan-500/40'
+                          }`}
+                        >
+                          {getStationIcon(st.stationType)}
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-cyan-400 font-mono font-bold text-[11px]">
-                            ₹{(st.pricePerHourPaise / 100).toFixed(0)}/hr
-                          </span>
-                          {state.conflictReason && (
-                            <span className="text-[10px] font-mono text-amber-400 truncate">
-                              • {state.conflictReason}
+
+                        {/* Station Details */}
+                        <div className="flex-1 min-w-0 pr-14">
+                          <div className="font-heading font-bold text-xs text-ds-ice group-hover:text-white truncate">
+                            {st.name}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-cyan-400 font-mono font-bold text-[11px]">
+                              ₹{(st.pricePerHourPaise / 100).toFixed(0)}/hr
                             </span>
+                            <span className="text-ds-text-dim text-[10px] font-mono truncate">
+                              • {st.facilityName}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status indicator on right */}
+                        <div className="absolute top-2.5 right-2.5 flex items-center">
+                          {isSelected ? (
+                            <div className="w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-sm shadow-cyan-400/50">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isAvailable
+                                    ? 'bg-emerald-400 animate-pulse'
+                                    : state.statusLabel === 'RESERVED'
+                                    ? 'bg-amber-400'
+                                    : 'bg-rose-400'
+                                }`}
+                              />
+                              <span
+                                className={`text-[9px] font-mono font-bold uppercase tracking-wider ${
+                                  isAvailable
+                                    ? 'text-emerald-400'
+                                    : state.statusLabel === 'RESERVED'
+                                    ? 'text-amber-400'
+                                    : 'text-rose-400'
+                                }`}
+                              >
+                                {state.statusLabel}
+                              </span>
+                            </div>
                           )}
                         </div>
-                      </div>
-
-                      {/* Status indicator on right */}
-                      <div className="absolute top-2.5 right-2.5 flex items-center">
-                        {isSelected ? (
-                          <div className="w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-sm shadow-cyan-400/50">
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                isAvailable
-                                  ? 'bg-emerald-400 animate-pulse'
-                                  : state.statusLabel === 'RESERVED'
-                                  ? 'bg-amber-400'
-                                  : 'bg-rose-400'
-                              }`}
-                            />
-                            <span
-                              className={`text-[9px] font-mono font-bold uppercase tracking-wider ${
-                                isAvailable
-                                  ? 'text-emerald-400'
-                                  : state.statusLabel === 'RESERVED'
-                                  ? 'text-amber-400'
-                                  : 'text-rose-400'
-                              }`}
-                              title={state.conflictReason}
-                            >
-                              {state.statusLabel}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* 3. Game Selection (Consoles Only — Automatically Hidden for Snooker/Pool) */}
+            {/* 2. Game Selection (Consoles Only — Automatically Hidden for Snooker/Pool) */}
             {isConsoleStation && (
               <div className="space-y-3 p-3.5 rounded-xl bg-ds-surface/50 border border-ds-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div>
                     <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">3</span>
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">2</span>
                       <Gamepad2 className="w-4 h-4 text-cyan-400" />
                       <span>Select Game To Play</span>
                       <span className="text-[10px] text-ds-text-dim normal-case font-normal">(optional)</span>
@@ -714,11 +738,11 @@ export function WalkInModal({
 
           {/* ─── RIGHT COLUMN: DURATION, CUSTOMER INFO, PAYMENT (5 COLS) ─── */}
           <div className="lg:col-span-5 space-y-4">
-            {/* 4. Session Duration */}
+            {/* 3. Session Duration */}
             <div className="space-y-1.5">
               <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '4' : '3'}
+                  3
                 </span>
                 <span>Session Duration</span>
               </label>
@@ -745,12 +769,12 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Players Selection */}
+            {/* 4. Number of Players */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '5' : '4'}
+                    4
                   </span>
                   <span>Number of Players</span>
                 </label>
@@ -786,12 +810,12 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Customer Details (Name, Phone, optional Email) */}
+            {/* 5. Gamer Information (Name, Phone, optional Email) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '6' : '5'}
+                    5
                   </span>
                   <span>Gamer Information</span>
                 </label>
@@ -883,11 +907,11 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Desk Payment Method */}
+            {/* 6. Desk Payment Method */}
             <div className="space-y-1.5">
               <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '7' : '6'}
+                  6
                 </span>
                 <span>Desk Payment Received</span>
               </label>
@@ -961,23 +985,26 @@ export function WalkInModal({
               </div>
             )}
           </div>
+
+          {/* Bottom spacing clearance for sticky action strip */}
+          <div className="col-span-full h-8 sm:h-10" aria-hidden="true" />
         </div>
 
         {/* ─── BOTTOM ACTION STRIP (STICKY AT BOTTOM) ─── */}
-        <div className="sticky bottom-0 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3.5 bg-ds-surface/95 backdrop-blur-md border-t border-ds-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-2xl z-20 mt-6">
+        <div className="sticky bottom-0 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3 sm:py-3.5 bg-[#090f19] border-t border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 shadow-[0_-16px_36px_rgba(0,0,0,0.95)] z-30">
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center gap-2">
-              <Badge variant="accent" size="md" className="font-heading font-bold text-xs uppercase">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge variant="accent" size="md" className="font-heading font-bold text-xs uppercase shrink-0">
                 {selectedStation?.name || 'No Station'}
               </Badge>
               {selectedGameTitle && (
-                <Badge variant="default" size="md" className="font-mono text-xs text-ds-ice">
+                <Badge variant="default" size="md" className="font-mono text-xs text-ds-ice truncate max-w-[150px] sm:max-w-none">
                   🎮 {selectedGameTitle}
                 </Badge>
               )}
             </div>
 
-            <div className="pl-3 border-l border-ds-border">
+            <div className="pl-3 border-l border-ds-border shrink-0">
               <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Total Collection</span>
               <span className="text-xl font-heading font-black text-ds-ice">
                 ₹{(totalFeePaise / 100).toFixed(0)}
