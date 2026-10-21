@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -45,6 +46,7 @@ interface Station {
   name: string;
   stationType: string;
   facilityName: string;
+  imageUrl?: string;
   pricePerHourPaise: number;
   specs: string;
   capacity: number;
@@ -73,11 +75,11 @@ interface Station {
 export default function StaffStationGridPage() {
   const [stations, setStations] = useState<Station[]>([]);
   const [stats, setStats] = useState({
-    totalStations: 8,
-    availableCount: 5,
-    occupiedCount: 2,
-    maintenanceCount: 1,
-    todayRevenuePaise: 485000,
+    totalStations: 2,
+    availableCount: 2,
+    occupiedCount: 0,
+    maintenanceCount: 0,
+    todayRevenuePaise: 0,
   });
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('ALL');
@@ -354,9 +356,9 @@ export default function StaffStationGridPage() {
           {/* Platform / Category Filter */}
           <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
             {[
-              { id: 'ALL', label: 'All' },
-              { id: 'PS5', label: 'PS5 Pro' },
-              { id: 'POOL_TABLE', label: 'Billiards' },
+              { id: 'ALL', label: 'All Arenas' },
+              { id: 'PS5', label: 'PlayStation 5' },
+              { id: 'POOL_TABLE', label: 'Snooker Table' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -409,34 +411,46 @@ export default function StaffStationGridPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {filteredStations.map((station) => {
             const isOccupied = station.status === 'OCCUPIED' && station.activeSession;
             const isMaintenance = station.status === 'MAINTENANCE';
             const countdown = isOccupied ? getCountdown(station.activeSession!.scheduledEndAt) : null;
+            const stationCoverImage =
+              station.imageUrl || (station.stationType === 'PS5' ? '/ps5-station.jpg' : '/snooker-table.jpg');
 
             return (
               <Card
                 key={station.id}
                 glass
-                className={`p-6 border transition-all flex flex-col justify-between relative overflow-hidden ${
+                className={`p-0 border transition-all flex flex-col justify-between relative overflow-hidden group shadow-xl ${
                   countdown?.isOverdue
-                    ? 'border-rose-500/80 bg-rose-500/5 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500'
+                    ? 'border-rose-500/80 bg-rose-500/5 shadow-rose-500/10 ring-1 ring-rose-500'
                     : countdown?.isCriticalEnding
-                    ? 'border-orange-500/80 bg-orange-500/5 shadow-lg shadow-orange-500/10'
+                    ? 'border-orange-500/80 bg-orange-500/5 shadow-orange-500/10'
                     : countdown?.isEndingSoon
-                    ? 'border-amber-400/80 bg-amber-400/5 shadow-lg shadow-amber-400/10'
+                    ? 'border-amber-400/80 bg-amber-400/5 shadow-amber-400/10'
                     : isOccupied
-                    ? 'border-ds-accent/60 bg-ds-surface/80 shadow-md shadow-ds-accent/5'
+                    ? 'border-ds-accent/60 bg-ds-surface/80 shadow-ds-accent/5'
                     : isMaintenance
                     ? 'border-ds-border/60 bg-ds-dark/40 opacity-70'
                     : 'border-ds-border hover:border-emerald-500/50'
                 }`}
               >
-                {/* Top Station Badge & State */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-ds-accent">
+                {/* Station Cover Image Hero Banner */}
+                <div className="relative w-full h-52 sm:h-60 overflow-hidden bg-ds-dark border-b border-ds-border">
+                  <Image
+                    src={stationCoverImage}
+                    alt={station.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ds-darker via-ds-dark/40 to-transparent" />
+
+                  {/* Top Overlay Badges */}
+                  <div className="absolute top-3 inset-x-3 flex items-center justify-between z-10">
+                    <span className="px-3 py-1 rounded-full text-[10px] font-heading font-black uppercase tracking-wider bg-black/75 border border-white/20 text-ds-ice backdrop-blur-md shadow-md">
                       {station.facilityName}
                     </span>
                     <Badge
@@ -454,13 +468,13 @@ export default function StaffStationGridPage() {
                           : 'success'
                       }
                       size="sm"
-                      className={`font-mono text-[11px] uppercase tracking-wider ${
+                      className={`font-mono text-[11px] uppercase tracking-wider backdrop-blur-md shadow-md ${
                         countdown?.isOverdue
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 animate-pulse font-bold'
+                          ? 'bg-rose-500/90 text-white border border-rose-400 animate-pulse font-bold'
                           : countdown?.isCriticalEnding
-                          ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40 font-bold'
+                          ? 'bg-orange-500/90 text-white border border-orange-400 font-bold'
                           : countdown?.isEndingSoon
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          ? 'bg-amber-500/90 text-white border border-amber-400'
                           : ''
                       }`}
                     >
@@ -478,192 +492,201 @@ export default function StaffStationGridPage() {
                     </Badge>
                   </div>
 
-                  {/* Title & Specs */}
-                  <div>
-                    <h3 className="text-xl font-heading font-bold text-ds-text">{station.name}</h3>
-                    <p className="text-xs text-ds-text-muted line-clamp-1 mt-0.5">{station.specs}</p>
-                  </div>
-
-                  {/* ACTIVE SESSION DETAILS (IF OCCUPIED) */}
-                  {isOccupied && station.activeSession && countdown && (
-                    <div className="p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Active Player</span>
-                          <span className="text-sm font-heading font-bold text-ds-text">
-                            {station.activeSession.customerName}
-                          </span>
-                          {station.activeSession.gameTitle && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
-                              <Gamepad2 className="w-3 h-3 text-ds-accent" />
-                              <span>Playing: {station.activeSession.gameTitle}</span>
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
-                            {countdown.isOverdue ? 'Extra Time Played' : 'Time Remaining'}
-                          </span>
-                          <span
-                            className={`text-lg font-mono font-black ${
-                              countdown.isOverdue
-                                ? 'text-rose-400 animate-pulse'
-                                : countdown.isCriticalEnding
-                                ? 'text-orange-400'
-                                : countdown.isEndingSoon
-                                ? 'text-amber-400'
-                                : 'text-ds-ice'
-                            }`}
-                          >
-                            {countdown.isOverdue ? `+${countdown.formatted}` : countdown.formatted}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Mini progress bar */}
-                      <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-1000 ${
-                            countdown.isOverdue
-                              ? 'bg-rose-500'
-                              : countdown.isCriticalEnding
-                              ? 'bg-orange-500'
-                              : countdown.isEndingSoon
-                              ? 'bg-amber-400'
-                              : 'bg-ds-accent'
-                          }`}
-                          style={{ width: `${countdown.percentage}%` }}
-                        />
-                      </div>
-
-                      <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
-                        <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
-                        <span>
-                          End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* AVAILABLE STATE & UPCOMING SCHEDULE */}
-                  {!isOccupied && !isMaintenance && (
-                    <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Ready for Allocation</span>
-                      </div>
-                      <p className="text-[11px] text-ds-text-dim">
-                        Base rate: ₹{(station.pricePerHourPaise / 100).toFixed(0)} / hr • {station.capacity} Players
-                      </p>
-                      {station.upcomingBookings && station.upcomingBookings.length > 0 && (
-                        <p className="text-[11px] text-ds-ice pt-1 font-mono">
-                          Next: {station.upcomingBookings[0].customerName} at{' '}
-                          {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* MAINTENANCE STATE */}
-                  {isMaintenance && (
-                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
-                      <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        <span>Under Maintenance</span>
-                      </div>
-                      <p className="text-[11px] text-ds-text-dim">Station locked from public booking.</p>
-                    </div>
-                  )}
-
-                  {/* Installed Games Button/Chip */}
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedStationForGames(station);
-                        setStationGamesSearch('');
-                        setGamesModalOpen(true);
-                      }}
-                      className="w-full py-1.5 px-2.5 rounded-lg bg-ds-dark/60 hover:bg-ds-accent/15 border border-ds-border hover:border-ds-accent/50 text-[11px] text-ds-text hover:text-ds-ice transition-all flex items-center justify-between group"
-                    >
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
-                        <span className="font-heading font-bold uppercase text-[10px] text-ds-accent tracking-wider">
-                          Games ({station.games?.length || 0}):
-                        </span>
-                        <span className="text-ds-text-dim truncate text-[11px]">
-                          {station.games && station.games.length > 0
-                            ? station.games.slice(0, 2).map((g) => g.title).join(', ') + (station.games.length > 2 ? '...' : '')
-                            : 'Tap to inspect'}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-ds-ice group-hover:text-ds-accent underline shrink-0 ml-1">
-                        View →
-                      </span>
-                    </button>
+                  {/* Bottom Title on Image */}
+                  <div className="absolute bottom-3 left-4 right-4 z-10">
+                    <h3 className="text-2xl sm:text-3xl font-heading font-black text-white drop-shadow-md">
+                      {station.name}
+                    </h3>
+                    <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-0.5 font-medium">
+                      {station.specs}
+                    </p>
                   </div>
                 </div>
 
-                {/* Bottom Actions Strip */}
-                <div className="pt-4 mt-4 border-t border-ds-border/60 flex items-center justify-between gap-2">
-                  {isOccupied ? (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setExtendModalStation(station)}
-                        className="flex-1 justify-center text-xs px-2"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
-                        <span className="truncate">Extend</span>
-                      </Button>
+                {/* Card Body Details & Actions */}
+                <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    {/* ACTIVE SESSION DETAILS (IF OCCUPIED) */}
+                    {isOccupied && station.activeSession && countdown && (
+                      <div className="p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Active Player</span>
+                            <span className="text-sm font-heading font-bold text-ds-text">
+                              {station.activeSession.customerName}
+                            </span>
+                            {station.activeSession.gameTitle && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
+                                <Gamepad2 className="w-3 h-3 text-ds-accent" />
+                                <span>Playing: {station.activeSession.gameTitle}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
+                              {countdown.isOverdue ? 'Extra Time Played' : 'Time Remaining'}
+                            </span>
+                            <span
+                              className={`text-lg font-mono font-black ${
+                                countdown.isOverdue
+                                  ? 'text-rose-400 animate-pulse'
+                                  : countdown.isCriticalEnding
+                                  ? 'text-orange-400'
+                                  : countdown.isEndingSoon
+                                  ? 'text-amber-400'
+                                  : 'text-ds-ice'
+                              }`}
+                            >
+                              {countdown.isOverdue ? `+${countdown.formatted}` : countdown.formatted}
+                            </span>
+                          </div>
+                        </div>
 
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleEndSession(station)}
-                        className="flex-1 justify-center text-xs px-2"
-                      >
-                        <Square className="w-3.5 h-3.5 mr-1 shrink-0" />
-                        <span className="truncate">End Session</span>
-                      </Button>
-                    </>
-                  ) : isMaintenance ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleMaintenance(station)}
-                      className="w-full justify-center text-xs"
-                    >
-                      <Wrench className="w-3.5 h-3.5 mr-1" />
-                      <span>Return to Available</span>
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="accent"
-                        size="sm"
+                        {/* Mini progress bar */}
+                        <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ${
+                              countdown.isOverdue
+                                ? 'bg-rose-500'
+                                : countdown.isCriticalEnding
+                                ? 'bg-orange-500'
+                                : countdown.isEndingSoon
+                                ? 'bg-amber-400'
+                                : 'bg-ds-accent'
+                            }`}
+                            style={{ width: `${countdown.percentage}%` }}
+                          />
+                        </div>
+
+                        <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
+                          <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
+                          <span>
+                            End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AVAILABLE STATE & UPCOMING SCHEDULE */}
+                    {!isOccupied && !isMaintenance && (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Ready for Allocation</span>
+                        </div>
+                        <p className="text-[11px] text-ds-text-dim">
+                          Base rate: ₹{(station.pricePerHourPaise / 100).toFixed(0)} / hr • {station.capacity} Players
+                        </p>
+                        {station.upcomingBookings && station.upcomingBookings.length > 0 && (
+                          <p className="text-[11px] text-ds-ice pt-1 font-mono">
+                            Next: {station.upcomingBookings[0].customerName} at{' '}
+                            {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MAINTENANCE STATE */}
+                    {isMaintenance && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>Under Maintenance</span>
+                        </div>
+                        <p className="text-[11px] text-ds-text-dim">Station locked from public booking.</p>
+                      </div>
+                    )}
+
+                    {/* Installed Games Button/Chip */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
                         onClick={() => {
-                          setSelectedWalkInStationId(station.id);
-                          setWalkInOpen(true);
+                          setSelectedStationForGames(station);
+                          setStationGamesSearch('');
+                          setGamesModalOpen(true);
                         }}
-                        className="flex-1 justify-center text-xs"
+                        className="w-full py-1.5 px-2.5 rounded-lg bg-ds-dark/60 hover:bg-ds-accent/15 border border-ds-border hover:border-ds-accent/50 text-[11px] text-ds-text hover:text-ds-ice transition-all flex items-center justify-between group"
                       >
-                        <Play className="w-3.5 h-3.5 mr-1" />
-                        <span>Walk-in Here</span>
-                      </Button>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+                          <span className="font-heading font-bold uppercase text-[10px] text-ds-accent tracking-wider">
+                            Games ({station.games?.length || 0}):
+                          </span>
+                          <span className="text-ds-text-dim truncate text-[11px]">
+                            {station.games && station.games.length > 0
+                              ? station.games.slice(0, 2).map((g) => g.title).join(', ') + (station.games.length > 2 ? '...' : '')
+                              : 'Tap to inspect'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-ds-ice group-hover:text-ds-accent underline shrink-0 ml-1">
+                          View →
+                        </span>
+                      </button>
+                    </div>
+                  </div>
 
+                  {/* Bottom Actions Strip */}
+                  <div className="pt-4 mt-2 border-t border-ds-border/60 flex items-center justify-between gap-2">
+                    {isOccupied ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setExtendModalStation(station)}
+                          className="flex-1 justify-center text-xs px-2"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                          <span className="truncate">Extend</span>
+                        </Button>
+
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleEndSession(station)}
+                          className="flex-1 justify-center text-xs px-2"
+                        >
+                          <Square className="w-3.5 h-3.5 mr-1 shrink-0" />
+                          <span className="truncate">End Session</span>
+                        </Button>
+                      </>
+                    ) : isMaintenance ? (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleToggleMaintenance(station)}
-                        title="Mark Maintenance"
-                        className="px-2.5"
+                        className="w-full justify-center text-xs"
                       >
-                        <Wrench className="w-3.5 h-3.5 text-ds-text-dim hover:text-amber-400" />
+                        <Wrench className="w-3.5 h-3.5 mr-1" />
+                        <span>Return to Available</span>
                       </Button>
-                    </>
-                  )}
+                    ) : (
+                      <>
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedWalkInStationId(station.id);
+                            setWalkInOpen(true);
+                          }}
+                          className="flex-1 justify-center text-xs"
+                        >
+                          <Play className="w-3.5 h-3.5 mr-1" />
+                          <span>Walk-in Here</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleMaintenance(station)}
+                          title="Mark Maintenance"
+                          className="px-2.5"
+                        >
+                          <Wrench className="w-3.5 h-3.5 text-ds-text-dim hover:text-amber-400" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </Card>
             );

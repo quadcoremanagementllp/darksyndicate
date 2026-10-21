@@ -164,6 +164,7 @@ export async function GET(req: NextRequest) {
             name: st.name,
             stationType: st.stationType,
             facilityName: st.facility?.name || 'General Arena',
+            imageUrl: st.stationType === 'PS5' ? '/ps5-station.jpg' : '/snooker-table.jpg',
             pricePerHourPaise: st.pricePerHourPaise,
             specs: (st.metadata as any)?.specs || 'Ultra-low latency 4K 120Hz display',
             capacity: (st.metadata as any)?.capacity || (st.stationType === 'PS5' ? 2 : 4),
