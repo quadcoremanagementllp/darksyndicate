@@ -22,6 +22,12 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
+import {
+  isAlarmSoundEnabled,
+  setAlarmSoundEnabled,
+  playBookingDueAlarm,
+  playEndingSoonAlarm,
+} from '@/lib/soundAlarm';
 
 export interface UpcomingSlotAlert {
   id: string; // `${bookingId}-${stage}`
@@ -38,55 +44,6 @@ export interface UpcomingSlotAlert {
   diffMs: number;
   paymentStatus?: string;
   totalPricePaise?: number;
-}
-
-// ─── Pure Web Audio API Chime for Upcoming Slot Alerts ─────────────────────────────
-function playUpcomingChime(stage: '15m' | '5m' | 'due') {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (stage === 'due') {
-      // High urgency 2-tone chime for slot due now
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(659, now); // E5
-      osc.frequency.setValueAtTime(880, now + 0.12); // A5
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-      osc.start(now);
-      osc.stop(now + 0.4);
-    } else if (stage === '5m') {
-      // 5 min warning chime
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(587, now); // D5
-      osc.frequency.setValueAtTime(784, now + 0.14); // G5
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.35);
-    } else {
-      // Gentle 15m notification chime
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523, now); // C5
-      osc.frequency.setValueAtTime(659, now + 0.15); // E5
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.35);
-    }
-  } catch {
-    // Autoplay restrictions handled gracefully
-  }
 }
 
 export function UpcomingBookingAlertManager() {
@@ -110,12 +67,21 @@ export function UpcomingBookingAlertManager() {
   }, [pathname, isOnBookingsPage]);
 
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('ds_staff_alerts_muted') === 'true';
-    }
-    return false;
-  });
+  const [isMuted, setIsMuted] = useState<boolean>(() => !isAlarmSoundEnabled());
+
+  // Synchronize mute state with global sound alarm settings
+  useEffect(() => {
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ enabled: boolean }>;
+      if (customEvent.detail) {
+        setIsMuted(!customEvent.detail.enabled);
+      } else {
+        setIsMuted(!isAlarmSoundEnabled());
+      }
+    };
+    window.addEventListener('ds-alarm-sound-changed', handleSync);
+    return () => window.removeEventListener('ds-alarm-sound-changed', handleSync);
+  }, []);
 
   const toast = useToast();
   const triggeredMilestones = useRef<Map<string, Set<string>>>(new Map());
@@ -124,13 +90,9 @@ export function UpcomingBookingAlertManager() {
 
   // Toggle Mute
   const handleToggleMute = () => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('ds_staff_alerts_muted', String(next));
-      }
-      return next;
-    });
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    setAlarmSoundEnabled(!nextMuted);
   };
 
   // Poll for upcoming confirmed bookings every 15 seconds
@@ -192,7 +154,11 @@ export function UpcomingBookingAlertManager() {
         milestones.add(stage);
         setIsMinimized(false); // Pop up to ensure visibility
         if (!isMuted) {
-          playUpcomingChime(stage);
+          if (stage === 'due') {
+            playBookingDueAlarm();
+          } else {
+            playEndingSoonAlarm();
+          }
         }
       }
 

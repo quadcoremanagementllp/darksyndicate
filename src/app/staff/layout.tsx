@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/shared/NotificationBell';
+import { SoundAlarmToggle } from '@/components/staff/SoundAlarmToggle';
 import { SessionExpiryAlertManager } from '@/components/staff/SessionExpiryAlertManager';
 import { UpcomingBookingAlertManager } from '@/components/staff/UpcomingBookingAlertManager';
 
@@ -416,6 +417,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               <Clock className="w-3.5 h-3.5 text-ds-accent" />
               <span>{timeStr || '10:00:00 AM'} IST</span>
             </div>
+
+            {/* Sound Alarm Controls */}
+            <SoundAlarmToggle />
 
             <NotificationBell role="STAFF" />
 

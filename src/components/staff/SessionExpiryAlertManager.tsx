@@ -21,6 +21,12 @@ import {
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
+import {
+  isAlarmSoundEnabled,
+  setAlarmSoundEnabled,
+  playEndingSoonAlarm,
+  playOverdueAlarm,
+} from '@/lib/soundAlarm';
 
 export interface ActiveSessionData {
   stationId: string;
@@ -43,66 +49,11 @@ export interface SessionAlert {
   createdAt: number;
 }
 
-// ─── Pure Web Audio API Chime ───────────────────────────────────────────────
-function playAlertChime(stage: '15m' | '10m' | '5m' | 'extra') {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (stage === 'extra') {
-      // 3 urgent alert beeps for Extra Time
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.setValueAtTime(659, now + 0.15);
-      osc.frequency.setValueAtTime(880, now + 0.3);
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } else if (stage === '5m') {
-      // 2 sharp beeps for 5 min final warning
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587, now);
-      osc.frequency.setValueAtTime(880, now + 0.12);
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
-    } else {
-      // Gentle chime for 15m / 10m reminder
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523, now);
-      osc.frequency.setValueAtTime(659, now + 0.14);
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.35);
-    }
-  } catch {
-    // Autoplay restrictions handled gracefully
-  }
-}
-
 export function SessionExpiryAlertManager() {
   const [activeSessions, setActiveSessions] = useState<ActiveSessionData[]>([]);
   const [alerts, setAlerts] = useState<SessionAlert[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('ds_staff_alerts_muted') === 'true';
-    }
-    return false;
-  });
+  const [isMuted, setIsMuted] = useState<boolean>(() => !isAlarmSoundEnabled());
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   // Modals controlled directly from alerts
@@ -111,17 +62,28 @@ export function SessionExpiryAlertManager() {
 
   // Track which milestones have been triggered to prevent duplicate alerts
   const triggeredMilestones = useRef<Map<string, Set<string>>>(new Map());
+  const lastOverdueChimeTime = useRef<Map<string, number>>(new Map());
   const dismissedAlertIds = useRef<Set<string>>(new Set());
+
+  // Synchronize mute state with global sound alarm settings
+  useEffect(() => {
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ enabled: boolean }>;
+      if (customEvent.detail) {
+        setIsMuted(!customEvent.detail.enabled);
+      } else {
+        setIsMuted(!isAlarmSoundEnabled());
+      }
+    };
+    window.addEventListener('ds-alarm-sound-changed', handleSync);
+    return () => window.removeEventListener('ds-alarm-sound-changed', handleSync);
+  }, []);
 
   // Toggle Mute
   const handleToggleMute = () => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('ds_staff_alerts_muted', String(next));
-      }
-      return next;
-    });
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    setAlarmSoundEnabled(!nextMuted);
   };
 
   // Poll for active stations every 10 seconds
@@ -132,7 +94,7 @@ export function SessionExpiryAlertManager() {
       if (json.success && json.data?.stations) {
         const list: ActiveSessionData[] = [];
         for (const st of json.data.stations) {
-          if (st.status === 'OCCUPIED' && st.activeSession) {
+          if (st.activeSession) {
             list.push({
               stationId: st.id,
               stationName: st.name,
@@ -211,7 +173,19 @@ export function SessionExpiryAlertManager() {
               // Auto un-minimize so staff immediately sees new milestone in center
               setIsMinimized(false);
               if (!isMuted) {
-                playAlertChime(stage);
+                if (stage === 'extra') {
+                  lastOverdueChimeTime.current.set(session.sessionId || session.stationId, now);
+                  playOverdueAlarm();
+                } else {
+                  playEndingSoonAlarm();
+                }
+              }
+            } else if (stage === 'extra' && !isMuted) {
+              // Re-chime urgent alarm every 45s while station remains in unmetered overtime
+              const lastChime = lastOverdueChimeTime.current.get(session.sessionId || session.stationId) || 0;
+              if (now - lastChime > 45000) {
+                lastOverdueChimeTime.current.set(session.sessionId || session.stationId, now);
+                playOverdueAlarm();
               }
             }
 
