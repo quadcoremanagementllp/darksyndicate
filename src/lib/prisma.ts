@@ -21,6 +21,8 @@ function parseDatabaseUrl(urlStr?: string) {
     password: decodeURIComponent(parsed.password),
     database: decodeURIComponent(parsed.pathname.slice(1)),
     connectionLimit: Number(process.env.DB_POOL_LIMIT || 3),
+    minimumIdle: 1,
+    idleTimeout: 30000,
     connectTimeout: 10000,
     acquireTimeout: 10000,
   };
@@ -41,9 +43,8 @@ function createPrismaClient(): PrismaClient {
     (dbConfig as Record<string, unknown>).ssl = ssl;
   }
   const pool = globalForPrisma.pool ?? mariadb.createPool(dbConfig);
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.pool = pool;
-  }
+  // Always preserve singleton connection pool across all environments to prevent connection exhaustion
+  globalForPrisma.pool = pool;
 
   const adapter = new PrismaMariaDb(pool as any);
   return new PrismaClient({
@@ -57,6 +58,5 @@ function createPrismaClient(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma;
-}
+// Always preserve singleton Prisma client across all environments
+globalForPrisma.prisma = prisma;

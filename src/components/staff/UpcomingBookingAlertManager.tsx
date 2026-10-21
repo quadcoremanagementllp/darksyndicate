@@ -219,7 +219,7 @@ export function UpcomingBookingAlertManager() {
 
   useEffect(() => {
     fetchUpcomingBookings();
-    const pollInterval = setInterval(fetchUpcomingBookings, 15000);
+    const pollInterval = setInterval(fetchUpcomingBookings, 30000);
     const tickInterval = setInterval(evaluateAlerts, 1000);
 
     return () => {

@@ -97,7 +97,7 @@ export default function StaffBookingsSchedulePage() {
     loadBookings(false);
     const interval = setInterval(() => {
       loadBookings(true); // Silent background polling — zero UI flicker/unmounting
-    }, 15000);
+    }, 30000);
 
     const handleBookingUpdate = () => loadBookings(true);
     if (typeof window !== 'undefined') {

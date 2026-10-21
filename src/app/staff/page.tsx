@@ -117,7 +117,7 @@ export default function StaffStationGridPage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000); // Polling every 10s
+    const interval = setInterval(loadData, 30000); // Polling every 30s
     const handleBookingUpdate = () => loadData();
     if (typeof window !== 'undefined') {
       window.addEventListener('ds-booking-updated', handleBookingUpdate);

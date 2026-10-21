@@ -155,7 +155,7 @@ export function SessionExpiryAlertManager() {
 
   useEffect(() => {
     fetchActiveSessions();
-    const interval = setInterval(fetchActiveSessions, 10000);
+    const interval = setInterval(fetchActiveSessions, 30000);
     const handleBookingUpdate = () => fetchActiveSessions();
     if (typeof window !== 'undefined') {
       window.addEventListener('ds-booking-updated', handleBookingUpdate);
