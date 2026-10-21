@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
             facility: true,
             sessions: {
               where: { status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
+              orderBy: { startedAt: 'desc' },
               include: {
                 booking: {
                   include: {
@@ -119,6 +120,7 @@ export async function GET(req: NextRequest) {
             ? {
                 id: activeSession.id,
                 bookingId: activeSession.bookingId,
+                status: activeSession.status,
                 customerName:
                   activeSession.booking?.customerName ||
                   `${activeSession.booking?.user?.firstName || 'Gamer'} ${
@@ -139,6 +141,7 @@ export async function GET(req: NextRequest) {
             ? {
                 id: `bk_${currentBooking.id}`,
                 bookingId: currentBooking.id,
+                status: 'ACTIVE',
                 customerName:
                   currentBooking.customerName ||
                   `${currentBooking.user?.firstName || 'Gamer'} ${
@@ -168,7 +171,12 @@ export async function GET(req: NextRequest) {
             games: stationGames,
             activeSession: resolvedSession,
             upcomingBookings: st.bookings
-              .filter((b) => new Date(b.endTime).getTime() > now.getTime() && b.id !== currentBooking?.id)
+              .filter(
+                (b) =>
+                  new Date(b.endTime).getTime() > now.getTime() &&
+                  b.id !== currentBooking?.id &&
+                  b.id !== activeSession?.bookingId
+              )
               .map((b) => ({
                 id: b.id,
                 bookingRef: b.bookingRef,
@@ -180,11 +188,14 @@ export async function GET(req: NextRequest) {
           };
         });
 
-        // Compute revenue today
+        // Compute revenue today (checks both paidAt and createdAt for cash collected today)
         const todayPayments = await prisma.payment.findMany({
           where: {
-            createdAt: { gte: startOfDay, lte: endOfDay },
             status: 'COMPLETED',
+            OR: [
+              { paidAt: { gte: startOfDay, lte: endOfDay } },
+              { paidAt: null, createdAt: { gte: startOfDay, lte: endOfDay } },
+            ],
           },
           select: { amountPaise: true },
         });

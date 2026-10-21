@@ -36,6 +36,8 @@ export interface UpcomingSlotAlert {
   endTime: string;
   stage: '15m' | '5m' | 'due';
   diffMs: number;
+  paymentStatus?: string;
+  totalPricePaise?: number;
 }
 
 // ─── Pure Web Audio API Chime for Upcoming Slot Alerts ─────────────────────────────
@@ -207,6 +209,8 @@ export function UpcomingBookingAlertManager() {
         endTime: b.endTime,
         stage,
         diffMs,
+        paymentStatus: b.paymentStatus || (b.payments && b.payments[0]?.status) || 'COMPLETED',
+        totalPricePaise: b.totalPricePaise || 0,
       });
     }
 
@@ -472,6 +476,20 @@ export function UpcomingBookingAlertManager() {
                 <div className="flex items-center justify-between text-[11px] text-white/70 font-mono">
                   <span>Slot Window:</span>
                   <span className="text-cyan-300 font-bold">{startTimeFormatted} – {endTimeFormatted}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-white/70 font-mono">
+                  <span>Payment:</span>
+                  <span
+                    className={`font-bold ${
+                      currentAlert.paymentStatus === 'COMPLETED'
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
+                    }`}
+                  >
+                    {currentAlert.paymentStatus === 'COMPLETED'
+                      ? `PAID ONLINE (₹${((currentAlert.totalPricePaise || 0) / 100).toFixed(0)})`
+                      : `DUE AT DESK (₹${((currentAlert.totalPricePaise || 0) / 100).toFixed(0)})`}
+                  </span>
                 </div>
                 {currentAlert.customerPhone && (
                   <div className="flex items-center justify-between text-[11px] text-white/70 font-mono">

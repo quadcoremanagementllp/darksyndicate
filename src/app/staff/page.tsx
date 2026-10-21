@@ -81,6 +81,7 @@ export default function StaffStationGridPage() {
   });
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals state
@@ -161,6 +162,9 @@ export default function StaffStationGridPage() {
       const json = await res.json();
       if (json.success) {
         toast.info(`${station.name} marked as ${newStatus}`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
         loadData();
       }
     } catch {
@@ -208,15 +212,20 @@ export default function StaffStationGridPage() {
   };
 
   const filteredStations = stations.filter((st) => {
-    // In-session consoles are removed from this grid and managed in Today's Schedule (In-Session column)
     const isOccupied = st.status === 'OCCUPIED' || Boolean(st.activeSession);
-    if (isOccupied) return false;
+    const isAvailable = st.status === 'AVAILABLE' && !st.activeSession;
+    const isMaintenance = st.status === 'MAINTENANCE';
+
+    if (statusFilter === 'AVAILABLE' && !isAvailable) return false;
+    if (statusFilter === 'OCCUPIED' && !isOccupied) return false;
+    if (statusFilter === 'MAINTENANCE' && !isMaintenance) return false;
 
     const matchesCategory = filterType === 'ALL' || st.stationType === filterType;
     const matchesSearch =
       !searchQuery ||
       st.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      st.facilityName.toLowerCase().includes(searchQuery.toLowerCase());
+      st.facilityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (st.activeSession?.customerName && st.activeSession.customerName.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
@@ -315,11 +324,34 @@ export default function StaffStationGridPage() {
               placeholder="Search station or player..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs py-1.5 pl-8 w-48 sm:w-56"
+              className="text-xs py-1.5 pl-8 w-44 sm:w-52"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
           </div>
 
+          {/* Status Filter */}
+          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+            {[
+              { id: 'ALL', label: 'All Floor' },
+              { id: 'AVAILABLE', label: `Ready (${stats.availableCount})` },
+              { id: 'OCCUPIED', label: `Playing (${stats.occupiedCount})` },
+              { id: 'MAINTENANCE', label: `Service (${stats.maintenanceCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id as any)}
+                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] ${
+                  statusFilter === tab.id
+                    ? 'bg-ds-surface text-ds-ice border border-ds-ice/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Platform / Category Filter */}
           <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
             {[
               { id: 'ALL', label: 'All' },
@@ -329,7 +361,7 @@ export default function StaffStationGridPage() {
               <button
                 key={tab.id}
                 onClick={() => setFilterType(tab.id)}
-                className={`px-3 py-1 rounded-lg font-heading font-bold uppercase transition-all ${
+                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] ${
                   filterType === tab.id
                     ? 'bg-ds-accent text-white shadow-sm'
                     : 'text-ds-text-dim hover:text-white'
@@ -352,24 +384,29 @@ export default function StaffStationGridPage() {
         <div className="p-12 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-3">
           <Gamepad2 className="w-8 h-8 text-ds-ice/60 mx-auto" />
           <h4 className="text-base font-heading font-bold text-ds-text">
-            {stats.occupiedCount > 0
-              ? `All Gaming Stations Are In-Session (${stats.occupiedCount} active)`
-              : 'No available stations found'}
+            No gaming stations match selected filter
           </h4>
           <p className="text-xs text-ds-text-muted max-w-md mx-auto">
-            {stats.occupiedCount > 0
-              ? 'Active in-session consoles are tracked in the Arena Schedule where you can view live countdowns, extend duration, or end sessions.'
-              : 'Try clearing your search query or selecting a different category tab.'}
+            Try resetting status filters or clearing the search box to view all gaming stations.
           </p>
-          {stats.occupiedCount > 0 && (
-            <div className="pt-2">
-              <Link href="/staff/bookings?tab=ACTIVE">
-                <Button variant="accent" size="sm">
-                  <span>View In-Session Schedule ({stats.occupiedCount}) →</span>
-                </Button>
-              </Link>
-            </div>
-          )}
+          <div className="pt-2 flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setStatusFilter('ALL');
+                setFilterType('ALL');
+                setSearchQuery('');
+              }}
+            >
+              Reset Filters
+            </Button>
+            <Link href="/staff/bookings">
+              <Button variant="secondary" size="sm">
+                <span>View Full Schedule →</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

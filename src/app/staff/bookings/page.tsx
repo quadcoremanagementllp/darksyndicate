@@ -164,6 +164,9 @@ export default function StaffBookingsSchedulePage() {
       const json = await res.json();
       if (json.success) {
         toast.success(`Check-in confirmed for ${booking.customerName}!`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
         loadBookings(true);
       } else {
         toast.error(json.error?.message || 'Check-in failed');

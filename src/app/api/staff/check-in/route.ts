@@ -40,12 +40,27 @@ export async function POST(req: NextRequest) {
         throw new ValidationError('This reservation was cancelled');
       }
 
-      if (booking.status === 'PENDING' || booking.status === 'PAYMENT_FAILED') {
-        throw new ValidationError('Payment has not been confirmed for this reservation');
-      }
-
       if (booking.status === 'COMPLETED') {
         throw new ValidationError('This session has already been completed');
+      }
+
+      // Check if another active gaming session is currently occupying this station
+      if (autoStartSession) {
+        const conflictingSession = await prisma.gamingSession.findFirst({
+          where: {
+            stationId: booking.stationId,
+            ...(booking.session?.id ? { id: { not: booking.session.id } } : {}),
+            status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] },
+          },
+          include: { booking: true },
+        });
+
+        if (conflictingSession) {
+          const conflictingName = conflictingSession.booking?.customerName || 'Another player';
+          throw new ValidationError(
+            `Station "${booking.station?.name || 'Console'}" currently has an active gaming session in progress (${conflictingName} - ${conflictingSession.status}). Please conclude the ongoing session before checking in.`
+          );
+        }
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -68,14 +83,18 @@ export async function POST(req: NextRequest) {
           data: { status: 'OCCUPIED' },
         });
 
-        // If paying at counter was pending, mark payment completed with staffId
-        const pendingPayment = booking.payments.find((p) => p.status === 'PENDING');
+        // If paying at counter was pending or unpaid, record completed payment with staffId
+        const pendingPayment = booking.payments.find((p) => p.status === 'PENDING' || p.status === 'FAILED');
+        const hasCompletedPayment = booking.payments.some((p) => p.status === 'COMPLETED');
+        const recordedPaymentMethod =
+          paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
+
         if (pendingPayment) {
           await tx.payment.update({
             where: { id: pendingPayment.id },
             data: {
               status: 'COMPLETED',
-              method: paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'CARD' ? 'OTHER' : 'CASH',
+              method: recordedPaymentMethod,
               paidAt: new Date(),
               recordedByStaffId: staffSession.userId,
               notes: `Desk counter payment (${paymentMethod || 'CASH'}) confirmed by ${staffName}`,
@@ -93,6 +112,35 @@ export async function POST(req: NextRequest) {
               update: {
                 totalBookings: { increment: 1 },
                 totalSpent: { increment: pendingPayment.amountPaise },
+              },
+            });
+          }
+        } else if (!hasCompletedPayment && booking.totalPricePaise > 0) {
+          // No payment record exists — create counter payment record
+          await tx.payment.create({
+            data: {
+              bookingId: booking.id,
+              userId: booking.userId,
+              amountPaise: booking.totalPricePaise,
+              method: recordedPaymentMethod,
+              status: 'COMPLETED',
+              paidAt: new Date(),
+              recordedByStaffId: staffSession.userId,
+              notes: `Desk counter payment (${paymentMethod || 'CASH'}) collected by ${staffName}`,
+            },
+          });
+
+          if (booking.userId) {
+            await tx.customerProfile.upsert({
+              where: { userId: booking.userId },
+              create: {
+                userId: booking.userId,
+                totalBookings: 1,
+                totalSpent: booking.totalPricePaise,
+              },
+              update: {
+                totalBookings: { increment: 1 },
+                totalSpent: { increment: booking.totalPricePaise },
               },
             });
           }
