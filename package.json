@@ -35,7 +35,7 @@
     "jose": "^6.2.12",
     "lucide-react": "^1.47.0",
     "mariadb": "^3.5.4",
-    "next": "16.3.6",
+    "next": "16.4.2",
     "prisma": "^7.10.0",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
@@ -54,10 +54,18 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.6",
+    "eslint-config-next": "16.4.2",
     "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "mariadb": "^3.5.4",
+    "sharp": "^0.35.5",
+    "source-map-js": "^1.2.2",
+    "deepmerge-ts": "^8.0.0",
+    "braces": "^3.0.3",
+    "micromatch": "^4.0.8"
   }
 }
