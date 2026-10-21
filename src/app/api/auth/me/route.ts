@@ -1,16 +1,15 @@
 import { getSession, setSessionCookie } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
-import { handleApiError, apiSuccess, AuthError } from '@/lib/errors';
+import { handleApiError, apiSuccess } from '@/lib/errors';
 
 // ─── GET /api/auth/me ───────────────────────────────────────────────────────
-// Returns the current authenticated user's profile
-
+// Returns the current authenticated user's profile, or { user: null } if guest
 export async function GET() {
   try {
     const session = await getSession();
 
     if (!session) {
-      throw new AuthError();
+      return apiSuccess({ user: null });
     }
 
     const user = await prisma.user.findUnique({
@@ -29,12 +28,8 @@ export async function GET() {
       },
     });
 
-    if (!user) {
-      throw new AuthError('User not found');
-    }
-
-    if (user.status !== 'ACTIVE') {
-      throw new AuthError('Account is not active');
+    if (!user || user.status !== 'ACTIVE') {
+      return apiSuccess({ user: null });
     }
 
     // Refresh the session cookie so active users remain logged in seamlessly (sliding expiration)
