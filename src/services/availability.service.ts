@@ -172,11 +172,6 @@ export async function getStationAvailability(
     const label = `${format12Hour(startTimeStr)} – ${format12Hour(endTimeStr)}`;
     const period = getPeriod(hour);
 
-    // Skip time slots that have already passed for today
-    if (isToday && (hour < currentHourIst || (hour === currentHourIst && currentMinIst > 15))) {
-      continue;
-    }
-
     // Exact UTC timestamp boundaries for this candidate slot
     const slotStartUtc = new Date(
       Date.UTC(dateYear, dateMonth - 1, dateDay, hour, 0, 0, 0) - istOffsetMs
@@ -184,6 +179,11 @@ export async function getStationAvailability(
     const slotEndUtc = new Date(
       Date.UTC(dateYear, dateMonth - 1, dateDay, hour + durationHours, 0, 0, 0) - istOffsetMs
     );
+
+    // Skip time slots that have already started or start within 5 minutes for today
+    if (isToday && slotStartUtc.getTime() < Date.now() + 5 * 60 * 1000) {
+      continue;
+    }
 
     // Check availability across all target stations
     const availableStationIds: string[] = [];

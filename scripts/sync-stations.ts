@@ -1,13 +1,12 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import 'dotenv/config';
+import { prisma } from '../src/lib/prisma';
 
 async function main() {
   console.log('🔄 Syncing facilities and stations to exact user specification...');
 
   // 1. Upsert PS5 Facility
   let ps5Facility = await prisma.gamingFacility.findFirst({
-    where: { OR: [{ slug: 'ps5-gaming' }, { id: 'fac-ps5' }, { name: { contains: 'PS5' } }] },
+    where: { OR: [{ slug: 'ps5-gaming' }, { id: 'fac-ps5' }, { name: 'PlayStation 5 Arena' }] },
   });
 
   if (ps5Facility) {
@@ -47,8 +46,7 @@ async function main() {
         { slug: 'pool-tables' },
         { id: 'fac-snooker' },
         { id: 'fac-pool' },
-        { name: { contains: 'Pool' } },
-        { name: { contains: 'Snooker' } },
+        { name: 'Snooker Lounge' },
       ],
     },
   });
