@@ -105,7 +105,7 @@ export async function GET() {
         include: {
           stations: {
             where: {
-              status: 'AVAILABLE',
+              status: { notIn: ['DEACTIVATED'] },
             },
             orderBy: {
               displayOrder: 'asc',
@@ -199,12 +199,12 @@ export async function GET() {
       });
 
       return apiSuccess(standardized, 200, {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'no-store, max-age=0',
       });
     }
 
     return apiSuccess(process.env.NODE_ENV === 'production' ? [] : DEFAULT_FACILITIES, 200, {
-      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'Cache-Control': 'no-store, max-age=0',
     });
   } catch (error) {
     return handleApiError(error);

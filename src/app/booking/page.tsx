@@ -398,7 +398,7 @@ function BookingContent() {
   useEffect(() => {
     if (selectedSlot && selectedZone && stations.length > 0) {
       const zoneStations = stations.filter(
-        (st) => st.stationType === selectedZone && st.status === 'AVAILABLE'
+        (st) => st.stationType === selectedZone && st.status !== 'MAINTENANCE' && st.status !== 'DEACTIVATED'
       );
       const availableStations = zoneStations.filter((st) =>
         selectedSlot.availableStationIds?.includes(st.id)
@@ -1418,7 +1418,8 @@ function BookingContent() {
                         const availableCount = stations.filter(
                           (st) =>
                             st.stationType === selectedZone &&
-                            st.status === 'AVAILABLE' &&
+                            st.status !== 'MAINTENANCE' &&
+                            st.status !== 'DEACTIVATED' &&
                             Boolean(selectedSlot.availableStationIds?.includes(st.id))
                         ).length;
 
@@ -1456,67 +1457,72 @@ function BookingContent() {
                       })()}
 
                       {/* Stations Grid for Selected Zone (Minimal, slot-synchronized, no games clutter) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {stations
-                          .filter((st) => st.stationType === selectedZone)
-                          .map((station) => {
-                            const isSelected = selectedStation?.id === station.id;
-                            const isSlotAvailable = Boolean(selectedSlot?.availableStationIds?.includes(station.id));
-                            const isHardwareAvailable = station.status === 'AVAILABLE';
-                            const isAvailable = isSlotAvailable && isHardwareAvailable;
+                      {stations.filter((st) => st.stationType === selectedZone && st.status !== 'DEACTIVATED').length === 0 ? (
+                        <div className="p-8 text-center bg-ds-surface/30 rounded-xl border border-dashed border-ds-border text-xs text-ds-text-muted">
+                          No active stations found for this arena.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          {stations
+                            .filter((st) => st.stationType === selectedZone && st.status !== 'DEACTIVATED')
+                            .map((station) => {
+                              const isSelected = selectedStation?.id === station.id;
+                              const isSlotAvailable = Boolean(selectedSlot?.availableStationIds?.includes(station.id));
+                              const isOperational = station.status !== 'MAINTENANCE' && station.status !== 'DEACTIVATED';
+                              const isAvailable = isSlotAvailable && isOperational;
 
-                            return (
-                              <div
-                                key={station.id}
-                                onClick={() => {
-                                  if (isAvailable) {
-                                    setSelectedStation(station);
-                                    toast.success(`Selected ${station.name}`);
-                                  } else {
-                                    toast.error(
-                                      `${station.name} is booked during ${selectedSlot?.label || 'this slot'}. Please choose an available station.`
-                                    );
-                                  }
-                                }}
-                                className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between gap-3 group ${
-                                  isSelected
-                                    ? 'bg-ds-surface border-ds-accent shadow-xl shadow-ds-accent/20 ring-2 ring-ds-accent'
-                                    : isAvailable
-                                    ? 'bg-ds-surface/50 border-ds-border hover:border-ds-accent/40 hover:bg-ds-surface/80'
-                                    : 'bg-rose-950/15 border-rose-500/25 opacity-50 cursor-not-allowed'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div
-                                      className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 border ${
-                                        isSelected
-                                          ? 'bg-ds-accent text-ds-dark border-ds-accent font-black shadow-glow-sm'
-                                          : 'bg-ds-surface-2 border-ds-border text-ds-text'
-                                      }`}
-                                    >
-                                      {station.stationType === 'PS5' ? '🎮' : '🎱'}
+                              return (
+                                <div
+                                  key={station.id}
+                                  onClick={() => {
+                                    if (isAvailable) {
+                                      setSelectedStation(station);
+                                      toast.success(`Selected ${station.name}`);
+                                    } else {
+                                      toast.error(
+                                        `${station.name} is booked during ${selectedSlot?.label || 'this slot'}. Please choose an available station.`
+                                      );
+                                    }
+                                  }}
+                                  className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between gap-3 group ${
+                                    isSelected
+                                      ? 'bg-ds-surface border-ds-accent shadow-xl shadow-ds-accent/20 ring-2 ring-ds-accent'
+                                      : isAvailable
+                                      ? 'bg-ds-surface/50 border-ds-border hover:border-ds-accent/40 hover:bg-ds-surface/80'
+                                      : 'bg-rose-950/15 border-rose-500/25 opacity-50 cursor-not-allowed'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div
+                                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0 border ${
+                                          isSelected
+                                            ? 'bg-ds-accent text-ds-dark border-ds-accent font-black shadow-glow-sm'
+                                            : 'bg-ds-surface-2 border-ds-border text-ds-text'
+                                        }`}
+                                      >
+                                        {station.stationType === 'PS5' ? '🎮' : '🎱'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h3 className="text-base font-heading font-extrabold text-ds-text group-hover:text-ds-ice transition-colors truncate">
+                                          {station.name}
+                                        </h3>
+                                        <p className="text-[11px] text-ds-text-dim truncate">
+                                          {station.specs || (station.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="min-w-0">
-                                      <h3 className="text-base font-heading font-extrabold text-ds-text group-hover:text-ds-ice transition-colors truncate">
-                                        {station.name}
-                                      </h3>
-                                      <p className="text-[11px] text-ds-text-dim truncate">
-                                        {station.specs || (station.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
-                                      </p>
-                                    </div>
-                                  </div>
 
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    <Badge
-                                      variant={isAvailable ? 'success' : 'danger'}
-                                      size="sm"
-                                      className={`text-[10px] px-2 py-0.5 ${
-                                        !isAvailable ? 'bg-rose-500/15 border-rose-500/30 text-rose-400' : ''
-                                      }`}
-                                    >
-                                      {isAvailable ? 'Ready' : 'Booked'}
-                                    </Badge>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <Badge
+                                        variant={isAvailable ? 'success' : station.status === 'MAINTENANCE' ? 'warning' : 'danger'}
+                                        size="sm"
+                                        className={`text-[10px] px-2 py-0.5 ${
+                                          !isAvailable ? 'bg-rose-500/15 border-rose-500/30 text-rose-400' : ''
+                                        }`}
+                                      >
+                                        {isAvailable ? 'Ready' : station.status === 'MAINTENANCE' ? 'Maintenance' : 'Booked'}
+                                      </Badge>
                                     {isSelected && (
                                       <div className="w-5 h-5 rounded-full bg-ds-accent text-ds-dark font-black text-xs flex items-center justify-center shadow-md shadow-ds-accent/40 animate-in zoom-in-75">
                                         ✓
@@ -1544,7 +1550,8 @@ function BookingContent() {
                               </div>
                             );
                           })}
-                      </div>
+                        </div>
+                      )}
 
                       {/* Bottom Navigation */}
                       <div className="space-y-3 pt-4 border-t border-ds-border mt-2">
