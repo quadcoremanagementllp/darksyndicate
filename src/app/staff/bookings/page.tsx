@@ -223,12 +223,16 @@ export default function StaffBookingsSchedulePage() {
     const updatedIST = b.updatedAt
       ? new Date(b.updatedAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
       : '';
+    const createdIST = b.createdAt
+      ? new Date(b.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+      : '';
 
     return (
       startIST === todayIST ||
       dateIST === todayIST ||
       endIST === todayIST ||
       sessionEndIST === todayIST ||
+      createdIST === todayIST ||
       (b.status === 'COMPLETED' && updatedIST === todayIST)
     );
   };
@@ -239,10 +243,20 @@ export default function StaffBookingsSchedulePage() {
     Boolean(b.session && ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'].includes(b.session.status));
 
   const getIsMine = (b: any) => {
-    if (!user) return true;
-    const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
-    const staffName = (b.staffName || '').toLowerCase();
-    return b.session?.staff?.id === user.id || (b.isWalkIn && staffName && staffName.includes(userName));
+    // 1. Any desk walk-in is always considered a walk-in reservation
+    if (b.isWalkIn || b.channel === 'DESK' || (b.bookingRef && b.bookingRef.startsWith('DS-WALK'))) {
+      return true;
+    }
+    // 2. Or if explicitly assigned to or initiated by the current staff member
+    if (user) {
+      if (b.session?.staff?.id === user.id || b.session?.staffId === user.id) return true;
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+      const staffName = (b.staffName || '').toLowerCase();
+      if (userName && staffName && (staffName.includes(userName) || userName.includes(staffName))) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const filteredBookings = bookings.filter((b) => {
@@ -265,11 +279,13 @@ export default function StaffBookingsSchedulePage() {
       (statusFilter === 'UPCOMING' && b.status === 'CONFIRMED' && !isSessionActive) ||
       (statusFilter === 'COMPLETED' && b.status === 'COMPLETED');
 
+    const query = searchQuery.trim().toLowerCase();
     const matchesSearch =
-      !searchQuery ||
-      b.bookingRef.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.stationName.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      (b.bookingRef || '').toLowerCase().includes(query) ||
+      (b.customerName || '').toLowerCase().includes(query) ||
+      (b.stationName || '').toLowerCase().includes(query) ||
+      (b.gameTitle || '').toLowerCase().includes(query);
 
     return matchesStatus && matchesSearch;
   });
