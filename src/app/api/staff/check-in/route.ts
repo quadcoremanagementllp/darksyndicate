@@ -7,6 +7,7 @@ import { z } from 'zod';
 const checkInSchema = z.object({
   identifier: z.string().min(1, 'Booking reference or QR token required'),
   autoStartSession: z.boolean().default(true),
+  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER']).optional().default('CASH'),
 });
 
 export async function POST(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { identifier, autoStartSession } = checkInSchema.parse(body);
+    const { identifier, autoStartSession, paymentMethod } = checkInSchema.parse(body);
 
     const cleanId = identifier.trim();
 
@@ -74,11 +75,27 @@ export async function POST(req: NextRequest) {
             where: { id: pendingPayment.id },
             data: {
               status: 'COMPLETED',
+              method: paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'CARD' ? 'OTHER' : 'CASH',
               paidAt: new Date(),
               recordedByStaffId: staffSession.userId,
-              notes: `Desk counter payment confirmed by ${staffName}`,
+              notes: `Desk counter payment (${paymentMethod || 'CASH'}) confirmed by ${staffName}`,
             },
           });
+
+          if (booking.userId) {
+            await tx.customerProfile.upsert({
+              where: { userId: booking.userId },
+              create: {
+                userId: booking.userId,
+                totalBookings: 1,
+                totalSpent: pendingPayment.amountPaise,
+              },
+              update: {
+                totalBookings: { increment: 1 },
+                totalSpent: { increment: pendingPayment.amountPaise },
+              },
+            });
+          }
         }
 
         let session = booking.session;

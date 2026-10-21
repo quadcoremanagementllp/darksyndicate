@@ -10,6 +10,7 @@ import crypto from 'crypto';
 const walkInSchema = z.object({
   stationId: z.string().min(1, 'Station is required'),
   durationMinutes: z.number().int().min(30).default(60),
+  playerCount: z.number().int().min(1).max(10).default(1),
   customerName: z.string().min(2, 'Customer name is required'),
   customerPhone: z.string().optional().or(z.literal('')),
   customerEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
@@ -89,8 +90,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 4. Rate Calculation
-      const hourlyRate = station.pricePerHourPaise;
+      // 4. Rate Calculation (Accounts for multi-player tiers on PS5 & extra players on Snooker)
+      let hourlyRate = station.pricePerHourPaise;
+      const playerCount = data.playerCount || 1;
+      if (station.stationType === 'PS5') {
+        if (playerCount === 2) hourlyRate = 20000; // ₹200/hr for duo
+        else if (playerCount >= 3) hourlyRate = 25000; // ₹250/hr for 3-4 squad
+        else hourlyRate = 15000; // ₹150/hr single
+      } else if (station.stationType === 'POOL_TABLE') {
+        hourlyRate = 25000 + Math.max(0, playerCount - 4) * 5000; // ₹250/hr base (up to 4) + ₹50/extra
+      }
       const subtotalPaise = Math.round(hourlyRate * (data.durationMinutes / 60));
 
       // 5. Customer Resolution
@@ -207,6 +216,7 @@ export async function POST(req: NextRequest) {
           notes:
             (data.gameTitle ? `Game: ${data.gameTitle}. ` : '') +
             (cleanEmail ? `Email: ${cleanEmail}. ` : '') +
+            `[Players: ${playerCount}]. ` +
             (data.notes ||
               (staffName
                 ? `Walk-in registered by ${staffName}${membershipPlanName ? ` [${membershipPlanName}]` : ''}`

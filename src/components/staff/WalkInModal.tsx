@@ -164,6 +164,7 @@ export function WalkInModal({
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
+  const [playerCount, setPlayerCount] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
@@ -185,7 +186,7 @@ export function WalkInModal({
     const trimmed = name.trim();
     if (!trimmed) return 'Gamer name is required';
     if (trimmed.length < 2) return 'Name must be at least 2 characters';
-    if (!/^[a-zA-Z\s.'-]+$/.test(trimmed)) return 'Name contains invalid characters';
+    if (!/^[a-zA-Z0-9\s.'-]+$/.test(trimmed)) return 'Name contains invalid characters';
     return undefined;
   };
 
@@ -236,6 +237,7 @@ export function WalkInModal({
       setCustomerName('');
       setCustomerPhone('');
       setCustomerEmail('');
+      setPlayerCount(1);
       setFormErrors({});
       setTouched({});
     }
@@ -267,8 +269,17 @@ export function WalkInModal({
     selectedStation?.stationType === 'PC' ||
     Boolean(selectedStation?.games && selectedStation.games.length > 0);
 
-  const hourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
-  const totalFeePaise = Math.round(hourlyRate * (durationMinutes / 60));
+  const isPs5 = selectedStation?.stationType === 'PS5';
+  const isPool = selectedStation?.stationType === 'POOL_TABLE';
+  let dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
+  if (isPs5) {
+    if (playerCount === 2) dynamicHourlyRate = 20000;
+    else if (playerCount >= 3) dynamicHourlyRate = 25000;
+    else dynamicHourlyRate = 15000;
+  } else if (isPool) {
+    dynamicHourlyRate = 25000 + Math.max(0, playerCount - 4) * 5000;
+  }
+  const totalFeePaise = Math.round(dynamicHourlyRate * (durationMinutes / 60));
 
   // Switch category and auto-select first available station
   const handleCategoryChange = (catKey: string) => {
@@ -400,6 +411,7 @@ export function WalkInModal({
         body: JSON.stringify({
           stationId: selectedStationId,
           durationMinutes,
+          playerCount,
           customerName: customerName.trim(),
           customerPhone: cleanPhone,
           customerEmail: customerEmail.trim() || undefined,
@@ -733,12 +745,53 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* 5. Customer Details (Name, Phone, optional Email) */}
+            {/* Players Selection */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">
+                    {isConsoleStation ? '5' : '4'}
+                  </span>
+                  <span>Number of Players</span>
+                </label>
+                <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                  {isPs5
+                    ? playerCount === 1 ? '₹150/hr' : playerCount === 2 ? '₹200/hr' : '₹250/hr'
+                    : isPool
+                    ? playerCount <= 4 ? '₹250/hr' : `₹${250 + (playerCount - 4) * 50}/hr`
+                    : `₹${(dynamicHourlyRate / 100).toFixed(0)}/hr`
+                  }
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { count: 1, label: '1 Player' },
+                  { count: 2, label: '2 Players' },
+                  { count: 3, label: '3 Players' },
+                  { count: 4, label: '4 Players' },
+                ].map(({ count, label }) => (
+                  <button
+                    type="button"
+                    key={count}
+                    onClick={() => setPlayerCount(count)}
+                    className={`py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
+                      playerCount === count
+                        ? 'bg-cyan-950/60 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-sm shadow-cyan-400/30'
+                        : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer Details (Name, Phone, optional Email) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '5' : '4'}
+                    {isConsoleStation ? '6' : '5'}
                   </span>
                   <span>Gamer Information</span>
                 </label>
@@ -830,11 +883,11 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* 6. Desk Payment Method */}
+            {/* Desk Payment Method */}
             <div className="space-y-1.5">
               <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '6' : '5'}
+                  {isConsoleStation ? '7' : '6'}
                 </span>
                 <span>Desk Payment Received</span>
               </label>

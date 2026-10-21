@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 3. Try finding active session by stationId
+      // 3. Try finding active/extended/overdue session by stationId
       if (!session && data.stationId) {
         session = await prisma.gamingSession.findFirst({
-          where: { stationId: data.stationId, status: 'ACTIVE' },
+          where: { stationId: data.stationId, status: { in: ['ACTIVE', 'EXTENDED', 'OVERDUE', 'PAUSED'] } },
           include: { station: true, booking: true },
         });
       }
@@ -57,15 +57,25 @@ export async function POST(req: NextRequest) {
       if (session) {
         const currentEnd = new Date(session.scheduledEndAt);
         const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
-        // Check collision with upcoming bookings
+        // Check collision with upcoming bookings (excluding stale pending checkouts)
         const conflict = await prisma.booking.findFirst({
           where: {
             stationId: session.stationId,
             id: { not: session.bookingId },
-            status: { in: ['CONFIRMED', 'PENDING'] },
-            startTime: { lt: newEnd },
-            endTime: { gt: currentEnd },
+            AND: [
+              {
+                OR: [
+                  { status: { in: ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] } },
+                  { status: 'PENDING', createdAt: { gte: fifteenMinutesAgo } },
+                ],
+              },
+              {
+                startTime: { lt: newEnd },
+                endTime: { gt: currentEnd },
+              },
+            ],
           },
         });
 
@@ -79,11 +89,13 @@ export async function POST(req: NextRequest) {
 
         const hourlyRate = session.station?.pricePerHourPaise || 15000;
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
+        const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
         const updated = await prisma.$transaction(async (tx) => {
           const sess = await tx.gamingSession.update({
             where: { id: session.id },
             data: {
+              status: 'EXTENDED',
               scheduledEndAt: newEnd,
               extensionMinutes: { increment: data.additionalMinutes },
               extensionPaise: { increment: extensionFeePaise },
@@ -106,13 +118,20 @@ export async function POST(req: NextRequest) {
                 bookingId: session.bookingId,
                 userId: session.booking.userId,
                 amountPaise: extensionFeePaise,
-                method: data.paymentMethod === 'UPI' ? 'UPI' : 'CASH',
+                method: recordedMethod,
                 status: 'COMPLETED',
                 paidAt: new Date(),
                 recordedByStaffId: staffSession.userId,
-                notes: `Session extended +${data.additionalMinutes} mins by ${staffName}`,
+                notes: `Session extended +${data.additionalMinutes} mins (${data.paymentMethod}) by ${staffName}`,
               },
             });
+
+            if (session.booking?.userId) {
+              await tx.customerProfile.updateMany({
+                where: { userId: session.booking.userId },
+                data: { totalSpent: { increment: extensionFeePaise } },
+              });
+            }
           }
 
           return sess;

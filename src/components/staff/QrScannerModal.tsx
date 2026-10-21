@@ -18,6 +18,7 @@ export function QrScannerModal({ isOpen, onClose, onCheckInSuccess }: QrScannerM
   const [identifier, setIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifiedBooking, setVerifiedBooking] = useState<any | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI'>('CASH');
   const toast = useToast();
 
   const handleLookup = async (idToSearch?: string) => {
@@ -55,6 +56,7 @@ export function QrScannerModal({ isOpen, onClose, onCheckInSuccess }: QrScannerM
         body: JSON.stringify({
           identifier: verifiedBooking.bookingRef || verifiedBooking.id,
           autoStartSession: true,
+          paymentMethod,
         }),
       });
 
@@ -170,6 +172,51 @@ export function QrScannerModal({ isOpen, onClose, onCheckInSuccess }: QrScannerM
               <span>Ref: <strong className="text-ds-ice font-mono">{verifiedBooking.bookingRef}</strong></span>
               <span>Phone: {verifiedBooking.customerPhone || '—'}</span>
             </div>
+
+            {/* Desk Payment Collection Status */}
+            {verifiedBooking.payments && verifiedBooking.payments.some((p: any) => p.status === 'PENDING') ? (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-heading font-bold text-amber-400 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Desk Payment Due: ₹{(verifiedBooking.totalPricePaise / 100).toFixed(0)}</span>
+                  </span>
+                  <Badge variant="warning" size="sm">COLLECT AT DESK</Badge>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('CASH')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-heading font-bold transition-all border ${
+                      paymentMethod === 'CASH'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/60 ring-1 ring-emerald-500/40'
+                        : 'bg-ds-surface/50 text-ds-text-dim border-ds-border hover:text-white'
+                    }`}
+                  >
+                    💵 Cash Received
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('UPI')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-heading font-bold transition-all border ${
+                      paymentMethod === 'UPI'
+                        ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/60 ring-1 ring-cyan-500/40'
+                        : 'bg-ds-surface/50 text-ds-text-dim border-ds-border hover:text-white'
+                    }`}
+                  >
+                    📱 UPI / QR Received
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-400 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Prepaid Online (₹{(verifiedBooking.totalPricePaise / 100).toFixed(0)})</span>
+                </span>
+                <Badge variant="success" size="sm">PAID</Badge>
+              </div>
+            )}
 
             <Button
               variant="accent"

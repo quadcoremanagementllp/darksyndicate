@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
       // Check if already active session
       const existingSession = await prisma.gamingSession.findFirst({
-        where: { stationId: data.stationId, status: 'ACTIVE' },
+        where: { stationId: data.stationId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
       });
 
       if (existingSession) {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
           const booking = await tx.booking.create({
             data: {
               bookingRef: `DS-WALK-${Date.now().toString().slice(-4)}`,
-              userId: guest?.id || 'demo_user',
+              userId: guest.id,
               stationId: station.id,
               date: now,
               startTime: now,
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
           await tx.payment.create({
             data: {
               bookingId: booking.id,
-              userId: guest?.id || 'demo_user',
+              userId: guest.id,
               amountPaise: basePricePaise,
               method: 'CASH',
               status: 'COMPLETED',

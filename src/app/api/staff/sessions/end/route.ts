@@ -40,10 +40,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 3. Try finding active session by stationId
+      // 3. Try finding active/extended/overdue session by stationId
       if (!session && stationId) {
         session = await prisma.gamingSession.findFirst({
-          where: { stationId, status: 'ACTIVE' },
+          where: { stationId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
           include: { station: true, booking: true },
         });
       }
