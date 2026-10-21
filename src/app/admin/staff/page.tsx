@@ -1262,9 +1262,9 @@ export default function AdminStaffPage() {
         onClose={() => setOnboardModalOpen(false)}
         title="Onboard New Staff Member"
         description="Register a new floor operator with residential address and Aadhaar KYC identification."
-        size="lg"
+        size="xl"
       >
-        <form onSubmit={handleCreateStaff} className="space-y-4 pt-1 max-h-[75vh] overflow-y-auto px-1 pr-2">
+        <form onSubmit={handleCreateStaff} className="space-y-4 pt-1">
           {/* SECTION 1: Personal & Contact */}
           <div className="space-y-3">
             <span className="text-[10px] font-mono uppercase tracking-widest text-ds-accent font-bold block border-b border-ds-border/60 pb-1">
@@ -1508,7 +1508,7 @@ export default function AdminStaffPage() {
           </div>
 
           {/* Modal Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-ds-border/60 sticky bottom-0 bg-ds-dark/95 backdrop-blur-md">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-ds-border/60 sticky bottom-0 bg-ds-surface/95 backdrop-blur-md -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3">
             <Button
               variant="outline"
               type="button"
@@ -1534,10 +1534,10 @@ export default function AdminStaffPage() {
         }}
         title={`Staff Dossier: ${selectedStaff?.name || 'Operator'}`}
         description="Comprehensive personal records, residential address, and Aadhaar card verification."
-        size="lg"
+        size="xl"
       >
         {selectedStaff && (
-          <form onSubmit={handleSaveDossier} className="space-y-4 pt-1 max-h-[75vh] overflow-y-auto px-1 pr-2">
+          <form onSubmit={handleSaveDossier} className="space-y-4 pt-1">
             {/* Header Identity Badge */}
             <div className="p-4 rounded-xl bg-ds-surface/60 border border-ds-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1727,7 +1727,7 @@ export default function AdminStaffPage() {
             </div>
 
             {/* Dossier Footer Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-ds-border/60 sticky bottom-0 bg-ds-dark/95 backdrop-blur-md">
+            <div className="flex items-center justify-between pt-3 border-t border-ds-border/60 sticky bottom-0 bg-ds-surface/95 backdrop-blur-md -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 px-4 sm:px-6 py-3">
               <Button
                 variant="outline"
                 type="button"

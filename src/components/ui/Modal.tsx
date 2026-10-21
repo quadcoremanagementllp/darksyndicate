@@ -12,7 +12,7 @@ export interface ModalProps {
   title?: string;
   description?: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   closeOnOverlay?: boolean;
   showCloseButton?: boolean;
   className?: string;
@@ -23,6 +23,7 @@ const sizeStyles: Record<string, string> = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
+  '2xl': 'max-w-5xl',
   full: 'w-full max-w-[96vw] h-[92vh] flex flex-col',
 };
 
