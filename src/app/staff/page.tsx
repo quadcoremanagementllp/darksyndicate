@@ -24,6 +24,8 @@ import {
   Users,
   Sparkles,
   Flame,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import { QrScannerModal } from '@/components/staff/QrScannerModal';
 import { WalkInModal } from '@/components/staff/WalkInModal';
@@ -231,6 +233,20 @@ export default function StaffStationGridPage() {
     return matchesCategory && matchesSearch;
   });
 
+  const ps5List = stations.filter((s) => s.stationType === 'PS5');
+  const ps5Available = ps5List.filter((s) => s.status === 'AVAILABLE' && !s.activeSession).length;
+  const ps5Occupied = ps5List.filter((s) => s.status === 'OCCUPIED' || Boolean(s.activeSession)).length;
+  const ps5Maint = ps5List.filter((s) => s.status === 'MAINTENANCE').length;
+  const ps5Total = ps5List.length || 3;
+
+  const poolList = stations.filter((s) => s.stationType === 'POOL_TABLE');
+  const poolAvailable = poolList.filter((s) => s.status === 'AVAILABLE' && !s.activeSession).length;
+  const poolOccupied = poolList.filter((s) => s.status === 'OCCUPIED' || Boolean(s.activeSession)).length;
+  const poolMaint = poolList.filter((s) => s.status === 'MAINTENANCE').length;
+  const poolTotal = poolList.length || 3;
+
+  const isZoneView = filterType === 'ALL' && !searchQuery && statusFilter === 'ALL';
+
   return (
     <div className="space-y-8">
       {/* 1. Metric KPI Cards */}
@@ -376,11 +392,175 @@ export default function StaffStationGridPage() {
         </div>
       </div>
 
-      {/* 3. Live Station Cards Grid */}
+      {/* 3. Live Station Matrix / Arenas View */}
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-ds-text-muted">Loading live station matrix...</p>
+        </div>
+      ) : isZoneView ? (
+        /* Top Level Arena Cards with Single Hero Images matching User Booking Flow */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-ds-border pb-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-ds-accent/15 border border-ds-accent/30 text-ds-ice mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-ds-accent" />
+                <span>Floor Operations: Choose Arena Zone</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text">
+                Dark Syndicate Gaming Arenas
+              </h2>
+              <p className="text-xs text-ds-text-muted mt-0.5">
+                Select an arena below to view individual consoles, inspect active timers, or allocate walk-in players.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. PlayStation 5 Arena Card */}
+            <div
+              onClick={() => setFilterType('PS5')}
+              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-ds-accent transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-ds-accent/20 bg-ds-dark flex flex-col justify-between"
+            >
+              <div className="relative w-full h-60 sm:h-72 overflow-hidden">
+                <Image
+                  src="/ps5-station.jpg"
+                  alt="PlayStation 5 Gaming Station"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/40 to-transparent" />
+                
+                {/* Top availability badge */}
+                <div className="absolute top-3 right-3 z-10">
+                  {ps5Available > 0 ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                      {ps5Available} of {ps5Total} Available Now
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-ds-surface/90 border border-ds-accent/50 text-ds-ice shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      {ps5Total} Consoles • Fully Booked
+                    </span>
+                  )}
+                </div>
+
+                {/* Bottom Title on Image */}
+                <div className="absolute bottom-3 left-4 right-4 z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🎮</span>
+                    <h3 className="font-heading font-black text-2xl text-white uppercase group-hover:text-ds-ice transition-colors">
+                      PlayStation 5 Arena
+                    </h3>
+                  </div>
+                  <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-1">
+                    {ps5Total} Consoles • 4K 120Hz OLED Displays • DualSense Edge
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-ds-border/50 bg-ds-surface/40">
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold">
+                    {ps5Available} Ready
+                  </span>
+                  {ps5Occupied > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-ds-accent/15 border border-ds-accent/30 text-ds-ice font-bold">
+                      {ps5Occupied} In-Session
+                    </span>
+                  )}
+                  {ps5Maint > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold">
+                      {ps5Maint} Service
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-ds-ice font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
+                    From ₹150/hr
+                  </span>
+                  <Button variant="accent" size="sm" className="text-xs">
+                    <span>Manage PS5 Consoles →</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Snooker Lounge Card */}
+            <div
+              onClick={() => setFilterType('POOL_TABLE')}
+              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-emerald-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-emerald-500/20 bg-ds-dark flex flex-col justify-between"
+            >
+              <div className="relative w-full h-60 sm:h-72 overflow-hidden">
+                <Image
+                  src="/snooker-table.jpg"
+                  alt="Championship Snooker Table"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/40 to-transparent" />
+                
+                {/* Top availability badge */}
+                <div className="absolute top-3 right-3 z-10">
+                  {poolAvailable > 0 ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                      {poolAvailable} of {poolTotal} Available Now
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-ds-surface/90 border border-emerald-500/50 text-emerald-400 shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      {poolTotal} Tables • Fully Booked
+                    </span>
+                  )}
+                </div>
+
+                {/* Bottom Title on Image */}
+                <div className="absolute bottom-3 left-4 right-4 z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🎱</span>
+                    <h3 className="font-heading font-black text-2xl text-white uppercase group-hover:text-emerald-400 transition-colors">
+                      Snooker Lounge
+                    </h3>
+                  </div>
+                  <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-1">
+                    {poolTotal} Championship Tables • Slate Bed • Aramith Balls
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-ds-border/50 bg-ds-surface/40">
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold">
+                    {poolAvailable} Ready
+                  </span>
+                  {poolOccupied > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-ds-accent/15 border border-ds-accent/30 text-ds-ice font-bold">
+                      {poolOccupied} In-Session
+                    </span>
+                  )}
+                  {poolMaint > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold">
+                      {poolMaint} Service
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-emerald-400 font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
+                    ₹250/hr
+                  </span>
+                  <Button variant="accent" size="sm" className="text-xs">
+                    <span>Manage Snooker Tables →</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : filteredStations.length === 0 ? (
         <div className="p-12 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-3">
@@ -411,48 +591,93 @@ export default function StaffStationGridPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStations.map((station) => {
-            const isOccupied = station.status === 'OCCUPIED' && station.activeSession;
-            const isMaintenance = station.status === 'MAINTENANCE';
-            const countdown = isOccupied ? getCountdown(station.activeSession!.scheduledEndAt) : null;
-            const stationCoverImage =
-              station.imageUrl || (station.stationType === 'PS5' ? '/ps5-station.jpg' : '/snooker-table.jpg');
-
-            return (
-              <Card
-                key={station.id}
-                glass
-                className={`p-0 border transition-all flex flex-col justify-between relative overflow-hidden group shadow-xl ${
-                  countdown?.isOverdue
-                    ? 'border-rose-500/80 bg-rose-500/5 shadow-rose-500/10 ring-1 ring-rose-500'
-                    : countdown?.isCriticalEnding
-                    ? 'border-orange-500/80 bg-orange-500/5 shadow-orange-500/10'
-                    : countdown?.isEndingSoon
-                    ? 'border-amber-400/80 bg-amber-400/5 shadow-amber-400/10'
-                    : isOccupied
-                    ? 'border-ds-accent/60 bg-ds-surface/80 shadow-ds-accent/5'
-                    : isMaintenance
-                    ? 'border-ds-border/60 bg-ds-dark/40 opacity-70'
-                    : 'border-ds-border hover:border-emerald-500/50'
-                }`}
+        <div className="space-y-4">
+          {/* Breadcrumb Navigation Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-ds-surface/60 p-4 rounded-2xl border border-ds-border">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFilterType('ALL');
+                  setSearchQuery('');
+                  setStatusFilter('ALL');
+                }}
+                className="flex items-center gap-1.5 text-xs font-heading font-bold"
               >
-                {/* Station Cover Image Hero Banner */}
-                <div className="relative w-full h-52 sm:h-60 overflow-hidden bg-ds-dark border-b border-ds-border">
-                  <Image
-                    src={stationCoverImage}
-                    alt={station.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-ds-darker via-ds-dark/40 to-transparent" />
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>All Arenas</span>
+              </Button>
+              <div>
+                <h3 className="text-lg font-heading font-black text-ds-text uppercase flex items-center gap-2">
+                  <span>
+                    {filterType === 'PS5'
+                      ? '🎮 PlayStation 5 Arena'
+                      : filterType === 'POOL_TABLE'
+                      ? '🎱 Snooker Lounge'
+                      : 'Arena Floor Consoles'}
+                  </span>
+                </h3>
+                <p className="text-xs text-ds-text-muted">
+                  Showing {filteredStations.length} {filterType === 'PS5' ? 'consoles' : filterType === 'POOL_TABLE' ? 'tables' : 'units'} • Live session controls & rapid walk-in
+                </p>
+              </div>
+            </div>
 
-                  {/* Top Overlay Badges */}
-                  <div className="absolute top-3 inset-x-3 flex items-center justify-between z-10">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-heading font-black uppercase tracking-wider bg-black/75 border border-white/20 text-ds-ice backdrop-blur-md shadow-md">
-                      {station.facilityName}
-                    </span>
+            <div className="flex items-center gap-2">
+              <Badge variant="success" size="sm" className="font-mono text-xs">
+                {filteredStations.filter((s) => s.status === 'AVAILABLE' && !s.activeSession).length} Ready
+              </Badge>
+              <Badge variant="accent" size="sm" className="font-mono text-xs">
+                {filteredStations.filter((s) => s.status === 'OCCUPIED' || Boolean(s.activeSession)).length} In-Session
+              </Badge>
+            </div>
+          </div>
+
+          {/* Individual Station Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredStations.map((station) => {
+              const isOccupied = station.status === 'OCCUPIED' && station.activeSession;
+              const isMaintenance = station.status === 'MAINTENANCE';
+              const countdown = isOccupied ? getCountdown(station.activeSession!.scheduledEndAt) : null;
+
+              return (
+                <Card
+                  key={station.id}
+                  glass
+                  className={`p-0 border transition-all flex flex-col justify-between relative overflow-hidden group shadow-xl ${
+                    countdown?.isOverdue
+                      ? 'border-rose-500/80 bg-rose-500/5 shadow-rose-500/10 ring-1 ring-rose-500'
+                      : countdown?.isCriticalEnding
+                      ? 'border-orange-500/80 bg-orange-500/5 shadow-orange-500/10'
+                      : countdown?.isEndingSoon
+                      ? 'border-amber-400/80 bg-amber-400/5 shadow-amber-400/10'
+                      : isOccupied
+                      ? 'border-ds-accent/60 bg-ds-surface/80 shadow-ds-accent/5'
+                      : isMaintenance
+                      ? 'border-ds-border/60 bg-ds-dark/40 opacity-70'
+                      : 'border-ds-border hover:border-emerald-500/50'
+                  }`}
+                >
+                  {/* Clean Station Card Header matching /booking Step 3 */}
+                  <div className="p-4 sm:p-5 border-b border-ds-border/60 bg-ds-surface/40 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 border bg-ds-dark/80 border-ds-border shadow-inner">
+                        {station.stationType === 'PS5' ? '🎮' : '🎱'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg sm:text-xl font-heading font-black text-white group-hover:text-ds-ice transition-colors truncate">
+                            {station.name}
+                          </h3>
+                        </div>
+                        <p className="text-xs text-ds-text-dim truncate mt-0.5">
+                          {station.specs || (station.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Live Status Badge */}
                     <Badge
                       variant={
                         countdown?.isOverdue
@@ -468,7 +693,7 @@ export default function StaffStationGridPage() {
                           : 'success'
                       }
                       size="sm"
-                      className={`font-mono text-[11px] uppercase tracking-wider backdrop-blur-md shadow-md ${
+                      className={`font-mono text-[10px] uppercase tracking-wider shrink-0 ${
                         countdown?.isOverdue
                           ? 'bg-rose-500/90 text-white border border-rose-400 animate-pulse font-bold'
                           : countdown?.isCriticalEnding
@@ -479,218 +704,210 @@ export default function StaffStationGridPage() {
                       }`}
                     >
                       {countdown?.isOverdue
-                        ? `🔴 EXTRA TIME (+${countdown.overdueMins}m)`
+                        ? `🔴 +${countdown.overdueMins}m`
                         : countdown?.isCriticalEnding
-                        ? '🟠 FINAL 5 MINS'
+                        ? '🟠 5 MINS'
                         : countdown?.isEndingSoon
-                        ? '⏳ ENDING SOON'
+                        ? '⏳ SOON'
                         : isOccupied
-                        ? '🎮 IN SESSION'
+                        ? '🎮 PLAYING'
                         : isMaintenance
-                        ? '🔧 SERVICING'
-                        : '🟢 AVAILABLE'}
+                        ? '🔧 SERVICE'
+                        : '🟢 READY'}
                     </Badge>
                   </div>
 
-                  {/* Bottom Title on Image */}
-                  <div className="absolute bottom-3 left-4 right-4 z-10">
-                    <h3 className="text-2xl sm:text-3xl font-heading font-black text-white drop-shadow-md">
-                      {station.name}
-                    </h3>
-                    <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-0.5 font-medium">
-                      {station.specs}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card Body Details & Actions */}
-                <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    {/* ACTIVE SESSION DETAILS (IF OCCUPIED) */}
-                    {isOccupied && station.activeSession && countdown && (
-                      <div className="p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Active Player</span>
-                            <span className="text-sm font-heading font-bold text-ds-text">
-                              {station.activeSession.customerName}
-                            </span>
-                            {station.activeSession.gameTitle && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
-                                <Gamepad2 className="w-3 h-3 text-ds-accent" />
-                                <span>Playing: {station.activeSession.gameTitle}</span>
+                  {/* Card Body Details & Actions */}
+                  <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      {/* ACTIVE SESSION DETAILS (IF OCCUPIED) */}
+                      {isOccupied && station.activeSession && countdown && (
+                        <div className="p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Active Player</span>
+                              <span className="text-sm font-heading font-bold text-ds-text">
+                                {station.activeSession.customerName}
                               </span>
-                            )}
+                              {station.activeSession.gameTitle && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
+                                  <Gamepad2 className="w-3 h-3 text-ds-accent" />
+                                  <span>Playing: {station.activeSession.gameTitle}</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
+                                {countdown.isOverdue ? 'Extra Time Played' : 'Time Remaining'}
+                              </span>
+                              <span
+                                className={`text-lg font-mono font-black ${
+                                  countdown.isOverdue
+                                    ? 'text-rose-400 animate-pulse'
+                                    : countdown.isCriticalEnding
+                                    ? 'text-orange-400'
+                                    : countdown.isEndingSoon
+                                    ? 'text-amber-400'
+                                    : 'text-ds-ice'
+                                }`}
+                              >
+                                {countdown.isOverdue ? `+${countdown.formatted}` : countdown.formatted}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
-                              {countdown.isOverdue ? 'Extra Time Played' : 'Time Remaining'}
-                            </span>
-                            <span
-                              className={`text-lg font-mono font-black ${
+
+                          {/* Mini progress bar */}
+                          <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-1000 ${
                                 countdown.isOverdue
-                                  ? 'text-rose-400 animate-pulse'
+                                  ? 'bg-rose-500'
                                   : countdown.isCriticalEnding
-                                  ? 'text-orange-400'
+                                  ? 'bg-orange-500'
                                   : countdown.isEndingSoon
-                                  ? 'text-amber-400'
-                                  : 'text-ds-ice'
+                                  ? 'bg-amber-400'
+                                  : 'bg-ds-accent'
                               }`}
-                            >
-                              {countdown.isOverdue ? `+${countdown.formatted}` : countdown.formatted}
+                              style={{ width: `${countdown.percentage}%` }}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
+                            <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
+                            <span>
+                              End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </div>
+                      )}
 
-                        {/* Mini progress bar */}
-                        <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-1000 ${
-                              countdown.isOverdue
-                                ? 'bg-rose-500'
-                                : countdown.isCriticalEnding
-                                ? 'bg-orange-500'
-                                : countdown.isEndingSoon
-                                ? 'bg-amber-400'
-                                : 'bg-ds-accent'
-                            }`}
-                            style={{ width: `${countdown.percentage}%` }}
-                          />
-                        </div>
-
-                        <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
-                          <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
-                          <span>
-                            End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AVAILABLE STATE & UPCOMING SCHEDULE */}
-                    {!isOccupied && !isMaintenance && (
-                      <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Ready for Allocation</span>
-                        </div>
-                        <p className="text-[11px] text-ds-text-dim">
-                          Base rate: ₹{(station.pricePerHourPaise / 100).toFixed(0)} / hr • {station.capacity} Players
-                        </p>
-                        {station.upcomingBookings && station.upcomingBookings.length > 0 && (
-                          <p className="text-[11px] text-ds-ice pt-1 font-mono">
-                            Next: {station.upcomingBookings[0].customerName} at{' '}
-                            {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {/* AVAILABLE STATE & UPCOMING SCHEDULE */}
+                      {!isOccupied && !isMaintenance && (
+                        <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Ready for Allocation</span>
+                          </div>
+                          <p className="text-[11px] text-ds-text-dim">
+                            Base rate: ₹{(station.pricePerHourPaise / 100).toFixed(0)} / hr • {station.capacity} Players
                           </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* MAINTENANCE STATE */}
-                    {isMaintenance && (
-                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>Under Maintenance</span>
+                          {station.upcomingBookings && station.upcomingBookings.length > 0 && (
+                            <p className="text-[11px] text-ds-ice pt-1 font-mono">
+                              Next: {station.upcomingBookings[0].customerName} at{' '}
+                              {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-[11px] text-ds-text-dim">Station locked from public booking.</p>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Installed Games Button/Chip */}
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedStationForGames(station);
-                          setStationGamesSearch('');
-                          setGamesModalOpen(true);
-                        }}
-                        className="w-full py-1.5 px-2.5 rounded-lg bg-ds-dark/60 hover:bg-ds-accent/15 border border-ds-border hover:border-ds-accent/50 text-[11px] text-ds-text hover:text-ds-ice transition-all flex items-center justify-between group"
-                      >
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
-                          <span className="font-heading font-bold uppercase text-[10px] text-ds-accent tracking-wider">
-                            Games ({station.games?.length || 0}):
-                          </span>
-                          <span className="text-ds-text-dim truncate text-[11px]">
-                            {station.games && station.games.length > 0
-                              ? station.games.slice(0, 2).map((g) => g.title).join(', ') + (station.games.length > 2 ? '...' : '')
-                              : 'Tap to inspect'}
-                          </span>
+                      {/* MAINTENANCE STATE */}
+                      {isMaintenance && (
+                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>Under Maintenance</span>
+                          </div>
+                          <p className="text-[11px] text-ds-text-dim">Station locked from public booking.</p>
                         </div>
-                        <span className="text-[10px] font-mono text-ds-ice group-hover:text-ds-accent underline shrink-0 ml-1">
-                          View →
-                        </span>
-                      </button>
+                      )}
+
+                      {/* Installed Games Button/Chip (Only for PS5) */}
+                      {station.stationType === 'PS5' && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStationForGames(station);
+                              setStationGamesSearch('');
+                              setGamesModalOpen(true);
+                            }}
+                            className="w-full py-1.5 px-2.5 rounded-lg bg-ds-dark/60 hover:bg-ds-accent/15 border border-ds-border hover:border-ds-accent/50 text-[11px] text-ds-text hover:text-ds-ice transition-all flex items-center justify-between group"
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+                              <span className="font-heading font-bold uppercase text-[10px] text-ds-accent tracking-wider">
+                                Games ({station.games?.length || 0}):
+                              </span>
+                              <span className="text-ds-text-dim truncate text-[11px]">
+                                {station.games && station.games.length > 0
+                                  ? station.games.slice(0, 2).map((g) => g.title).join(', ') + (station.games.length > 2 ? '...' : '')
+                                  : 'Tap to inspect'}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-ds-ice group-hover:text-ds-accent underline shrink-0 ml-1">
+                              View →
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Bottom Actions Strip */}
-                  <div className="pt-4 mt-2 border-t border-ds-border/60 flex items-center justify-between gap-2">
-                    {isOccupied ? (
-                      <>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setExtendModalStation(station)}
-                          className="flex-1 justify-center text-xs px-2"
-                        >
-                          <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
-                          <span className="truncate">Extend</span>
-                        </Button>
+                    {/* Bottom Actions Strip */}
+                    <div className="pt-4 mt-2 border-t border-ds-border/60 flex items-center justify-between gap-2">
+                      {isOccupied ? (
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setExtendModalStation(station)}
+                            className="flex-1 justify-center text-xs px-2"
+                          >
+                            <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate">Extend</span>
+                          </Button>
 
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleEndSession(station)}
-                          className="flex-1 justify-center text-xs px-2"
-                        >
-                          <Square className="w-3.5 h-3.5 mr-1 shrink-0" />
-                          <span className="truncate">End Session</span>
-                        </Button>
-                      </>
-                    ) : isMaintenance ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleMaintenance(station)}
-                        className="w-full justify-center text-xs"
-                      >
-                        <Wrench className="w-3.5 h-3.5 mr-1" />
-                        <span>Return to Available</span>
-                      </Button>
-                    ) : (
-                      <>
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedWalkInStationId(station.id);
-                            setWalkInOpen(true);
-                          }}
-                          className="flex-1 justify-center text-xs"
-                        >
-                          <Play className="w-3.5 h-3.5 mr-1" />
-                          <span>Walk-in Here</span>
-                        </Button>
-
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleEndSession(station)}
+                            className="flex-1 justify-center text-xs px-2"
+                          >
+                            <Square className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate">End Session</span>
+                          </Button>
+                        </>
+                      ) : isMaintenance ? (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleToggleMaintenance(station)}
-                          title="Mark Maintenance"
-                          className="px-2.5"
+                          className="w-full justify-center text-xs"
                         >
-                          <Wrench className="w-3.5 h-3.5 text-ds-text-dim hover:text-amber-400" />
+                          <Wrench className="w-3.5 h-3.5 mr-1" />
+                          <span>Return to Available</span>
                         </Button>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedWalkInStationId(station.id);
+                              setWalkInOpen(true);
+                            }}
+                            className="flex-1 justify-center text-xs"
+                          >
+                            <Play className="w-3.5 h-3.5 mr-1" />
+                            <span>Walk-in Here</span>
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleMaintenance(station)}
+                            title="Mark Maintenance"
+                            className="px-2.5"
+                          >
+                            <Wrench className="w-3.5 h-3.5 text-ds-text-dim hover:text-amber-400" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -25,6 +26,7 @@ interface Station {
   stationType: string;
   facilityName: string;
   imageUrl?: string;
+  specs?: string;
   capacity?: number;
   pricePerHourPaise: number;
   status: string;
@@ -453,76 +455,156 @@ export function WalkInModal({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-32 sm:pb-36">
           {/* ─── LEFT COLUMN: CATEGORY, STATION & GAME (7 COLS) ─── */}
           <div className="lg:col-span-7 space-y-4">
-            {/* 1. Category Switcher Tabs */}
+            {/* 1. Arena Zone Selection: Visual Cards with Hero Image matching User Booking Flow */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
-                  <span>Select Arena Category</span>
+                  <span>Select Gaming Zone</span>
                 </label>
                 <span className="text-[11px] font-mono text-ds-text-dim">
-                  {stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Available Units
+                  {stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Units Available Now
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* PlayStation 5 Arena Card */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleCategoryChange('PS5')}
-                  className={`p-2.5 sm:p-3 rounded-xl font-heading font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-between ${
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCategoryChange('PS5'); }}
+                  className={`group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg ${
                     activeCategory === 'PS5'
-                      ? 'bg-cyan-950/60 text-white border-cyan-400 ring-1 ring-cyan-400/80 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:text-white hover:border-cyan-500/40'
+                      ? 'border-cyan-400 ring-2 ring-cyan-400/50 shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-ds-dark'
+                      : 'border-ds-border hover:border-cyan-400/60 bg-ds-dark/60 opacity-80 hover:opacity-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="text-base sm:text-lg">🎮</span>
-                    <span className="truncate">PlayStation 5</span>
-                  </div>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ml-1.5 ${
-                      activeCategory === 'PS5' ? 'bg-cyan-400 text-black font-bold' : 'bg-ds-surface text-ds-text-dim'
-                    }`}
-                  >
-                    {stations.filter((s) => s.stationType === 'PS5' && getStationAvailabilityState(s, durationMinutes).isAvailable).length}/
-                    {stations.filter((s) => s.stationType === 'PS5').length} Ready
-                  </span>
-                </button>
+                  <div className="relative w-full h-32 sm:h-36 overflow-hidden">
+                    <Image
+                      src="/ps5-station.jpg"
+                      alt="PlayStation 5 Arena"
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
+                    
+                    {/* Live Ready Badge */}
+                    <div className="absolute top-2.5 right-2.5 z-10">
+                      {(() => {
+                        const readyCount = stations.filter((s) => s.stationType === 'PS5' && getStationAvailabilityState(s, durationMinutes).isAvailable).length;
+                        const totalCount = stations.filter((s) => s.stationType === 'PS5').length;
+                        return readyCount > 0 ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                            {readyCount} of {totalCount} Ready
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-ds-surface/90 border border-ds-accent/50 text-ds-ice shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            {totalCount} Consoles • Fully Booked
+                          </span>
+                        );
+                      })()}
+                    </div>
 
-                <button
-                  type="button"
+                    {activeCategory === 'PS5' && (
+                      <div className="absolute top-2.5 left-2.5 z-10 w-6 h-6 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-md shadow-cyan-400/50">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-3 flex items-center justify-between border-t border-ds-border/60 bg-ds-surface/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎮</span>
+                      <div>
+                        <div className="font-heading font-black text-xs text-white uppercase group-hover:text-cyan-300 transition-colors">
+                          PlayStation 5 Arena
+                        </div>
+                        <div className="text-[10px] text-ds-text-dim">3 Consoles • 4K 120Hz Displays</div>
+                      </div>
+                    </div>
+                    <span className="text-cyan-400 font-mono font-bold text-[11px] bg-ds-dark px-2.5 py-1 rounded-lg border border-ds-border">
+                      From ₹150/hr
+                    </span>
+                  </div>
+                </div>
+
+                {/* Snooker Lounge Card */}
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleCategoryChange('POOL_TABLE')}
-                  className={`p-2.5 sm:p-3 rounded-xl font-heading font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-between ${
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCategoryChange('POOL_TABLE'); }}
+                  className={`group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg ${
                     activeCategory === 'POOL_TABLE'
-                      ? 'bg-cyan-950/60 text-white border-cyan-400 ring-1 ring-cyan-400/80 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
-                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:text-white hover:border-cyan-500/40'
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)] bg-ds-dark'
+                      : 'border-ds-border hover:border-emerald-500/60 bg-ds-dark/60 opacity-80 hover:opacity-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="text-base sm:text-lg">🎱</span>
-                    <span className="truncate">Snooker Tables</span>
+                  <div className="relative w-full h-32 sm:h-36 overflow-hidden">
+                    <Image
+                      src="/snooker-table.jpg"
+                      alt="Snooker Lounge"
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
+                    
+                    {/* Live Ready Badge */}
+                    <div className="absolute top-2.5 right-2.5 z-10">
+                      {(() => {
+                        const readyCount = stations.filter((s) => s.stationType === 'POOL_TABLE' && getStationAvailabilityState(s, durationMinutes).isAvailable).length;
+                        const totalCount = stations.filter((s) => s.stationType === 'POOL_TABLE').length;
+                        return readyCount > 0 ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
+                            {readyCount} of {totalCount} Ready
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-ds-surface/90 border border-emerald-500/50 text-emerald-400 shadow-md backdrop-blur-sm flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            {totalCount} Tables • Fully Booked
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {activeCategory === 'POOL_TABLE' && (
+                      <div className="absolute top-2.5 left-2.5 z-10 w-6 h-6 rounded-full bg-emerald-400 text-black flex items-center justify-center font-black text-xs shadow-md shadow-emerald-400/50">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+                    )}
                   </div>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ml-1.5 ${
-                      activeCategory === 'POOL_TABLE' ? 'bg-cyan-400 text-black font-bold' : 'bg-ds-surface text-ds-text-dim'
-                    }`}
-                  >
-                    {stations.filter((s) => s.stationType === 'POOL_TABLE' && getStationAvailabilityState(s, durationMinutes).isAvailable).length}/
-                    {stations.filter((s) => s.stationType === 'POOL_TABLE').length} Ready
-                  </span>
-                </button>
+
+                  <div className="p-3 flex items-center justify-between border-t border-ds-border/60 bg-ds-surface/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🎱</span>
+                      <div>
+                        <div className="font-heading font-black text-xs text-white uppercase group-hover:text-emerald-400 transition-colors">
+                          Snooker Lounge
+                        </div>
+                        <div className="text-[10px] text-ds-text-dim">3 Championship Slate Tables</div>
+                      </div>
+                    </div>
+                    <span className="text-emerald-400 font-mono font-bold text-[11px] bg-ds-dark px-2.5 py-1 rounded-lg border border-ds-border">
+                      ₹250/hr
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* 2. Choose Station: When PlayStation is selected, show ONLY PlayStations; when Snooker is selected, show ONLY Snookers */}
+            {/* 2. Choose Station: When PlayStation is selected, show ONLY PlayStations (3 consoles); when Snooker is selected, show ONLY Snookers (3 tables) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">2</span>
-                  <span>Choose {activeCategory === 'PS5' ? 'PlayStation Console' : 'Snooker Table'}</span>
+                  <span>Choose {activeCategory === 'PS5' ? 'PlayStation Console (3 Units)' : 'Snooker Table (3 Units)'}</span>
                 </label>
                 <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                  {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Available
+                  {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Ready
                 </span>
               </div>
 
@@ -533,7 +615,7 @@ export function WalkInModal({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {categoryStations.map((st) => {
                   const isSelected = selectedStationId === st.id;
                   const state = getStationAvailabilityState(st, durationMinutes);
@@ -551,68 +633,70 @@ export function WalkInModal({
                         }
                         setFormErrors((prev) => ({ ...prev, station: undefined }));
                       }}
-                      className={`p-2.5 rounded-xl border text-left transition-all relative flex items-center gap-2.5 group min-h-[56px] ${
+                      className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-3 group ${
                         isSelected
-                          ? 'bg-cyan-950/50 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-[0_0_14px_rgba(6,182,212,0.3)]'
+                          ? 'bg-cyan-950/60 border-cyan-400 text-white ring-2 ring-cyan-400/80 shadow-[0_0_16px_rgba(6,182,212,0.35)]'
                           : isAvailable
                           ? 'bg-[#08101a] border-cyan-950/70 text-ds-text hover:border-cyan-400/50 hover:bg-[#0c1827]'
-                          : 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim opacity-50 cursor-not-allowed'
+                          : 'bg-rose-950/15 border-rose-500/25 text-ds-text-dim opacity-50 cursor-not-allowed'
                       }`}
                     >
-                      {/* Station Icon */}
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
-                          isSelected
-                            ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
-                            : 'bg-ds-surface border-ds-border group-hover:border-cyan-500/40'
-                        }`}
-                      >
-                        {getStationIcon(st.stationType)}
-                      </div>
-
-                      {/* Station Details */}
-                      <div className="flex-1 min-w-0 pr-8">
-                        <div className="font-heading font-bold text-xs text-ds-ice group-hover:text-white truncate">
-                          {st.name}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-cyan-400 font-mono font-bold text-[11px]">
-                            ₹{(st.pricePerHourPaise / 100).toFixed(0)}/hr
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Status indicator on right */}
-                      <div className="absolute top-2.5 right-2.5 flex items-center">
-                        {isSelected ? (
-                          <div className="w-4 h-4 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-sm shadow-cyan-400/50">
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      {/* Top Row: Icon + Name + Specs + Status Badge */}
+                      <div className="flex items-start justify-between gap-2 w-full">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
+                              isSelected
+                                ? 'bg-cyan-500/25 border-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                                : 'bg-ds-surface border-ds-border group-hover:border-cyan-500/40'
+                            }`}
+                          >
+                            {getStationIcon(st.stationType)}
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                isAvailable
-                                  ? 'bg-emerald-400 animate-pulse'
-                                  : state.statusLabel === 'RESERVED'
-                                  ? 'bg-amber-400'
-                                  : 'bg-rose-400'
-                              }`}
-                            />
-                            <span
-                              className={`text-[9px] font-mono font-bold uppercase tracking-wider ${
-                                isAvailable
-                                  ? 'text-emerald-400'
-                                  : state.statusLabel === 'RESERVED'
-                                  ? 'text-amber-400'
-                                  : 'text-rose-400'
-                              }`}
-                              title={state.conflictReason}
+                          <div className="min-w-0">
+                            <div className="font-heading font-black text-xs text-ds-ice group-hover:text-white truncate">
+                              {st.name}
+                            </div>
+                            <p className="text-[10px] text-ds-text-dim truncate">
+                              {st.specs || (st.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Top-right Status / Selected Check */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {isSelected ? (
+                            <div className="w-5 h-5 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-md shadow-cyan-400/50 animate-in zoom-in-75">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          ) : (
+                            <Badge
+                              variant={isAvailable ? 'success' : 'danger'}
+                              size="sm"
+                              className="text-[9px] px-1.5 py-0.5"
                             >
                               {state.statusLabel}
-                            </span>
-                          </div>
-                        )}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: Rate + Selection Hint */}
+                      <div className="flex items-center justify-between pt-2 border-t border-ds-border/30 text-xs w-full">
+                        <span className="text-cyan-400 font-mono font-bold text-xs">
+                          {st.stationType === 'PS5' ? 'From ₹150/hr' : '₹250/hr'}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold ${
+                            isSelected
+                              ? 'text-cyan-300 font-bold'
+                              : isAvailable
+                              ? 'text-ds-text-dim group-hover:text-white'
+                              : 'text-rose-400'
+                          }`}
+                        >
+                          {isSelected ? 'Selected ✓' : isAvailable ? 'Click to Select' : (state.conflictReason || 'Busy')}
+                        </span>
                       </div>
                     </button>
                   );
