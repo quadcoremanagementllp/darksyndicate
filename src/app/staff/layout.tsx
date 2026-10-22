@@ -420,7 +420,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             {/* Clock */}
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-ds-surface/60 border border-ds-border text-xs font-mono text-ds-text-dim">
               <Clock className="w-3.5 h-3.5 text-ds-accent shrink-0" />
-              <span className="whitespace-nowrap">{timeStr || '10:00:00 AM'} IST</span>
+              <span suppressHydrationWarning className="whitespace-nowrap">{timeStr || '10:00:00 AM'} IST</span>
             </div>
 
             {/* Sound Alarm Controls */}

@@ -332,14 +332,14 @@ export default function StaffBookingsSchedulePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight">
               Arena Daily Reservation Schedule
             </h1>
             {activeInSessionCount > 0 && (
-              <Badge variant="accent" size="sm" className="font-mono">
+              <Badge variant="accent" size="sm" className="font-mono whitespace-nowrap shrink-0">
                 {activeInSessionCount} In Session
               </Badge>
             )}
@@ -347,7 +347,7 @@ export default function StaffBookingsSchedulePage() {
               <Badge
                 variant={dueBookingsCount > 0 ? 'default' : 'warning'}
                 size="sm"
-                className={`font-mono font-bold animate-pulse ${
+                className={`font-mono font-bold animate-pulse whitespace-nowrap shrink-0 ${
                   dueBookingsCount > 0
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/60'
                     : 'bg-amber-500/20 text-amber-300 border-amber-500/50'
@@ -359,25 +359,30 @@ export default function StaffBookingsSchedulePage() {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-ds-text-muted mt-0.5">
+          <p className="text-xs text-ds-text-muted mt-1">
             Monitor player check-ins, active play sessions, time remaining, and equipment assignments in real-time.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={() => loadBookings(false)}
             disabled={refreshing}
             title="Refresh schedule"
+            className="whitespace-nowrap shrink-0 text-xs font-heading font-semibold"
           >
-            <RotateCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin text-ds-accent' : ''}`} />
+            <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-ds-accent' : ''}`} />
             <span>{refreshing ? 'Syncing...' : 'Refresh'}</span>
           </Button>
-          <Link href="/staff">
-            <Button variant="accent" size="sm" className="flex items-center gap-1.5">
-              <Gamepad2 className="w-4 h-4" />
+          <Link href="/staff" className="shrink-0">
+            <Button
+              variant="accent"
+              size="sm"
+              className="flex items-center gap-1.5 whitespace-nowrap shrink-0 text-xs font-heading font-bold shadow-sm"
+            >
+              <Gamepad2 className="w-3.5 h-3.5 shrink-0" />
               <span>Live Console Grid</span>
             </Button>
           </Link>
@@ -477,7 +482,7 @@ export default function StaffBookingsSchedulePage() {
                     </div>
                     <div className="text-[11px] text-white/80 truncate mt-1">
                       <strong className="text-white">{b.customerName}</strong> •{' '}
-                      <span className="font-mono text-cyan-300 font-bold">{timeFormatted}</span>
+                      <span suppressHydrationWarning className="font-mono text-cyan-300 font-bold">{timeFormatted}</span>
                       {b.bookingRef && <span className="text-white/50 font-mono text-[10px] ml-1.5">({b.bookingRef})</span>}
                     </div>
                   </div>
@@ -803,7 +808,7 @@ export default function StaffBookingsSchedulePage() {
                       )}
 
                       <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1 border-t border-ds-border/40">
-                        <span>
+                        <span suppressHydrationWarning>
                           {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -1000,7 +1005,7 @@ export default function StaffBookingsSchedulePage() {
                         </td>
                         <td className="py-3.5 px-4 font-mono text-ds-text whitespace-nowrap min-w-[190px]">
                           <div className="flex items-center gap-1.5">
-                            <span>
+                            <span suppressHydrationWarning>
                               {!getIsToday(b) && (
                                 <span className="mr-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 font-bold font-mono">
                                   {new Date(b.startTime || b.date).toLocaleDateString('en-US', {
