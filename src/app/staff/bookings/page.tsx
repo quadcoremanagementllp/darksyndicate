@@ -804,21 +804,35 @@ export default function StaffBookingsSchedulePage() {
                       </div>
 
                       {isSnooker ? (
-                        <div className="flex items-center justify-between gap-2 mt-2">
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <span className="px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-[11px] flex items-center gap-1">
-                              <span>🎱</span>
-                              <span>{currentPlayers} Players</span>
-                            </span>
-                            {currentPlayers > 4 && (
-                              <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
-                                +{currentPlayers - 4} Extra (₹{(currentPlayers - 4) * 50})
+                        <div className="mt-2.5 p-2.5 rounded-xl bg-ds-dark/70 border border-ds-border/70 space-y-2">
+                          {/* Top Row: Capacity & Extra Breakdown */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm shrink-0">🎱</span>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-xs font-heading font-black text-white uppercase tracking-wider whitespace-nowrap">
+                                  {currentPlayers} Players
+                                </span>
+                                <span className="text-[10px] font-mono text-ds-text-dim whitespace-nowrap">
+                                  (4 base)
+                                </span>
+                              </div>
+                            </div>
+
+                            {currentPlayers > 4 ? (
+                              <span className="font-mono text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap shadow-sm">
+                                +{currentPlayers - 4} Extra (+₹{(currentPlayers - 4) * 50})
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-ds-text-dim shrink-0">
+                                Standard Table
                               </span>
                             )}
                           </div>
 
+                          {/* Bottom Actions Row (Active Session Only) */}
                           {isSessionActive && (
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className={`pt-1.5 border-t border-ds-border/40 ${currentPlayers > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
                               {currentPlayers > 4 && (
                                 <button
                                   type="button"
@@ -827,8 +841,8 @@ export default function StaffBookingsSchedulePage() {
                                     handleExtraPlayerAction(b, 'REMOVE');
                                   }}
                                   disabled={updatingPlayerBookingId === b.id}
-                                  className="px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
-                                  title="Undo extra person (-₹50)"
+                                  className="h-7.5 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-500/50 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap disabled:opacity-50"
+                                  title="Undo 1 extra person (-₹50)"
                                 >
                                   {updatingPlayerBookingId === b.id ? (
                                     <span className="animate-spin text-xs">⏳</span>
@@ -845,15 +859,15 @@ export default function StaffBookingsSchedulePage() {
                                   handleExtraPlayerAction(b, 'ADD');
                                 }}
                                 disabled={updatingPlayerBookingId === b.id}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
-                                title="Add extra person (+₹50)"
+                                className={`h-7.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap disabled:opacity-50 ${currentPlayers <= 4 ? 'w-full' : ''}`}
+                                title="Add 1 extra person (+₹50)"
                               >
                                 {updatingPlayerBookingId === b.id ? (
                                   <span className="animate-spin text-xs">⏳</span>
                                 ) : (
                                   <UserPlus className="w-3 h-3 text-emerald-400" />
                                 )}
-                                <span>{currentPlayers > 4 ? '+ Person (+₹50)' : 'Add Extra Person (+₹50)'}</span>
+                                <span>+ Person (+₹50)</span>
                               </button>
                             </div>
                           )}
@@ -1136,10 +1150,12 @@ export default function StaffBookingsSchedulePage() {
                           <div className="font-heading font-semibold text-ds-text">{b.stationName}</div>
                           <div className="text-[10px] text-ds-accent font-mono uppercase tracking-wider">{b.facilityName}</div>
                           {isSnooker ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-[10px] font-mono font-bold text-cyan-300">🎱 {currentPlayers}P</span>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="px-1.5 py-0.5 rounded bg-ds-dark border border-ds-border text-[10px] font-mono font-bold text-cyan-300 whitespace-nowrap">
+                                🎱 {currentPlayers}P {currentPlayers > 4 ? `(+${currentPlayers - 4} Extra)` : ''}
+                              </span>
                               {isSessionActive && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 shrink-0">
                                   {currentPlayers > 4 && (
                                     <button
                                       type="button"
@@ -1148,10 +1164,11 @@ export default function StaffBookingsSchedulePage() {
                                         handleExtraPlayerAction(b, 'REMOVE');
                                       }}
                                       disabled={updatingPlayerBookingId === b.id}
-                                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 hover:text-white border border-rose-400/40 cursor-pointer active:scale-95"
-                                      title="Undo extra person (-₹50)"
+                                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white border border-rose-500/30 cursor-pointer active:scale-95 transition-all flex items-center gap-1"
+                                      title="Undo 1 extra person (-₹50)"
                                     >
-                                      Undo (-₹50)
+                                      <RotateCcw className="w-2.5 h-2.5 text-rose-400" />
+                                      <span>Undo (-₹50)</span>
                                     </button>
                                   )}
                                   <button
@@ -1161,10 +1178,11 @@ export default function StaffBookingsSchedulePage() {
                                       handleExtraPlayerAction(b, 'ADD');
                                     }}
                                     disabled={updatingPlayerBookingId === b.id}
-                                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:text-white border border-emerald-400/40 cursor-pointer active:scale-95"
-                                    title="Add extra person (+₹50)"
+                                    className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 hover:text-white border border-emerald-500/30 cursor-pointer active:scale-95 transition-all flex items-center gap-1"
+                                    title="Add 1 extra person (+₹50)"
                                   >
-                                    + Person (+₹50)
+                                    <UserPlus className="w-2.5 h-2.5 text-emerald-400" />
+                                    <span>+ Person (+₹50)</span>
                                   </button>
                                 </div>
                               )}

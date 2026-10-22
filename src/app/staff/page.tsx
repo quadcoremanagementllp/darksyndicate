@@ -716,53 +716,11 @@ export default function StaffStationGridPage() {
                             {station.name}
                           </h3>
                         </div>
-                        {station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL') ? (
-                          <div className="flex items-center justify-between gap-2 mt-1">
-                            <span className="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-[11px] flex items-center gap-1">
-                              <span>🎱</span>
-                              <span>{station.activeSession?.playerCount || 4} Players</span>
-                              {(station.activeSession?.playerCount || 4) > 4 && (
-                                <span className="text-[10px] text-amber-300 font-mono">
-                                  (+{(station.activeSession?.playerCount || 4) - 4} Extra • ₹{((station.activeSession?.playerCount || 4) - 4) * 50})
-                                </span>
-                              )}
-                            </span>
-                            {isOccupied && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                {(station.activeSession?.playerCount || 4) > 4 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleExtraPlayerAction(station, 'REMOVE');
-                                    }}
-                                    className="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
-                                    title="Undo extra person (-₹50)"
-                                  >
-                                    <RotateCcw className="w-3 h-3 text-rose-400" />
-                                    <span>Undo (-₹50)</span>
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExtraPlayerAction(station, 'ADD');
-                                  }}
-                                  className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
-                                  title="Add extra person (+₹50)"
-                                >
-                                  <UserPlus className="w-3 h-3 text-emerald-400" />
-                                  <span>+ Person (+₹50)</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-ds-text-dim truncate mt-0.5">
-                            {station.specs || '4K 120Hz OLED Display'}
-                          </p>
-                        )}
+                        <p className="text-xs text-ds-text-dim truncate mt-0.5">
+                          {station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL')
+                            ? 'Tournament 12ft Snooker • 4 Base Players'
+                            : (station.specs || '4K 120Hz OLED Display')}
+                        </p>
                       </div>
                     </div>
 
@@ -874,6 +832,65 @@ export default function StaffStationGridPage() {
                               End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
                             </span>
                           </div>
+
+                          {(station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL')) && (
+                            <div className="pt-2.5 mt-1 border-t border-ds-border/60 space-y-2">
+                              {/* Top Row: Capacity & Extra Breakdown */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-sm shrink-0">🎱</span>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-xs font-heading font-black text-white uppercase tracking-wider whitespace-nowrap">
+                                      {station.activeSession?.playerCount || 4} Players
+                                    </span>
+                                    <span className="text-[10px] font-mono text-ds-text-dim whitespace-nowrap">
+                                      (4 base)
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {(station.activeSession?.playerCount || 4) > 4 ? (
+                                  <span className="font-mono text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap shadow-sm">
+                                    +{(station.activeSession?.playerCount || 4) - 4} Extra (+₹{((station.activeSession?.playerCount || 4) - 4) * 50})
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-mono text-ds-text-dim shrink-0">
+                                    Standard Table
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Bottom Actions Row */}
+                              <div className={`pt-1.5 border-t border-ds-border/40 ${(station.activeSession?.playerCount || 4) > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
+                                {(station.activeSession?.playerCount || 4) > 4 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExtraPlayerAction(station, 'REMOVE');
+                                    }}
+                                    className="h-7.5 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-500/50 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap"
+                                    title="Undo 1 extra person (-₹50)"
+                                  >
+                                    <RotateCcw className="w-3 h-3 text-rose-400" />
+                                    <span>Undo (-₹50)</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExtraPlayerAction(station, 'ADD');
+                                  }}
+                                  className={`h-7.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap ${(station.activeSession?.playerCount || 4) <= 4 ? 'w-full' : ''}`}
+                                  title="Add 1 extra person (+₹50)"
+                                >
+                                  <UserPlus className="w-3 h-3 text-emerald-400" />
+                                  <span>+ Person (+₹50)</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
