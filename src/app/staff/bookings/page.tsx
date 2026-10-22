@@ -632,9 +632,9 @@ export default function StaffBookingsSchedulePage() {
         </div>
 
         {/* Tier 2: Refinement Filters & Search Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-2.5 border-t border-ds-border/40">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 pt-2.5 border-t border-ds-border/40">
           {/* Sub-Filters: Date Scope + Staff Scope */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {/* Date Scope Filter */}
             <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
               <button
@@ -692,7 +692,7 @@ export default function StaffBookingsSchedulePage() {
           </div>
 
           {/* Search Bar */}
-          <div className="relative w-full sm:w-64 md:w-72 lg:w-80 shrink-0">
+          <div className="relative w-full lg:w-72 xl:w-80 shrink-0">
             <Input
               placeholder="Search ref, player, station..."
               value={searchQuery}

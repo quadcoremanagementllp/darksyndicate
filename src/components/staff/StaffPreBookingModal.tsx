@@ -151,6 +151,10 @@ export function StaffPreBookingModal({
     return slots.find((s) => s.available);
   }, [slots]);
 
+  const selectedSlotObj = useMemo(() => {
+    return slots.find((s) => s.time === selectedTime);
+  }, [slots, selectedTime]);
+
   // Synchronize category with initialCategory when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -646,7 +650,7 @@ export function StaffPreBookingModal({
                   <span>Select Upcoming Time Slot</span>
                 </label>
                 <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                  {selectedTime ? `Selected: ${formatNormalTime(selectedTime)}` : 'Pick a time'}
+                  {selectedSlotObj?.label ? `Selected: ${selectedSlotObj.label}` : selectedTime ? `Selected: ${formatNormalTime(selectedTime)}` : 'Pick a time'}
                 </span>
               </div>
 
@@ -771,36 +775,42 @@ export function StaffPreBookingModal({
                 </div>
               ) : (
                 <div className="p-3 rounded-2xl bg-ds-surface/20 border border-ds-border space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-52 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-1">
                     {filteredSlots.map((slot) => {
                       const isSelected = selectedTime === slot.time;
+                      const readyCount = slot.availableStationIds?.length ?? (slot.available ? 3 : 0);
+                      const arenaUnit = isPool
+                        ? (readyCount === 1 ? 'TABLE' : 'TABLES')
+                        : (readyCount === 1 ? 'PS5' : 'PS5S');
+                      const rangeDisplay = slot.label || `${formatNormalTime(slot.time)} – ${formatNormalTime(slot.endTime)}`;
+
                       return (
                         <button
                           key={slot.time}
                           type="button"
                           disabled={!slot.available}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`p-2.5 rounded-xl text-center border font-mono transition-all text-xs flex flex-col items-center justify-center ${
+                          className={`p-3.5 sm:p-4 rounded-2xl text-center transition-all flex flex-col items-center justify-center gap-1.5 min-h-[76px] cursor-pointer ${
                             isSelected
-                              ? 'bg-cyan-500/30 border-cyan-400 text-white shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400'
+                              ? 'bg-[#38bdf8] text-white border-2 border-[#7dd3fc] shadow-[0_0_25px_rgba(56,189,248,0.5)] ring-2 ring-[#38bdf8]/40 scale-[1.02]'
                               : slot.available
-                              ? 'bg-ds-surface/50 border-ds-border text-ds-text hover:border-cyan-400/60 hover:text-white cursor-pointer'
-                              : 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim/40 cursor-not-allowed opacity-50'
+                              ? 'bg-ds-surface/50 border border-ds-border hover:border-cyan-400/60 hover:bg-ds-surface/80 text-white shadow-sm'
+                              : 'bg-ds-surface/20 border border-ds-border/30 text-ds-text-dim/40 cursor-not-allowed opacity-40'
                           }`}
                         >
-                          <span className="font-bold text-xs text-white leading-tight">
-                            {formatNormalTime(slot.time)}
+                          <span className="font-heading font-black text-xs sm:text-sm text-white tracking-wide uppercase leading-tight text-center">
+                            {rangeDisplay}
                           </span>
                           <span
-                            className={`text-[9px] uppercase font-bold mt-0.5 ${
+                            className={`text-[10px] sm:text-[11px] font-heading font-black tracking-wider uppercase ${
                               isSelected
-                                ? 'text-cyan-300'
+                                ? 'text-emerald-700 drop-shadow-sm'
                                 : slot.available
                                 ? 'text-emerald-400'
                                 : 'text-rose-400/80'
                             }`}
                           >
-                            {slot.available ? 'Ready' : 'Booked'}
+                            {slot.available ? `${readyCount} ${arenaUnit} READY` : 'BOOKED'}
                           </span>
                         </button>
                       );
