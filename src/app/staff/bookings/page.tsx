@@ -28,6 +28,7 @@ import {
   List,
   Sparkles,
   ArrowRight,
+  UserPlus,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -50,10 +51,46 @@ export default function StaffBookingsSchedulePage() {
   const [selectedBookingForGrid, setSelectedBookingForGrid] = useState<any | null>(null);
   const [extendStation, setExtendStation] = useState<any | null>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
+  const [updatingPlayerBookingId, setUpdatingPlayerBookingId] = useState<string | null>(null);
 
   // Live real-time ticker
   const [currentTime, setCurrentTime] = useState(Date.now());
   const toast = useToast();
+
+  const handleAddExtraPlayer = async (booking: any) => {
+    setUpdatingPlayerBookingId(booking.id);
+    try {
+      const res = await fetch('/api/staff/sessions/extra-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, action: 'ADD' }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || `Extra person added (+₹50)`);
+        setBookings((prev) =>
+          prev.map((item) =>
+            item.id === booking.id
+              ? {
+                  ...item,
+                  playerCount: json.data.playerCount,
+                  totalPricePaise: json.data.totalPricePaise,
+                }
+              : item
+          )
+        );
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
+      } else {
+        toast.error(json.error?.message || 'Failed to add extra person');
+      }
+    } catch {
+      toast.error('Network error adding extra person');
+    } finally {
+      setUpdatingPlayerBookingId(null);
+    }
+  };
 
   // Auto-default to Cards view on tablet and mobile viewports (< 1024px) for optimal touch UX
   useEffect(() => {
@@ -681,6 +718,8 @@ export default function StaffBookingsSchedulePage() {
               const sessionStart = b.session?.startedAt || b.startTime;
               const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
 
+              const isSnooker = b.isSnooker ?? (b.stationType === 'POOL_TABLE' || b.stationName?.toUpperCase().includes('SNOOKER') || b.stationName?.toUpperCase().includes('POOL'));
+              const currentPlayers = b.playerCount || (isSnooker ? 4 : 1);
               const startDiffMs = b.startTime ? new Date(b.startTime).getTime() - currentTime : null;
               const isSlotNear = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 15 * 60 * 1000 && startDiffMs >= -120 * 60 * 1000;
               const isSlotDue = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 0 && startDiffMs >= -120 * 60 * 1000;
@@ -744,7 +783,7 @@ export default function StaffBookingsSchedulePage() {
                           : countdown?.isEndingSoon
                           ? '⏳ ENDING SOON'
                           : isSessionActive
-                          ? '🎮 IN SESSION'
+                          ? (isSnooker ? '🎱 IN SESSION' : '🎮 IN SESSION')
                           : b.status}
                       </Badge>
                     </div>
@@ -759,9 +798,46 @@ export default function StaffBookingsSchedulePage() {
                           {b.bookingRef}
                         </span>
                       </div>
-                      <p className="text-xs text-ds-text-muted line-clamp-1 mt-0.5">
-                        {b.stationSpecs || 'Ultra-low latency 4K 120Hz display'}
-                      </p>
+
+                      {isSnooker ? (
+                        <div className="flex items-center justify-between gap-2 mt-2">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                              <span>🎱</span>
+                              <span>{currentPlayers} Players</span>
+                            </span>
+                            {currentPlayers > 4 && (
+                              <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                +{currentPlayers - 4} Extra (₹{(currentPlayers - 4) * 50})
+                              </span>
+                            )}
+                          </div>
+
+                          {isSessionActive && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddExtraPlayer(b);
+                              }}
+                              disabled={updatingPlayerBookingId === b.id}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                              title="Add extra person (+₹50)"
+                            >
+                              {updatingPlayerBookingId === b.id ? (
+                                <span className="animate-spin text-xs">⏳</span>
+                              ) : (
+                                <UserPlus className="w-3 h-3 text-emerald-400" />
+                              )}
+                              <span>Add Extra Person (+₹50)</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-ds-text-muted line-clamp-1 mt-0.5">
+                          {b.stationSpecs || 'Ultra-low latency 4K 120Hz display'}
+                        </p>
+                      )}
                     </div>
 
                     {/* Player & Session Details Box */}
@@ -828,7 +904,7 @@ export default function StaffBookingsSchedulePage() {
                         </div>
                       )}
 
-                      {(b.gameTitle || b.session?.gameTitle) && (
+                      {!isSnooker && (b.gameTitle || b.session?.gameTitle) && !(b.gameTitle || b.session?.gameTitle)?.includes('[PAY ON EXIT]') && (
                         <div className="flex items-center gap-1.5 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2.5 py-1 rounded-lg">
                           <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
                           <span className="truncate">Game: {b.gameTitle || b.session?.gameTitle}</span>
@@ -997,6 +1073,8 @@ export default function StaffBookingsSchedulePage() {
                 <tbody className="divide-y divide-ds-border/40">
                   {filteredBookings.map((b) => {
                     const isSessionActive = getIsSessionActive(b);
+                    const isSnooker = b.isSnooker ?? (b.stationType === 'POOL_TABLE' || b.stationName?.toUpperCase().includes('SNOOKER') || b.stationName?.toUpperCase().includes('POOL'));
+                    const currentPlayers = b.playerCount || (isSnooker ? 4 : 1);
                     const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
                     const sessionStart = b.session?.startedAt || b.startTime;
                     const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
@@ -1032,11 +1110,31 @@ export default function StaffBookingsSchedulePage() {
                         <td className="py-3.5 px-4 min-w-[170px]">
                           <div className="font-heading font-semibold text-ds-text">{b.stationName}</div>
                           <div className="text-[10px] text-ds-accent font-mono uppercase tracking-wider">{b.facilityName}</div>
-                          {(b.gameTitle || b.session?.gameTitle) && (
-                            <div className="flex items-center gap-1 text-[11px] text-ds-ice font-heading mt-0.5">
-                              <Gamepad2 className="w-3 h-3 text-ds-accent shrink-0" />
-                              <span className="truncate max-w-[140px]">{b.gameTitle || b.session?.gameTitle}</span>
+                          {isSnooker ? (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[10px] font-mono font-bold text-cyan-300">🎱 {currentPlayers}P</span>
+                              {isSessionActive && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAddExtraPlayer(b);
+                                  }}
+                                  disabled={updatingPlayerBookingId === b.id}
+                                  className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:text-white border border-emerald-400/40 cursor-pointer active:scale-95"
+                                  title="Add extra person (+₹50)"
+                                >
+                                  + Person (+₹50)
+                                </button>
+                              )}
                             </div>
+                          ) : (
+                            (b.gameTitle || b.session?.gameTitle) && !(b.gameTitle || b.session?.gameTitle)?.includes('[PAY ON EXIT]') && (
+                              <div className="flex items-center gap-1 text-[11px] text-ds-ice font-heading mt-0.5">
+                                <Gamepad2 className="w-3 h-3 text-ds-accent shrink-0" />
+                                <span className="truncate max-w-[140px]">{b.gameTitle || b.session?.gameTitle}</span>
+                              </div>
+                            )
                           )}
                         </td>
                         <td className="py-3.5 px-4 font-mono text-ds-text whitespace-nowrap min-w-[190px]">
@@ -1233,6 +1331,8 @@ export default function StaffBookingsSchedulePage() {
           {(() => {
             const b = selectedBookingForGrid;
             const isSessionActive = getIsSessionActive(b);
+            const isSnooker = b.isSnooker ?? (b.stationType === 'POOL_TABLE' || b.stationName?.toUpperCase().includes('SNOOKER') || b.stationName?.toUpperCase().includes('POOL'));
+            const currentPlayers = b.playerCount || (isSnooker ? 4 : 1);
             const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
             const sessionStart = b.session?.startedAt || b.startTime;
             const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
@@ -1286,7 +1386,7 @@ export default function StaffBookingsSchedulePage() {
                         : countdown?.isEndingSoon
                         ? '⏳ ENDING SOON'
                         : isSessionActive
-                        ? '🎮 IN SESSION'
+                        ? (isSnooker ? '🎱 IN SESSION' : '🎮 IN SESSION')
                         : b.status}
                     </Badge>
                   </div>
@@ -1294,9 +1394,20 @@ export default function StaffBookingsSchedulePage() {
                   {/* Title & Station Specs */}
                   <div className="mt-3">
                     <h3 className="text-2xl font-heading font-black text-ds-text">{b.stationName}</h3>
-                    <p className="text-xs text-ds-text-muted mt-0.5">
-                      {b.stationSpecs || 'Ultra-low latency 4K 120Hz display'}
-                    </p>
+                    {isSnooker ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono text-xs text-cyan-300">🎱 {currentPlayers} Players</span>
+                        {currentPlayers > 4 && (
+                          <span className="text-xs text-amber-300 font-mono">
+                            (+{currentPlayers - 4} Extra • +₹{(currentPlayers - 4) * 50})
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-ds-text-muted mt-0.5">
+                        {b.stationSpecs || 'Ultra-low latency 4K 120Hz display'}
+                      </p>
+                    )}
                   </div>
 
                   {/* Active Session Inner Box (Exact Replica of Image 1) */}

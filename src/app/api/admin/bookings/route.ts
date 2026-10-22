@@ -117,11 +117,29 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const gameTitle =
-        booking.gameTitle ||
-        booking.session?.notes ||
-        (booking.notes?.match(/Game:\s*([^.\n\r\[]+)/)?.[1]?.trim()) ||
-        null;
+      const isSnooker =
+        booking.station?.stationType === 'POOL_TABLE' ||
+        booking.station?.name?.toUpperCase().includes('SNOOKER') ||
+        booking.station?.name?.toUpperCase().includes('POOL');
+
+      const playerMatch = booking.notes?.match(/\[Players:\s*(\d+)\]/i);
+      const playerCount = playerMatch ? parseInt(playerMatch[1], 10) : (isSnooker ? 4 : 1);
+
+      let cleanGameTitle = booking.gameTitle || null;
+      if (!cleanGameTitle && booking.session?.notes) {
+        const stripped = booking.session.notes.replace(/\[PAY ON EXIT\]/gi, '').trim();
+        if (stripped) cleanGameTitle = stripped;
+      }
+      if (!cleanGameTitle && booking.notes) {
+        const match = booking.notes.match(/Game:\s*([^.\n\r\[]+)/i);
+        if (match && match[1]?.trim()) {
+          cleanGameTitle = match[1].trim();
+        }
+      }
+      if (cleanGameTitle && (cleanGameTitle.includes('[PAY ON EXIT]') || cleanGameTitle === '[PAY ON EXIT]')) {
+        cleanGameTitle = cleanGameTitle.replace(/\[PAY ON EXIT\]/gi, '').trim();
+      }
+      const finalGameTitle = isSnooker ? null : (cleanGameTitle || null);
 
       const hasActiveFloorSession = Boolean(
         booking.session && ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'].includes(booking.session.status)
@@ -155,14 +173,17 @@ export async function GET(req: NextRequest) {
         paymentMethod: booking.payments[0]?.method || null,
         createdAt: booking.createdAt,
         updatedAt: booking.updatedAt,
-        gameTitle,
+        gameTitle: finalGameTitle,
         notes: booking.notes,
-        stationSpecs:
-          (booking.station?.metadata as any)?.specs || 'Ultra-low latency 4K 120Hz display',
+        stationSpecs: isSnooker
+          ? ''
+          : ((booking.station?.metadata as any)?.specs || (booking.station?.stationType === 'PS5' ? '4K 120Hz OLED Display' : '')),
         stationCapacity:
-          (booking.station?.metadata as any)?.capacity || (booking.station?.stationType === 'PS5' ? 2 : 4),
-        stationType: booking.station?.stationType || 'PS5',
-        pricePerHourPaise: booking.station?.pricePerHourPaise || 15000,
+          (booking.station?.metadata as any)?.capacity || (isSnooker ? 4 : 2),
+        stationType: booking.station?.stationType || (isSnooker ? 'POOL_TABLE' : 'PS5'),
+        isSnooker,
+        playerCount,
+        pricePerHourPaise: booking.station?.pricePerHourPaise || (isSnooker ? 25000 : 15000),
         session: booking.session
           ? {
               id: booking.session.id,
@@ -171,7 +192,8 @@ export async function GET(req: NextRequest) {
               scheduledEndAt: booking.session.scheduledEndAt,
               endedAt: booking.session.endedAt || null,
               extensionMinutes: booking.session.extensionMinutes,
-              gameTitle,
+              gameTitle: finalGameTitle,
+              playerCount,
               staff: booking.session.staff || null,
             }
           : effectiveStatus === 'IN_PROGRESS' || effectiveStatus === 'CHECKED_IN'
@@ -182,7 +204,8 @@ export async function GET(req: NextRequest) {
               scheduledEndAt: booking.endTime,
               endedAt: null,
               extensionMinutes: 0,
-              gameTitle,
+              gameTitle: finalGameTitle,
+              playerCount,
               staff: null,
             }
           : null,

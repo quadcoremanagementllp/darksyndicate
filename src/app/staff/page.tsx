@@ -75,6 +75,8 @@ interface Station {
     unpaidPaise?: number;
     paidPaise?: number;
     isPayOnExit?: boolean;
+    playerCount?: number;
+    isPool?: boolean;
   } | null;
   upcomingBookings?: Array<{
     id: string;
@@ -157,6 +159,33 @@ export default function StaffStationGridPage() {
     const tick = setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => clearInterval(tick);
   }, []);
+
+  const handleAddExtraPlayer = async (station: Station) => {
+    if (!station.activeSession) return;
+    try {
+      const res = await fetch('/api/staff/sessions/extra-player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: station.activeSession.bookingId,
+          sessionId: station.activeSession.id,
+          action: 'ADD',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || 'Extra person added (+₹50)');
+        loadData();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
+      } else {
+        toast.error(json.error?.message || 'Failed to add extra person');
+      }
+    } catch {
+      toast.error('Network error adding extra person');
+    }
+  };
 
   const handleEndSession = (station: Station) => {
     if (!station.activeSession) return;
@@ -746,9 +775,37 @@ export default function StaffStationGridPage() {
                             {station.name}
                           </h3>
                         </div>
-                        <p className="text-xs text-ds-text-dim truncate mt-0.5">
-                          {station.specs || (station.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
-                        </p>
+                        {station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL') ? (
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            <span className="px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                              <span>🎱</span>
+                              <span>{station.activeSession?.playerCount || 4} Players</span>
+                              {(station.activeSession?.playerCount || 4) > 4 && (
+                                <span className="text-[10px] text-amber-300 font-mono">
+                                  (+{(station.activeSession?.playerCount || 4) - 4} Extra • ₹{((station.activeSession?.playerCount || 4) - 4) * 50})
+                                </span>
+                              )}
+                            </span>
+                            {isOccupied && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddExtraPlayer(station);
+                                }}
+                                className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                                title="Add extra person (+₹50)"
+                              >
+                                <UserPlus className="w-3 h-3 text-emerald-400" />
+                                <span>+ Person (+₹50)</span>
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-ds-text-dim truncate mt-0.5">
+                            {station.specs || '4K 120Hz OLED Display'}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -785,7 +842,7 @@ export default function StaffStationGridPage() {
                         : countdown?.isEndingSoon
                         ? '⏳ SOON'
                         : isOccupied
-                        ? '🎮 PLAYING'
+                        ? (station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL') ? '🎱 PLAYING' : '🎮 PLAYING')
                         : isMaintenance
                         ? '🔧 SERVICE'
                         : '🟢 READY'}
@@ -804,7 +861,7 @@ export default function StaffStationGridPage() {
                               <span className="text-sm font-heading font-bold text-ds-text">
                                 {station.activeSession.customerName}
                               </span>
-                              {station.activeSession.gameTitle && (
+                              {!(station.stationType === 'POOL_TABLE' || station.name.toUpperCase().includes('SNOOKER') || station.name.toUpperCase().includes('POOL')) && station.activeSession.gameTitle && !station.activeSession.gameTitle.includes('[PAY ON EXIT]') && (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
                                   <Gamepad2 className="w-3 h-3 text-ds-accent" />
                                   <span>Playing: {station.activeSession.gameTitle}</span>

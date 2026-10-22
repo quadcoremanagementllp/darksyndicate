@@ -172,6 +172,15 @@ export async function GET(req: NextRequest) {
             if (match?.[1]?.trim()) currentGameTitle = match[1].trim();
           }
 
+          const isPool =
+            st.stationType === 'POOL_TABLE' ||
+            st.name.toUpperCase().includes('SNOOKER') ||
+            st.name.toUpperCase().includes('POOL');
+
+          const rawNotes = activeSession?.booking?.notes || activeSession?.notes || currentBooking?.notes || '';
+          const playerMatch = rawNotes.match(/\[Players:\s*(\d+)\]/i);
+          const currentPlayers = playerMatch ? parseInt(playerMatch[1], 10) : (isPool ? 4 : 1);
+
           const resolvedSession = activeSession
             ? {
                 id: activeSession.id,
@@ -193,7 +202,9 @@ export async function GET(req: NextRequest) {
                 totalPricePaise: activeTotalPaise,
                 paidPaise: activePaidPaise,
                 unpaidPaise: activeUnpaidPaise,
-                gameTitle: activeGameTitle,
+                gameTitle: isPool ? null : activeGameTitle,
+                playerCount: currentPlayers,
+                isPool,
               }
             : currentBooking
             ? {
@@ -216,7 +227,9 @@ export async function GET(req: NextRequest) {
                 totalPricePaise: currentTotalPaise,
                 paidPaise: currentPaidPaise,
                 unpaidPaise: currentUnpaidPaise,
-                gameTitle: currentGameTitle,
+                gameTitle: isPool ? null : currentGameTitle,
+                playerCount: currentPlayers,
+                isPool,
               }
             : null;
 
@@ -227,7 +240,7 @@ export async function GET(req: NextRequest) {
             facilityName: st.facility?.name || 'General Arena',
             imageUrl: st.stationType === 'PS5' ? '/ps5-station.jpg' : '/snooker-table.jpg',
             pricePerHourPaise: st.pricePerHourPaise,
-            specs: (st.metadata as any)?.specs || 'Ultra-low latency 4K 120Hz display',
+            specs: isPool ? '' : ((st.metadata as any)?.specs || (st.stationType === 'PS5' ? '4K 120Hz OLED Display' : '')),
             capacity: (st.metadata as any)?.capacity || (st.stationType === 'PS5' ? 2 : 4),
             status: computedStatus,
             games: stationGames,
