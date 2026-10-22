@@ -245,7 +245,7 @@ export default function StaffStationGridPage() {
   const poolMaint = poolList.filter((s) => s.status === 'MAINTENANCE').length;
   const poolTotal = poolList.length || 3;
 
-  const isZoneView = filterType === 'ALL' && !searchQuery && statusFilter === 'ALL';
+  const isZoneView = filterType === 'ALL' && !searchQuery;
 
   return (
     <div className="space-y-8">
@@ -478,12 +478,26 @@ export default function StaffStationGridPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className="text-ds-ice font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
                     From ₹150/hr
                   </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const firstAvail = ps5List.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
+                      setSelectedWalkInStationId(firstAvail?.id || ps5List[0]?.id);
+                      setWalkInOpen(true);
+                    }}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <Play className="w-3 h-3 text-ds-accent" />
+                    <span>Walk-in Here</span>
+                  </Button>
                   <Button variant="accent" size="sm" className="text-xs">
-                    <span>Manage PS5 Consoles →</span>
+                    <span>Manage 3 Consoles →</span>
                   </Button>
                 </div>
               </div>
@@ -550,12 +564,26 @@ export default function StaffStationGridPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <span className="text-emerald-400 font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
                     ₹250/hr
                   </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const firstAvail = poolList.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
+                      setSelectedWalkInStationId(firstAvail?.id || poolList[0]?.id);
+                      setWalkInOpen(true);
+                    }}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <Play className="w-3 h-3 text-emerald-400" />
+                    <span>Walk-in Here</span>
+                  </Button>
                   <Button variant="accent" size="sm" className="text-xs">
-                    <span>Manage Snooker Tables →</span>
+                    <span>Manage 3 Tables →</span>
                   </Button>
                 </div>
               </div>
