@@ -29,19 +29,23 @@ export async function POST(req: NextRequest) {
         throw new NotFoundError('Gaming station not found');
       }
 
-      // Check if already active session
-      const existingSession = await prisma.gamingSession.findFirst({
-        where: { stationId: data.stationId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
-      });
-
-      if (existingSession) {
-        throw new ValidationError('Station is already running an active session');
+      if (station.status === 'MAINTENANCE' || station.status === 'DEACTIVATED') {
+        throw new ValidationError(`Station is currently ${station.status.toLowerCase()} and cannot start sessions`);
       }
 
       const now = new Date();
       const scheduledEndAt = new Date(now.getTime() + data.durationMinutes * 60 * 1000);
 
       const result = await prisma.$transaction(async (tx) => {
+        // Concurrency: Check if already active session inside transaction
+        const existingSession = await tx.gamingSession.findFirst({
+          where: { stationId: data.stationId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
+        });
+
+        if (existingSession) {
+          throw new ValidationError('Station is already running an active session');
+        }
+
         let bookingId = data.bookingId;
 
         if (!bookingId) {
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest) {
           }
 
           const basePricePaise = station.pricePerHourPaise * (data.durationMinutes / 60);
-          const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+          const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
           const booking = await tx.booking.create({
             data: {
               bookingRef: `DS-WALK-${new Date().getFullYear()}-${randomHex}`,
@@ -119,6 +123,22 @@ export async function POST(req: NextRequest) {
           where: { id: station.id },
           data: { status: 'OCCUPIED' },
         });
+
+        // Log staff activity
+        await tx.staffActivityLog.create({
+          data: {
+            userId: staffSession.userId,
+            action: 'START_SESSION',
+            entityType: 'session',
+            entityId: session.id,
+            details: {
+              stationName: station.name,
+              customerName: data.customerName || 'Walk-in Gamer',
+              durationMinutes: data.durationMinutes,
+              staffName,
+            },
+          },
+        }).catch(() => {});
 
         return session;
       });

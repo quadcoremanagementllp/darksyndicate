@@ -112,6 +112,9 @@ export function ExtendSessionModal({
       const json = await res.json();
       if (json.success) {
         toast.success(`Session extended by +${additionalMinutes}m successfully!`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
         onSuccess();
         onClose();
       } else {

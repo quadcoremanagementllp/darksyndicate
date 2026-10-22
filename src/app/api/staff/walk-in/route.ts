@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
       }
       const totalPricePaise = Math.max(0, subtotalPaise - membershipDiscountPaise);
 
-      const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
+      const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
       const bookingRef = `DS-WALK-${new Date().getFullYear()}-${randomHex}`;
       const qrToken = `ds-walk-${crypto.randomUUID()}`;
 

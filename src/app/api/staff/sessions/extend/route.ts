@@ -55,43 +55,46 @@ export async function POST(req: NextRequest) {
       }
 
       if (session) {
+        if (session.status === 'COMPLETED') {
+          throw new ValidationError('This session has already ended. Please allocate a new walk-in session.');
+        }
+
         const currentEnd = new Date(session.scheduledEndAt);
         const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-
-        // Check collision with upcoming bookings (excluding stale pending checkouts)
-        const conflict = await prisma.booking.findFirst({
-          where: {
-            stationId: session.stationId,
-            id: { not: session.bookingId },
-            AND: [
-              {
-                OR: [
-                  { status: { in: ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] } },
-                  { status: 'PENDING', createdAt: { gte: fifteenMinutesAgo } },
-                ],
-              },
-              {
-                startTime: { lt: newEnd },
-                endTime: { gt: currentEnd },
-              },
-            ],
-          },
-        });
-
-        if (conflict) {
-          throw new ValidationError(
-            `Cannot extend session: Another reservation is scheduled at ${new Date(
-              conflict.startTime
-            ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-          );
-        }
-
         const hourlyRate = session.station?.pricePerHourPaise || 15000;
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
         const updated = await prisma.$transaction(async (tx) => {
+          // Check collision with upcoming bookings (excluding stale pending checkouts)
+          const conflict = await tx.booking.findFirst({
+            where: {
+              stationId: session.stationId,
+              id: { not: session.bookingId },
+              AND: [
+                {
+                  OR: [
+                    { status: { in: ['CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] } },
+                    { status: 'PENDING', createdAt: { gte: fifteenMinutesAgo } },
+                  ],
+                },
+                {
+                  startTime: { lt: newEnd },
+                  endTime: { gt: currentEnd },
+                },
+              ],
+            },
+          });
+
+          if (conflict) {
+            throw new ValidationError(
+              `Cannot extend session: Another reservation is scheduled at ${new Date(
+                conflict.startTime
+              ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            );
+          }
+
           const sess = await tx.gamingSession.update({
             where: { id: session.id },
             data: {
@@ -132,6 +135,22 @@ export async function POST(req: NextRequest) {
                 data: { totalSpent: { increment: extensionFeePaise } },
               });
             }
+
+            // Log staff activity
+            await tx.staffActivityLog.create({
+              data: {
+                userId: staffSession.userId,
+                action: 'EXTEND_SESSION',
+                entityType: 'session',
+                entityId: session.id,
+                details: {
+                  stationName: session.station?.name,
+                  additionalMinutes: data.additionalMinutes,
+                  extensionFeePaise,
+                  staffName,
+                },
+              },
+            }).catch(() => {});
           }
 
           return sess;

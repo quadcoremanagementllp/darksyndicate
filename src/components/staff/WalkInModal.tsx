@@ -438,6 +438,9 @@ export function WalkInModal({
       const json = await res.json();
       if (json.success) {
         toast.success(`Walk-in session started for ${customerName}!`);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
         onSuccess();
         onClose();
       } else {

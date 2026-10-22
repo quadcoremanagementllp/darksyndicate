@@ -44,26 +44,30 @@ export async function POST(req: NextRequest) {
         throw new ValidationError('This session has already been completed');
       }
 
-      // Check if another active gaming session is currently occupying this station
-      if (autoStartSession) {
-        const conflictingSession = await prisma.gamingSession.findFirst({
-          where: {
-            stationId: booking.stationId,
-            ...(booking.session?.id ? { id: { not: booking.session.id } } : {}),
-            status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] },
-          },
-          include: { booking: true },
-        });
-
-        if (conflictingSession) {
-          const conflictingName = conflictingSession.booking?.customerName || 'Another player';
-          throw new ValidationError(
-            `Station "${booking.station?.name || 'Console'}" currently has an active gaming session in progress (${conflictingName} - ${conflictingSession.status}). Please conclude the ongoing session before checking in.`
-          );
-        }
+      if (booking.status === 'IN_PROGRESS') {
+        throw new ValidationError('This reservation is already checked in and active on the floor');
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        // Concurrency: Check if another active gaming session is currently occupying this station
+        if (autoStartSession) {
+          const conflictingSession = await tx.gamingSession.findFirst({
+            where: {
+              stationId: booking.stationId,
+              ...(booking.session?.id ? { id: { not: booking.session.id } } : {}),
+              status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] },
+            },
+            include: { booking: true },
+          });
+
+          if (conflictingSession) {
+            const conflictingName = conflictingSession.booking?.customerName || 'Another player';
+            throw new ValidationError(
+              `Station "${booking.station?.name || 'Console'}" currently has an active gaming session in progress (${conflictingName} - ${conflictingSession.status}). Please conclude the ongoing session before checking in.`
+            );
+          }
+        }
+
         // Update booking status
         const updatedBooking = await tx.booking.update({
           where: { id: booking.id },
