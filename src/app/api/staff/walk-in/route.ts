@@ -14,7 +14,7 @@ const walkInSchema = z.object({
   customerName: z.string().min(2, 'Customer name is required'),
   customerPhone: z.string().optional().or(z.literal('')),
   customerEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER']).default('CASH'),
+  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'PAY_ON_EXIT', 'OTHER']).default('CASH'),
   gameTitle: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -244,6 +244,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 8. Record Desk Payment with accurate payment method
+      const isPayOnExit = data.paymentMethod === 'PAY_ON_EXIT';
       const recordedPaymentMethod =
         data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
@@ -252,11 +253,13 @@ export async function POST(req: NextRequest) {
           bookingId: booking.id,
           userId: user.id,
           amountPaise: totalPricePaise,
-          method: recordedPaymentMethod,
-          status: 'COMPLETED',
-          paidAt: now,
+          method: isPayOnExit ? 'OTHER' : recordedPaymentMethod,
+          status: isPayOnExit ? 'PENDING' : 'COMPLETED',
+          paidAt: isPayOnExit ? null : now,
           recordedByStaffId: staffSession?.userId || null,
-          notes: `Walk-in desk payment (${data.paymentMethod})${staffName ? ` processed by ${staffName}` : ''}${membershipPlanName ? ` [${membershipPlanName} Discount: ₹${(membershipDiscountPaise / 100).toFixed(0)}]` : ''}`,
+          notes: isPayOnExit
+            ? `Pay-on-Exit desk walk-in - balance to be collected on checkout${staffName ? ` [Registered by ${staffName}]` : ''}`
+            : `Walk-in desk payment (${data.paymentMethod})${staffName ? ` processed by ${staffName}` : ''}${membershipPlanName ? ` [${membershipPlanName} Discount: ₹${(membershipDiscountPaise / 100).toFixed(0)}]` : ''}`,
         },
       });
 
@@ -269,22 +272,22 @@ export async function POST(req: NextRequest) {
           status: 'ACTIVE',
           startedAt: now,
           scheduledEndAt,
-          notes: data.gameTitle || data.notes || null,
+          notes: (isPayOnExit ? '[PAY ON EXIT] ' : '') + (data.gameTitle || data.notes || ''),
         },
       });
 
-      // 10. Update Customer Profile if registered member
+      // 10. Update Customer Profile if registered member (defer spend increment if Pay on Exit)
       if (registeredUser) {
         await tx.customerProfile.upsert({
           where: { userId: registeredUser.id },
           create: {
             userId: registeredUser.id,
             totalBookings: 1,
-            totalSpent: totalPricePaise,
+            totalSpent: isPayOnExit ? 0 : totalPricePaise,
           },
           update: {
             totalBookings: { increment: 1 },
-            totalSpent: { increment: totalPricePaise },
+            ...(isPayOnExit ? {} : { totalSpent: { increment: totalPricePaise } }),
           },
         });
       }

@@ -77,6 +77,39 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          // Settle any pending payments for this booking (e.g. Pay-on-Exit walk-ins)
+          const pendingPayments = await tx.payment.findMany({
+            where: {
+              bookingId: session.bookingId,
+              status: 'PENDING',
+            },
+            select: { id: true, amountPaise: true, userId: true },
+          });
+
+          if (pendingPayments.length > 0) {
+            await tx.payment.updateMany({
+              where: {
+                bookingId: session.bookingId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'COMPLETED',
+                paidAt: new Date(),
+                recordedByStaffId: staffSession.userId,
+                notes: `Desk balance settled upon session conclusion by ${staffName}`,
+              },
+            });
+
+            for (const pp of pendingPayments) {
+              if (pp.amountPaise > 0) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: pp.userId },
+                  data: { totalSpent: { increment: pp.amountPaise } },
+                });
+              }
+            }
+          }
+
           // Create overtime desk payment record
           if (overtimePaise > 0 && session.booking) {
             await tx.payment.create({

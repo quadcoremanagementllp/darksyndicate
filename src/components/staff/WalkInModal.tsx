@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Gamepad2, Banknote, CreditCard, Sparkles, QrCode, Copy, Check, Search, Monitor, AlertCircle } from 'lucide-react';
+import { Gamepad2, Banknote, CreditCard, Sparkles, QrCode, Copy, Check, Search, Monitor, AlertCircle, Crown, Clock } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useToast } from '@/components/ui/Toast';
 import { ARENA_GAMES, lookupGame, type GameCatalogItem } from '@/lib/gameCatalog';
@@ -168,9 +168,39 @@ export function WalkInModal({
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'PAY_ON_EXIT'>('CASH');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
+
+  // Customer Autocomplete & Active Membership State
+  const [searchResults, setSearchResults] = useState<Array<{
+    id: string;
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    membership: {
+      id: string;
+      tier: string;
+      planName: string;
+      discountPercent: number;
+      badgeColor: string;
+      expiresAt: string;
+    } | null;
+  }>>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [activeMembership, setActiveMembership] = useState<{
+    id: string;
+    tier: string;
+    planName: string;
+    discountPercent: number;
+    badgeColor: string;
+    expiresAt: string;
+  } | null>(null);
+  const [cashTendered, setCashTendered] = useState<string>('');
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Form Validation State & Helpers
   const [formErrors, setFormErrors] = useState<{
@@ -212,6 +242,74 @@ export function WalkInModal({
     return undefined;
   };
 
+  // Debounced search customer directory
+  const searchCustomers = (query: string) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    const cleanQuery = query.trim();
+    if (cleanQuery.length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/staff/customers/search?q=${encodeURIComponent(cleanQuery)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setSearchResults(json.data);
+          setShowSearchDropdown(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchDropdown(false);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+  };
+
+  const handleSelectCustomer = (cust: typeof searchResults[0]) => {
+    setCustomerName(cust.name);
+    setCustomerPhone(cust.phone || '');
+    setCustomerEmail(cust.email && !cust.email.includes('@darksyndicate.in') ? cust.email : '');
+    setActiveMembership(cust.membership);
+    setShowSearchDropdown(false);
+    setSearchResults([]);
+    setFormErrors((prev) => ({ ...prev, customerName: undefined, customerPhone: undefined, customerEmail: undefined }));
+    if (cust.membership) {
+      toast.success(`${cust.membership.planName} applied (${cust.membership.discountPercent}% discount)`);
+    } else {
+      toast.info(`Selected gamer: ${cust.name}`);
+    }
+  };
+
+  // Direct check when 10 digits are typed in phone input
+  const checkPhoneMembership = async (rawPhone: string) => {
+    const digits = rawPhone.replace(/\D/g, '').slice(-10);
+    if (digits.length === 10 && !activeMembership) {
+      try {
+        const res = await fetch(`/api/staff/customers/search?phone=${digits}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const matched = json.data[0];
+          if (matched.membership) {
+            setActiveMembership(matched.membership);
+            toast.success(`${matched.membership.planName} applied for ${matched.name} (${matched.membership.discountPercent}% OFF)`);
+          }
+          if (!customerName || customerName === 'Walk-in Guest') {
+            setCustomerName(matched.name);
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  };
+
   // Admin QR & UPI Details
   const [adminQrUrl, setAdminQrUrl] = useState<string>('');
   const [upiId, setUpiId] = useState<string>('darksyndicate@icici');
@@ -247,6 +345,10 @@ export function WalkInModal({
       setPlayerCount(1);
       setFormErrors({});
       setTouched({});
+      setActiveMembership(null);
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      setCashTendered('');
     }
   }, [isOpen, preselectedStationId, stations, durationMinutes, activeCategory]);
 
@@ -286,7 +388,13 @@ export function WalkInModal({
   } else if (isPool) {
     dynamicHourlyRate = 25000 + Math.max(0, playerCount - 4) * 5000;
   }
-  const totalFeePaise = Math.round(dynamicHourlyRate * (durationMinutes / 60));
+  const subtotalPaise = Math.round(dynamicHourlyRate * (durationMinutes / 60));
+  const discountPercent = activeMembership?.discountPercent || 0;
+  const discountPaise = discountPercent > 0 ? Math.round((subtotalPaise * discountPercent) / 100) : 0;
+  const totalFeePaise = Math.max(0, subtotalPaise - discountPaise);
+
+  const cashTenderedNum = parseFloat(cashTendered) || 0;
+  const changeDue = Math.max(0, cashTenderedNum - (totalFeePaise / 100));
 
   // Switch category and auto-select first available station
   const handleCategoryChange = (catKey: string) => {
@@ -478,10 +586,23 @@ export function WalkInModal({
             </div>
 
             <div className="pl-2.5 sm:pl-3 border-l border-ds-border shrink-0 text-right sm:text-left">
-              <span className="text-[9px] uppercase font-mono text-ds-text-dim block leading-tight">Total Collection</span>
-              <span className="text-base sm:text-xl font-heading font-black text-ds-ice leading-tight">
-                ₹{(totalFeePaise / 100).toFixed(0)}
+              <span className="text-[9px] uppercase font-mono text-ds-text-dim block leading-tight">
+                {activeMembership && discountPaise > 0 ? (
+                  <span className="text-amber-400 font-bold">{activeMembership.planName} (Save ₹{(discountPaise / 100).toFixed(0)})</span>
+                ) : (
+                  'Total Collection'
+                )}
               </span>
+              <div className="flex items-baseline gap-1.5 justify-end sm:justify-start">
+                {activeMembership && discountPaise > 0 && (
+                  <span className="text-xs line-through text-ds-text-dim font-mono">
+                    ₹{(subtotalPaise / 100).toFixed(0)}
+                  </span>
+                )}
+                <span className="text-base sm:text-xl font-heading font-black text-ds-ice leading-tight">
+                  ₹{(totalFeePaise / 100).toFixed(0)}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -835,7 +956,7 @@ export function WalkInModal({
             </div>
 
             {/* Gamer Information (Name, Phone, optional Email) */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 relative">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
@@ -843,23 +964,63 @@ export function WalkInModal({
                   </span>
                   <span>Gamer Information</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomerName('Walk-in Guest');
-                    setCustomerPhone('');
-                    setFormErrors((prev) => ({ ...prev, customerName: undefined, customerPhone: undefined }));
-                    setTouched((prev) => ({ ...prev, customerName: true, customerPhone: false }));
-                    toast.info('Quick Walk-in Guest details filled');
-                  }}
-                  className="text-[10px] font-mono font-bold text-ds-cyan hover:underline hover:text-white px-2 py-0.5 rounded bg-ds-cyan/10 border border-ds-cyan/30 flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  <span>⚡ Quick Walk-in Guest</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerName('Walk-in Guest');
+                      setCustomerPhone('');
+                      setCustomerEmail('');
+                      setActiveMembership(null);
+                      setShowSearchDropdown(false);
+                      setFormErrors((prev) => ({ ...prev, customerName: undefined, customerPhone: undefined, customerEmail: undefined }));
+                      setTouched((prev) => ({ ...prev, customerName: true, customerPhone: false }));
+                      toast.info('Quick Walk-in Guest details filled');
+                    }}
+                    className="text-[10px] font-mono font-bold text-ds-cyan hover:underline hover:text-white px-2 py-0.5 rounded bg-ds-cyan/10 border border-ds-cyan/30 flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <span>⚡ Quick Walk-in Guest</span>
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2.5">
+
+              {/* Active Membership Banner if matched */}
+              {activeMembership && (
+                <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border border-amber-500/40 flex items-center justify-between gap-2 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                      <Crown className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-heading font-black text-amber-300 uppercase tracking-wide truncate">
+                          {activeMembership.planName}
+                        </span>
+                        <Badge variant="warning" size="sm" className="text-[10px] py-0 px-1.5 font-bold font-mono">
+                          {activeMembership.discountPercent}% OFF
+                        </Badge>
+                      </div>
+                      <span className="text-[10px] text-ds-text-dim block">
+                        Member discount applied automatically to total bill
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMembership(null);
+                      toast.info('Membership discount removed');
+                    }}
+                    className="text-[10px] text-zinc-400 hover:text-rose-400 underline font-mono shrink-0 ml-1"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2.5 relative">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
+                  <div className="space-y-1 relative">
                     <span className="text-[10px] uppercase font-mono text-ds-text-muted block">
                       Gamer Name <span className="text-rose-400">*</span>
                     </span>
@@ -867,14 +1028,20 @@ export function WalkInModal({
                       placeholder="e.g. Rahul Verma"
                       value={customerName}
                       onChange={(e) => {
-                        setCustomerName(e.target.value);
+                        const val = e.target.value;
+                        setCustomerName(val);
+                        searchCustomers(val);
                         if (touched.customerName) {
-                          setFormErrors((prev) => ({ ...prev, customerName: validateName(e.target.value) }));
+                          setFormErrors((prev) => ({ ...prev, customerName: validateName(val) }));
                         }
+                      }}
+                      onFocus={() => {
+                        if (searchResults.length > 0) setShowSearchDropdown(true);
                       }}
                       onBlur={() => {
                         setTouched((prev) => ({ ...prev, customerName: true }));
                         setFormErrors((prev) => ({ ...prev, customerName: validateName(customerName) }));
+                        setTimeout(() => setShowSearchDropdown(false), 250);
                       }}
                       error={touched.customerName ? formErrors.customerName : undefined}
                       required
@@ -887,24 +1054,75 @@ export function WalkInModal({
                       WhatsApp Phone <span className="text-ds-text-dim lowercase">(optional)</span>
                     </span>
                     <Input
-                      placeholder="10-digit mobile number (optional)"
+                      placeholder="10-digit mobile number"
                       type="tel"
                       value={customerPhone}
                       onChange={(e) => {
-                        setCustomerPhone(e.target.value);
-                        if (touched.customerPhone) {
-                          setFormErrors((prev) => ({ ...prev, customerPhone: validatePhone(e.target.value) }));
+                        const val = e.target.value;
+                        setCustomerPhone(val);
+                        searchCustomers(val);
+                        const digits = val.replace(/\D/g, '');
+                        if (digits.length === 10) {
+                          checkPhoneMembership(digits);
                         }
+                        if (touched.customerPhone) {
+                          setFormErrors((prev) => ({ ...prev, customerPhone: validatePhone(val) }));
+                        }
+                      }}
+                      onFocus={() => {
+                        if (searchResults.length > 0) setShowSearchDropdown(true);
                       }}
                       onBlur={() => {
                         setTouched((prev) => ({ ...prev, customerPhone: true }));
                         setFormErrors((prev) => ({ ...prev, customerPhone: validatePhone(customerPhone) }));
+                        checkPhoneMembership(customerPhone);
+                        setTimeout(() => setShowSearchDropdown(false), 250);
                       }}
                       error={touched.customerPhone ? formErrors.customerPhone : undefined}
                       className="text-xs"
                     />
                   </div>
                 </div>
+
+                {/* Autocomplete Search Dropdown */}
+                {showSearchDropdown && searchResults.length > 0 && (
+                  <div className="absolute left-0 right-0 top-14 z-50 bg-[#08121e] border border-cyan-500/40 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.85)] p-1.5 space-y-1 backdrop-blur-md max-h-48 overflow-y-auto">
+                    <div className="text-[10px] font-mono text-cyan-400 font-bold px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-cyan-900/40">
+                      <span>Existing Customer Directory</span>
+                      <span>{searchResults.length} found</span>
+                    </div>
+                    {searchResults.map((cust) => (
+                      <button
+                        type="button"
+                        key={cust.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectCustomer(cust);
+                        }}
+                        className="w-full text-left p-2 rounded-lg hover:bg-cyan-950/60 transition-all flex items-center justify-between gap-2 group border border-transparent hover:border-cyan-500/30 cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-heading font-bold text-xs text-ds-ice group-hover:text-white truncate">
+                              {cust.name}
+                            </span>
+                            {cust.membership && (
+                              <Badge variant="warning" size="sm" className="text-[9px] py-0 px-1 font-mono font-bold">
+                                👑 {cust.membership.tier} ({cust.membership.discountPercent}%)
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-ds-text-dim font-mono truncate">
+                            {cust.phone ? `📱 ${cust.phone}` : ''} {cust.email && !cust.email.includes('@darksyndicate.in') ? `• ${cust.email}` : ''}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-cyan-400 group-hover:underline shrink-0">
+                          Select ↵
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-mono text-ds-text-muted block">
@@ -937,13 +1155,14 @@ export function WalkInModal({
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
                   {isConsoleStation ? '6' : '5'}
                 </span>
-                <span>Desk Payment Received</span>
+                <span>Desk Payment Method</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { id: 'CASH', label: 'Cash Desk', icon: Banknote },
                   { id: 'UPI', label: 'UPI / QR', icon: Sparkles },
                   { id: 'CARD', label: 'POS Card', icon: CreditCard },
+                  { id: 'PAY_ON_EXIT', label: 'Pay on Exit', icon: Clock },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     type="button"
@@ -961,6 +1180,56 @@ export function WalkInModal({
                 ))}
               </div>
             </div>
+
+            {/* Pay on Exit Notice */}
+            {paymentMethod === 'PAY_ON_EXIT' && (
+              <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 flex items-start gap-2.5 animate-in fade-in">
+                <Clock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-ds-text-dim">
+                  <strong className="text-cyan-300 block font-heading font-bold">Post-Paid Session</strong>
+                  Session launches now. The bill of <strong className="text-white">₹{(totalFeePaise / 100).toFixed(0)}</strong> (plus any overtime) will be collected upon conclusion.
+                </div>
+              </div>
+            )}
+
+            {/* Cash Tendered & Change Helper */}
+            {paymentMethod === 'CASH' && (
+              <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] font-mono uppercase text-ds-text-dim">Cash Change Helper</span>
+                  {cashTenderedNum > 0 && cashTenderedNum >= totalFeePaise / 100 && (
+                    <Badge variant="success" size="sm" className="font-mono text-xs font-bold animate-in zoom-in-75">
+                      Change: ₹{(cashTenderedNum - totalFeePaise / 100).toFixed(0)}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="Cash Received (₹)"
+                    value={cashTendered}
+                    onChange={(e) => setCashTendered(e.target.value)}
+                    className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
+                  />
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[
+                      { val: (totalFeePaise / 100).toString(), label: 'Exact' },
+                      { val: '200', label: '₹200' },
+                      { val: '500', label: '₹500' },
+                    ].map((btn) => (
+                      <button
+                        type="button"
+                        key={btn.label}
+                        onClick={() => setCashTendered(btn.val)}
+                        className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500/50 hover:text-emerald-400 transition-all cursor-pointer"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* UPI QR Display if selected */}
             {paymentMethod === 'UPI' && (
