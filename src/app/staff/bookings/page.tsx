@@ -499,9 +499,9 @@ export default function StaffBookingsSchedulePage() {
       )}
 
       {/* Filter & View Switcher Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-ds-surface/50 p-4 rounded-2xl border border-ds-border">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 bg-ds-surface/50 p-3 sm:p-4 rounded-2xl border border-ds-border">
         {/* Left Side: Status Tabs + Date Scope + Staff Scope */}
-        <div className="flex flex-wrap items-center gap-2.5 max-w-full">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 max-w-full">
           {/* Status Tabs */}
           <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
             {[
@@ -561,7 +561,7 @@ export default function StaffBookingsSchedulePage() {
           </div>
 
           {/* Staff Scope Filter */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
             <button
               onClick={() => setStaffScope('ALL')}
               className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
@@ -589,190 +589,293 @@ export default function StaffBookingsSchedulePage() {
           </div>
         </div>
 
-        {/* Search & Grid/Table Toggle */}
-        <div className="flex items-center gap-3">
-          {/* Table vs Grid toggle when viewing Active sessions */}
-          {statusFilter === 'ACTIVE' && (
-            <div className="flex items-center bg-ds-dark p-1 rounded-xl border border-ds-border">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-lg text-xs transition-colors ${
-                  viewMode === 'table' ? 'bg-ds-surface text-ds-ice shadow-sm' : 'text-ds-text-dim hover:text-white'
-                }`}
-                title="Table View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg text-xs transition-colors ${
-                  viewMode === 'grid' ? 'bg-ds-surface text-ds-ice shadow-sm' : 'text-ds-text-dim hover:text-white'
-                }`}
-                title="Grid Cards View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+        {/* Right Side: View Mode Switcher + Search Bar */}
+        <div className="flex items-center gap-2.5 sm:gap-3 w-full xl:w-auto justify-between xl:justify-end">
+          {/* Table vs Grid toggle available for ALL tabs */}
+          <div className="flex items-center bg-ds-dark p-1 rounded-xl border border-ds-border shrink-0">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+                viewMode === 'table' ? 'bg-ds-surface text-ds-ice shadow-sm border border-ds-ice/30' : 'text-ds-text-dim hover:text-white'
+              }`}
+              title="Table View"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+                viewMode === 'grid' ? 'bg-ds-surface text-ds-ice shadow-sm border border-ds-ice/30' : 'text-ds-text-dim hover:text-white'
+              }`}
+              title="Grid Cards View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </button>
+          </div>
 
-          <div className="relative">
+          <div className="relative flex-1 xl:flex-none">
             <Input
               placeholder="Search ref, player, station..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs py-1.5 pl-8 w-56 sm:w-64"
+              className="text-xs py-1.5 pl-8 w-full xl:w-60"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
           </div>
         </div>
       </div>
 
-      {/* ─── GRID CARDS VIEW (When ACTIVE tab and Grid Mode selected) ─── */}
-      {statusFilter === 'ACTIVE' && viewMode === 'grid' ? (
+      {/* ─── GRID CARDS VIEW (Tablet-Optimized Touch Cards) ─── */}
+      {viewMode === 'grid' ? (
         loading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3">
             <div className="w-8 h-8 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-ds-text-muted">Loading live station matrix...</p>
+            <p className="text-xs text-ds-text-muted">Loading schedule cards...</p>
           </div>
         ) : filteredBookings.length === 0 ? (
           <div className="p-12 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-2">
-            <p className="text-sm font-heading font-bold text-ds-text">No active sessions at the moment</p>
+            <p className="text-sm font-heading font-bold text-ds-text">No matching reservations found</p>
             <p className="text-xs text-ds-text-muted">
-              Check upcoming bookings or allocate a station from the Desk Walk-in console.
+              Try adjusting your search query, status tabs, or switch to All History.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredBookings.map((b) => {
+              const isSessionActive = getIsSessionActive(b);
               const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
-              const countdown = getCountdown(scheduledEnd);
+              const countdown = isSessionActive ? getCountdown(scheduledEnd) : null;
+
+              const startDiffMs = b.startTime ? new Date(b.startTime).getTime() - currentTime : null;
+              const isSlotNear = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 15 * 60 * 1000 && startDiffMs >= -120 * 60 * 1000;
+              const isSlotDue = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 0 && startDiffMs >= -120 * 60 * 1000;
+              const diffSec = startDiffMs !== null ? Math.floor(Math.abs(startDiffMs) / 1000) : 0;
+              const startMins = Math.floor(diffSec / 60);
+              const startSecs = diffSec % 60;
 
               return (
                 <Card
                   key={b.id}
                   glass
-                  className={`p-6 border transition-all flex flex-col justify-between relative overflow-hidden ${
-                    countdown.isOverdue
+                  className={`p-5 sm:p-6 border transition-all flex flex-col justify-between relative overflow-hidden ${
+                    countdown?.isOverdue || isSlotDue
                       ? 'border-rose-500/80 bg-rose-500/5 shadow-lg shadow-rose-500/10 ring-1 ring-rose-500'
-                      : countdown.isEndingSoon
+                      : countdown?.isEndingSoon || isSlotNear
                       ? 'border-amber-400/80 bg-amber-400/5 shadow-lg shadow-amber-400/10'
-                      : 'border-ds-accent/60 bg-ds-surface/80 shadow-md shadow-ds-accent/5'
+                      : isSessionActive
+                      ? 'border-ds-accent/60 bg-ds-surface/80 shadow-md shadow-ds-accent/5'
+                      : b.status === 'COMPLETED'
+                      ? 'border-ds-border bg-ds-surface/40'
+                      : 'border-ds-border hover:border-ds-accent/40 bg-ds-surface/60'
                   }`}
                 >
                   <div className="space-y-4">
-                    {/* Header Facility & Badge */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-ds-accent">
+                    {/* Header: Facility + Status Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-ds-accent truncate">
                         {b.facilityName || 'PLAYSTATION 5 ARENA'}
                       </span>
                       <Badge
                         variant={
-                          countdown.isOverdue
+                          countdown?.isOverdue || isSlotDue
                             ? 'default'
-                            : countdown.isEndingSoon
+                            : countdown?.isCriticalEnding || isSlotNear
                             ? 'warning'
-                            : 'accent'
+                            : countdown?.isEndingSoon
+                            ? 'warning'
+                            : isSessionActive
+                            ? 'accent'
+                            : b.status === 'CONFIRMED'
+                            ? 'success'
+                            : b.status === 'COMPLETED'
+                            ? 'default'
+                            : 'warning'
                         }
                         size="sm"
-                        className="font-mono text-[11px] uppercase tracking-wider"
+                        className={`font-mono text-[10px] uppercase tracking-wider shrink-0 ${
+                          countdown?.isOverdue || isSlotDue
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 animate-pulse font-bold'
+                            : isSlotNear
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
+                            : ''
+                        }`}
                       >
-                        {countdown.isOverdue
+                        {countdown?.isOverdue
                           ? '🚨 OVERDUE'
-                          : countdown.isEndingSoon
+                          : isSlotDue
+                          ? '🚨 DUE NOW'
+                          : isSlotNear
+                          ? '⏳ STARTS SOON'
+                          : countdown?.isEndingSoon
                           ? '⏳ ENDING SOON'
-                          : '🎮 IN SESSION'}
+                          : isSessionActive
+                          ? '🎮 IN SESSION'
+                          : b.status}
                       </Badge>
                     </div>
 
-                    {/* Title & Specs */}
+                    {/* Station Name & Ref */}
                     <div>
-                      <h3 className="text-xl font-heading font-bold text-ds-text">{b.stationName}</h3>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="text-lg sm:text-xl font-heading font-bold text-ds-text truncate">
+                          {b.stationName}
+                        </h3>
+                        <span className="font-mono text-xs font-bold text-ds-ice bg-ds-dark/90 px-2 py-0.5 rounded border border-ds-border/80 shrink-0 select-all">
+                          {b.bookingRef}
+                        </span>
+                      </div>
                       <p className="text-xs text-ds-text-muted line-clamp-1 mt-0.5">
                         {b.stationSpecs || 'Ultra-low latency 4K 120Hz display'}
                       </p>
                     </div>
 
-                    {/* ACTIVE SESSION DETAILS (Matching Image 1) */}
-                    <div className="p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Active Player</span>
-                          <span className="text-sm font-heading font-bold text-ds-text">
+                    {/* Player & Session Details Box */}
+                    <div className="p-3.5 sm:p-4 rounded-xl bg-ds-dark/90 border border-ds-border space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Player</span>
+                          <span className="text-sm font-heading font-bold text-ds-text truncate block">
                             {b.customerName}
                           </span>
-                          {(b.gameTitle || b.session?.gameTitle) && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2 py-0.5 rounded mt-1">
-                              <Gamepad2 className="w-3 h-3 text-ds-accent" />
-                              <span>Playing: {b.gameTitle || b.session?.gameTitle}</span>
+                          <span className="text-[11px] font-mono text-ds-text-dim block truncate">
+                            {b.customerPhone || b.customerEmail || 'Walk-in Guest'}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
+                            {isSessionActive
+                              ? countdown?.isOverdue
+                                ? 'Extra Time'
+                                : 'Time Left'
+                              : isSlotDue
+                              ? 'Slot Due'
+                              : isSlotNear
+                              ? 'Slot Starts In'
+                              : 'Window'}
+                          </span>
+                          {isSessionActive && countdown ? (
+                            <span
+                              className={`text-base sm:text-lg font-mono font-black tracking-tight ${
+                                countdown.isOverdue
+                                  ? 'text-rose-400'
+                                  : countdown.isEndingSoon
+                                  ? 'text-amber-400'
+                                  : 'text-ds-ice'
+                              }`}
+                            >
+                              {countdown.formatted}
+                            </span>
+                          ) : isSlotNear ? (
+                            <span className="text-xs font-mono font-bold text-amber-300">
+                              {startMins}m {startSecs}s
+                            </span>
+                          ) : (
+                            <span className="text-xs font-mono font-semibold text-ds-text-muted">
+                              {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
                         </div>
-                        <div className="text-right">
-                          <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Time Remaining</span>
-                          <span
-                            className={`text-lg font-mono font-black tracking-tight ${
+                      </div>
+
+                      {/* Mini progress bar if active session */}
+                      {isSessionActive && countdown && (
+                        <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ${
                               countdown.isOverdue
-                                ? 'text-rose-400'
+                                ? 'bg-rose-500'
                                 : countdown.isEndingSoon
-                                ? 'text-amber-400'
-                                : 'text-ds-ice'
+                                ? 'bg-amber-400'
+                                : 'bg-ds-accent'
                             }`}
-                          >
-                            {countdown.formatted}
-                          </span>
+                            style={{ width: `${countdown.percentage}%` }}
+                          />
                         </div>
-                      </div>
+                      )}
 
-                      {/* Mini progress bar */}
-                      <div className="w-full h-1.5 rounded-full bg-ds-surface overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-1000 ${
-                            countdown.isOverdue
-                              ? 'bg-rose-500'
-                              : countdown.isEndingSoon
-                              ? 'bg-amber-400'
-                              : 'bg-ds-accent'
-                          }`}
-                          style={{ width: `${countdown.percentage}%` }}
-                        />
-                      </div>
+                      {(b.gameTitle || b.session?.gameTitle) && (
+                        <div className="flex items-center gap-1.5 text-[11px] font-heading font-bold text-ds-ice bg-ds-accent/15 border border-ds-accent/30 px-2.5 py-1 rounded-lg">
+                          <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+                          <span className="truncate">Game: {b.gameTitle || b.session?.gameTitle}</span>
+                        </div>
+                      )}
 
-                      <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
-                        <span>Ref: {b.bookingRef}</span>
+                      <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1 border-t border-ds-border/40">
                         <span>
-                          End: {new Date(scheduledEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="font-bold text-ds-text">
+                          ₹{(b.totalPricePaise / 100).toFixed(0)} ({b.paymentMethod || 'CASH'})
                         </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Bottom Action Controls */}
-                  <div className="pt-4 mt-4 border-t border-ds-border/60 flex items-center justify-between gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openExtendModal(b)}
-                      className="flex-1 justify-center text-xs"
-                    >
-                      <PlusCircle className="w-3.5 h-3.5 mr-1" />
-                      <span>Extend</span>
-                    </Button>
+                  <div className="pt-3.5 mt-3.5 border-t border-ds-border/60 flex items-center justify-between gap-2">
+                    {isSessionActive ? (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => openExtendModal(b)}
+                          className="flex-1 justify-center text-xs font-bold"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5 mr-1" />
+                          <span>Extend</span>
+                        </Button>
 
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleEndSession(b)}
-                      className="flex-1 justify-center text-xs"
-                    >
-                      <Square className="w-3.5 h-3.5 mr-1" />
-                      <span>End Session</span>
-                    </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleEndSession(b)}
+                          className="flex-1 justify-center text-xs font-bold"
+                        >
+                          <Square className="w-3.5 h-3.5 mr-1" />
+                          <span>End Session</span>
+                        </Button>
+                      </>
+                    ) : b.status === 'CONFIRMED' ? (
+                      <Button
+                        variant={isSlotNear || isSlotDue ? 'accent' : 'outline'}
+                        size="sm"
+                        onClick={() => handleQuickCheckIn(b)}
+                        className={`flex-1 justify-center text-xs font-bold ${
+                          isSlotDue
+                            ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20'
+                            : isSlotNear
+                            ? 'bg-amber-400 hover:bg-amber-300 text-black shadow-md shadow-amber-400/20'
+                            : 'text-ds-ice border-ds-border hover:border-ds-accent'
+                        }`}
+                      >
+                        <Play className="w-3.5 h-3.5 mr-1" />
+                        <span>Check In</span>
+                      </Button>
+                    ) : (
+                      <Link
+                        href={`/booking/confirmation/${b.bookingRef || b.id}`}
+                        target="_blank"
+                        className="flex-1"
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-center text-xs text-ds-ice hover:bg-ds-surface"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                          <span>Receipt / Pass</span>
+                        </Button>
+                      </Link>
+                    )}
 
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setSelectedBookingForGrid(b)}
-                      className="px-2.5 text-xs text-ds-ice hover:bg-ds-surface"
+                      className="px-2.5 text-xs text-ds-ice hover:bg-ds-surface shrink-0"
                       title="View Full Station Dossier"
                     >
                       <Info className="w-3.5 h-3.5" />
@@ -784,7 +887,7 @@ export default function StaffBookingsSchedulePage() {
           </div>
         )
       ) : (
-        /* ─── TABLE VIEW (With Info Button on each row) ─── */
+        /* ─── TABLE VIEW (Tablet-Optimized with Sticky Actions & Unbroken Refs) ─── */
         <Card glass className="border-ds-border overflow-hidden">
           {loading ? (
             <div className="p-16 text-center text-xs text-ds-text-dim">Loading schedule...</div>
@@ -828,17 +931,27 @@ export default function StaffBookingsSchedulePage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto no-scrollbar sm:[scrollbar-width:auto]">
-              <table className="w-full text-left text-xs min-w-[780px]">
-                <thead className="bg-ds-dark/60 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
+            <div className="overflow-x-auto relative rounded-xl border border-ds-border/60 shadow-inner">
+              {/* Tablet/Mobile Swipe Hint Banner */}
+              <div className="lg:hidden flex items-center justify-between px-3.5 py-2 bg-ds-dark/90 border-b border-ds-border/60 text-[11px] font-mono text-ds-text-dim">
+                <span className="flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-ds-accent" />
+                  <span>Swipe horizontally to view all columns</span>
+                </span>
+                <span className="text-ds-accent font-bold">Actions sticky on right →</span>
+              </div>
+              <table className="w-full text-left text-xs min-w-[1040px]">
+                <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Booking Ref</th>
-                    <th className="py-3 px-4">Player Details</th>
-                    <th className="py-3 px-4">Station</th>
-                    <th className="py-3 px-4">Time Window / Countdown</th>
-                    <th className="py-3 px-4">Payment</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[170px]">Booking Ref</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">Player Details</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[170px]">Station & Facility</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[190px]">Time Window / Countdown</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[110px]">Payment</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[130px]">Status</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap min-w-[200px] sticky right-0 bg-ds-dark/95 backdrop-blur-md shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-20">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ds-border/40">
@@ -856,16 +969,28 @@ export default function StaffBookingsSchedulePage() {
 
                     return (
                       <tr key={b.id} className="hover:bg-ds-surface/40 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-ds-ice">{b.bookingRef}</td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-heading font-bold text-ds-text">{b.customerName}</div>
-                          <div className="text-[11px] text-ds-text-dim">
-                            {b.customerPhone || b.customerEmail || '—'}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-xs text-ds-ice bg-ds-dark/80 border border-ds-border/80 px-2.5 py-1 rounded-lg select-all tracking-tight shadow-sm inline-block">
+                              {b.bookingRef}
+                            </span>
+                            {b.isWalkIn && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold uppercase tracking-wider shrink-0">
+                                WALK-IN
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 min-w-[160px]">
+                          <div className="font-heading font-bold text-ds-text">{b.customerName}</div>
+                          <div className="text-[11px] text-ds-text-dim flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3 text-ds-text-dim/70 shrink-0" />
+                            <span>{b.customerPhone || b.customerEmail || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 min-w-[170px]">
                           <div className="font-heading font-semibold text-ds-text">{b.stationName}</div>
-                          <div className="text-[10px] text-ds-accent">{b.facilityName}</div>
+                          <div className="text-[10px] text-ds-accent font-mono uppercase tracking-wider">{b.facilityName}</div>
                           {(b.gameTitle || b.session?.gameTitle) && (
                             <div className="flex items-center gap-1 text-[11px] text-ds-ice font-heading mt-0.5">
                               <Gamepad2 className="w-3 h-3 text-ds-accent shrink-0" />
@@ -873,7 +998,7 @@ export default function StaffBookingsSchedulePage() {
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 font-mono text-ds-text">
+                        <td className="py-3.5 px-4 font-mono text-ds-text whitespace-nowrap min-w-[190px]">
                           <div className="flex items-center gap-1.5">
                             <span>
                               {!getIsToday(b) && (
@@ -932,13 +1057,13 @@ export default function StaffBookingsSchedulePage() {
                             </div>
                           )}
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
                           <div className="font-bold text-ds-text">₹{(b.totalPricePaise / 100).toFixed(0)}</div>
                           <span className="text-[10px] text-ds-text-dim uppercase font-mono">
-                            {b.paymentMethod} • {b.paymentStatus}
+                            {b.paymentMethod || 'CASH'} • {b.paymentStatus || 'PAID'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">
                           <Badge
                             variant={
                               countdown?.isOverdue || isSlotDue
@@ -985,7 +1110,7 @@ export default function StaffBookingsSchedulePage() {
                               : b.status}
                           </Badge>
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap min-w-[200px] sticky right-0 bg-ds-dark/95 backdrop-blur-md shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-10">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* In-Session Quick Actions: Extend & End Session */}
                             {isSessionActive && (
@@ -994,7 +1119,7 @@ export default function StaffBookingsSchedulePage() {
                                   variant="secondary"
                                   size="sm"
                                   onClick={() => openExtendModal(b)}
-                                  className="text-[11px] py-1 px-2.5 flex items-center gap-1 border-ds-accent/30 hover:border-ds-accent text-ds-ice hover:bg-ds-accent/20"
+                                  className="text-[11px] py-1 px-2.5 flex items-center gap-1 border-ds-accent/30 hover:border-ds-accent text-ds-ice hover:bg-ds-accent/20 font-bold"
                                   title="Extend session duration"
                                 >
                                   <PlusCircle className="w-3.5 h-3.5 text-ds-accent" />
@@ -1005,7 +1130,7 @@ export default function StaffBookingsSchedulePage() {
                                   variant="danger"
                                   size="sm"
                                   onClick={() => handleEndSession(b)}
-                                  className="text-[11px] py-1 px-2.5 flex items-center gap-1 text-white bg-rose-600 hover:bg-rose-500"
+                                  className="text-[11px] py-1 px-2.5 flex items-center gap-1 text-white bg-rose-600 hover:bg-rose-500 font-bold shadow-sm"
                                   title="End active session"
                                 >
                                   <Square className="w-3.5 h-3.5" />
@@ -1013,18 +1138,6 @@ export default function StaffBookingsSchedulePage() {
                                 </Button>
                               </>
                             )}
-
-                            {/* 1. INFO BUTTON — Shows Station Grid View Modal */}
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setSelectedBookingForGrid(b)}
-                              className="text-[11px] py-1 px-2.5 flex items-center gap-1 border-ds-border text-ds-text-dim hover:text-white hover:bg-ds-surface"
-                              title="Open Live Station Console Grid View"
-                            >
-                              <Info className="w-3.5 h-3.5 text-ds-accent" />
-                              <span>Info</span>
-                            </Button>
 
                             {/* Check In action for confirmed bookings */}
                             {b.status === 'CONFIRMED' && !isSessionActive && (
@@ -1044,6 +1157,18 @@ export default function StaffBookingsSchedulePage() {
                                 <span>Check In</span>
                               </Button>
                             )}
+
+                            {/* Info Button — Shows Station Grid View Modal */}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setSelectedBookingForGrid(b)}
+                              className="text-[11px] py-1 px-2.5 flex items-center gap-1 border-ds-border text-ds-text-dim hover:text-white hover:bg-ds-surface font-semibold"
+                              title="Open Live Station Console Grid View"
+                            >
+                              <Info className="w-3.5 h-3.5 text-ds-accent" />
+                              <span>Info</span>
+                            </Button>
                           </div>
                         </td>
                       </tr>

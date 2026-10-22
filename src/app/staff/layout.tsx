@@ -324,17 +324,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-ds-darker text-ds-text flex selection:bg-ds-accent selection:text-white">
-      {/* Mobile Drawer Backdrop */}
+      {/* Mobile/Tablet Drawer Backdrop */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 md:hidden animate-fade-in"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 lg:hidden animate-fade-in"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      {/* Mobile Slide-Over Drawer */}
+      {/* Mobile & Tablet Slide-Over Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-ds-dark/98 border-r border-ds-border flex flex-col justify-between md:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-ds-dark/98 border-r border-ds-border flex flex-col justify-between lg:hidden transition-transform duration-300 ease-in-out ${
           isMobileOpen ? 'translate-x-0 shadow-2xl shadow-cyan-500/10' : '-translate-x-full'
         }`}
       >
@@ -347,9 +347,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         />
       </aside>
 
-      {/* Desktop Collapsible Sidebar */}
+      {/* Desktop Collapsible Sidebar (visible on lg screens >= 1024px) */}
       <aside
-        className={`bg-ds-dark/95 border-r border-ds-border flex flex-col justify-between shrink-0 hidden md:flex sticky top-0 h-screen transition-all duration-300 ease-in-out ${
+        className={`bg-ds-dark/95 border-r border-ds-border flex flex-col justify-between shrink-0 hidden lg:flex sticky top-0 h-screen transition-all duration-300 ease-in-out ${
           isSidebarOpen
             ? 'w-64 opacity-100'
             : 'w-0 opacity-0 pointer-events-none overflow-hidden border-r-0'
@@ -369,13 +369,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       {/* Main Staff Operations Area */}
       <div className="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out">
         {/* Top Header Bar */}
-        <header className="bg-ds-surface/95 backdrop-blur-md border-b border-ds-border px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-40">
-          <div className="flex items-center gap-3">
-            {/* Mobile Menu Button */}
+        <header className="bg-ds-surface/95 backdrop-blur-md border-b border-ds-border px-3 sm:px-5 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-40">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile / Tablet Menu Button */}
             <button
               type="button"
               onClick={() => setIsMobileOpen(true)}
-              className="md:hidden p-2 rounded-xl bg-ds-surface border border-ds-border hover:border-ds-accent/40 text-ds-text hover:text-ds-ice transition-all"
+              className="lg:hidden p-2 rounded-xl bg-ds-surface border border-ds-border hover:border-ds-accent/40 text-ds-text hover:text-ds-ice transition-all shrink-0"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5 text-ds-accent" />
@@ -385,7 +385,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             <button
               type="button"
               onClick={toggleSidebar}
-              className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ds-surface/80 border border-ds-border hover:border-ds-accent/50 text-ds-text-muted hover:text-ds-ice transition-all text-xs font-mono group shadow-sm"
+              className="hidden lg:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-ds-surface/80 border border-ds-border hover:border-ds-accent/50 text-ds-text-muted hover:text-ds-ice transition-all text-xs font-mono group shadow-sm shrink-0"
               title={isSidebarOpen ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)'}
               aria-label="Toggle sidebar"
             >
@@ -399,23 +399,28 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </span>
             </button>
 
-            {/* Mobile Brand Title */}
-            <span className="md:hidden font-heading font-black text-xs uppercase tracking-wider text-ds-text">
-              DARK SYNDICATE STAFF
-            </span>
+            {/* Brand Title on Mobile / Tablet */}
+            <div className="lg:hidden flex items-center gap-2 min-w-0">
+              <span className="font-heading font-black text-xs sm:text-sm uppercase tracking-wider text-ds-text truncate">
+                DARK SYNDICATE
+              </span>
+              <span className="hidden sm:inline-block text-[9px] font-mono px-1.5 py-0.5 rounded bg-ds-accent/15 border border-ds-accent/30 text-ds-accent uppercase font-bold shrink-0">
+                STAFF
+              </span>
+            </div>
 
             {/* Live Arena Pulse */}
-            <div className="hidden sm:flex items-center gap-2 pl-2">
+            <div className="hidden sm:flex items-center gap-2 pl-2 shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[11px] font-mono text-ds-text-dim">ARENA ACTIVE</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Clock */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ds-surface/60 border border-ds-border text-xs font-mono text-ds-text-dim">
-              <Clock className="w-3.5 h-3.5 text-ds-accent" />
-              <span>{timeStr || '10:00:00 AM'} IST</span>
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-ds-surface/60 border border-ds-border text-xs font-mono text-ds-text-dim">
+              <Clock className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+              <span className="whitespace-nowrap">{timeStr || '10:00:00 AM'} IST</span>
             </div>
 
             {/* Sound Alarm Controls */}
@@ -427,10 +432,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
               <Link
                 href="/admin"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ds-surface border border-amber-500/30 text-xs font-heading font-bold text-amber-300 hover:bg-amber-500/10 transition-all"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ds-surface border border-amber-500/30 text-xs font-heading font-bold text-amber-300 hover:bg-amber-500/10 transition-all shrink-0"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Admin Console</span>
+                <span className="hidden md:inline">Admin Console</span>
               </Link>
             )}
 
@@ -438,7 +443,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ds-surface/80 border border-ds-border hover:border-rose-500/40 text-ds-text-muted hover:text-rose-400 text-xs font-heading font-bold uppercase transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-ds-surface/80 border border-ds-border hover:border-rose-500/40 text-ds-text-muted hover:text-rose-400 text-xs font-heading font-bold uppercase transition-all shrink-0"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400" />
@@ -447,8 +452,8 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        {/* Content canvas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-10 max-w-7xl w-full mx-auto">{children}</main>
+        {/* Content canvas - Optimized padding for tablets */}
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
 
         {/* Real-time Session Expiry & Extra Time Alerts Popups */}
         <SessionExpiryAlertManager />
