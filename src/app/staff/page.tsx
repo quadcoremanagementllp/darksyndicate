@@ -111,6 +111,7 @@ export default function StaffStationGridPage() {
   const [preBookingOpen, setPreBookingOpen] = useState(false);
   const [preBookingCategory, setPreBookingCategory] = useState<'PS5' | 'POOL_TABLE'>('PS5');
   const [preBookingStationId, setPreBookingStationId] = useState<string | undefined>(undefined);
+  const [preBookingPickerOpen, setPreBookingPickerOpen] = useState(false);
 
   // Station Games Modal state
   const [selectedStationForGames, setSelectedStationForGames] = useState<Station | null>(null);
@@ -354,11 +355,7 @@ export default function StaffStationGridPage() {
 
           <Button
             variant="outline"
-            onClick={() => {
-              setPreBookingCategory('PS5');
-              setPreBookingStationId('ANY');
-              setPreBookingOpen(true);
-            }}
+            onClick={() => setPreBookingPickerOpen(true)}
             className="flex items-center gap-1.5 text-xs text-amber-300 border-amber-500/40 hover:bg-amber-500/10 font-heading font-bold uppercase"
           >
             <Calendar className="w-3.5 h-3.5 text-amber-400" />
@@ -860,7 +857,7 @@ export default function StaffStationGridPage() {
                               )}
                             </div>
                             <span suppressHydrationWarning>
-                              End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
                             </span>
                           </div>
                         </div>
@@ -880,7 +877,7 @@ export default function StaffStationGridPage() {
                             <p className="text-[11px] text-ds-ice pt-1 font-mono">
                               Next: {station.upcomingBookings[0].customerName} at{' '}
                               <span suppressHydrationWarning>
-                                {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
                               </span>
                             </p>
                           )}
@@ -1143,6 +1140,94 @@ export default function StaffStationGridPage() {
             >
               Cancel
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── ARENA CHOOSER FOR PRE-BOOKING (From top bar) ─── */}
+      <Modal
+        isOpen={preBookingPickerOpen}
+        onClose={() => setPreBookingPickerOpen(false)}
+        size="md"
+        showCloseButton={false}
+        className="p-6 border border-ds-border/80 bg-ds-dark shadow-2xl"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-ds-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-lg text-white uppercase tracking-wide">
+                  Pre-Book Upcoming Slot
+                </h3>
+                <p className="text-xs text-ds-text-dim">
+                  Select gaming arena to reserve
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreBookingPickerOpen(false)}
+              className="text-ds-text-dim hover:text-white p-1.5 rounded-xl hover:bg-ds-surface/60 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPreBookingPickerOpen(false);
+                setPreBookingCategory('PS5');
+                setPreBookingStationId('ANY');
+                setPreBookingOpen(true);
+              }}
+              className="p-4 rounded-2xl border-2 border-cyan-500/40 hover:border-cyan-400 bg-cyan-950/20 hover:bg-cyan-950/40 text-left transition-all group flex flex-col justify-between space-y-3 cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🎮</span>
+                <span className="text-[10px] font-mono font-bold text-cyan-300 uppercase bg-cyan-500/20 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                  From ₹150/hr
+                </span>
+              </div>
+              <div>
+                <h4 className="font-heading font-black text-sm text-white uppercase group-hover:text-cyan-300">
+                  PlayStation 5
+                </h4>
+                <p className="text-[11px] text-ds-text-muted mt-0.5">
+                  Pre-book PS5 gaming consoles
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPreBookingPickerOpen(false);
+                setPreBookingCategory('POOL_TABLE');
+                setPreBookingStationId('ANY');
+                setPreBookingOpen(true);
+              }}
+              className="p-4 rounded-2xl border-2 border-emerald-500/40 hover:border-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/40 text-left transition-all group flex flex-col justify-between space-y-3 cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🎱</span>
+                <span className="text-[10px] font-mono font-bold text-emerald-300 uppercase bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  ₹250/hr
+                </span>
+              </div>
+              <div>
+                <h4 className="font-heading font-black text-sm text-white uppercase group-hover:text-emerald-300">
+                  Snooker Lounge
+                </h4>
+                <p className="text-[11px] text-ds-text-muted mt-0.5">
+                  Pre-book championship tables
+                </p>
+              </div>
+            </button>
           </div>
         </div>
       </Modal>

@@ -82,6 +82,25 @@ function getTomorrowKolkataDate(): string {
   }
 }
 
+/**
+ * Formats a 24-hour time string like "22:00" or "09:30" into normal 12-hour AM/PM format like "10:00 PM" or "9:30 AM"
+ */
+export function formatNormalTime(time24: string): string {
+  if (!time24) return '';
+  const parts = time24.split(':');
+  if (parts.length < 2) return time24;
+  let hour = parseInt(parts[0], 10);
+  const min = parts[1] || '00';
+  if (isNaN(hour)) return time24;
+  const period = hour >= 12 && hour < 24 ? 'PM' : 'AM';
+  if (hour === 0 || hour === 24) {
+    hour = 12;
+  } else if (hour > 12) {
+    hour -= 12;
+  }
+  return `${hour}:${min} ${period}`;
+}
+
 export function StaffPreBookingModal({
   isOpen,
   onClose,
@@ -318,9 +337,9 @@ export function StaffPreBookingModal({
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-ds-text-dim">Scheduled Date & Time</span>
-              <span className="font-bold text-emerald-400">
-                {new Date(successBooking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(successBooking.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({selectedDate})
+              <span className="text-ds-text-dim">Scheduled Date &amp; Time</span>
+              <span className="font-bold text-emerald-400 font-mono">
+                {selectedTime ? formatNormalTime(selectedTime) : ''} ({selectedDate})
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -410,51 +429,64 @@ export function StaffPreBookingModal({
           <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs">
             {/* 1. Arena & Station Selection */}
             <div className="space-y-2">
-              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">1</span>
-                <span>Select Gaming Arena &amp; Station</span>
-              </label>
-
-              {/* Arena Toggle */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
+                  <span className={`w-5 h-5 rounded-full ${isPool ? 'bg-emerald-500/20 text-emerald-300' : 'bg-cyan-500/20 text-cyan-300'} text-[10px] flex items-center justify-center font-mono font-bold`}>
+                    1
+                  </span>
+                  <span>{isPool ? 'Snooker Lounge Arena' : 'PlayStation 5 Arena'}</span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => handleCategorySwitch('PS5')}
-                  className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
-                    isPs5
-                      ? 'bg-cyan-950/40 border-cyan-400 text-white shadow-md shadow-cyan-950/50 ring-1 ring-cyan-400/80'
-                      : 'bg-ds-surface/30 border-ds-border text-ds-text-dim hover:text-white hover:border-ds-border/80'
-                  }`}
+                  onClick={() => handleCategorySwitch(isPool ? 'PS5' : 'POOL_TABLE')}
+                  className="text-[10px] font-mono text-ds-text-dim hover:text-white underline transition-colors"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">🎮</span>
-                    <div>
-                      <div className="font-heading font-black text-xs uppercase">PlayStation 5</div>
-                      <div className="text-[10px] text-ds-text-dim font-mono">From ₹150 / hr</div>
-                    </div>
-                  </div>
-                  {isPs5 && <Check className="w-4 h-4 text-cyan-400 shrink-0" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCategorySwitch('POOL_TABLE')}
-                  className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
-                    isPool
-                      ? 'bg-emerald-950/40 border-emerald-400 text-white shadow-md shadow-emerald-950/50 ring-1 ring-emerald-400/80'
-                      : 'bg-ds-surface/30 border-ds-border text-ds-text-dim hover:text-white hover:border-ds-border/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xl">🎱</span>
-                    <div>
-                      <div className="font-heading font-black text-xs uppercase">Snooker Lounge</div>
-                      <div className="text-[10px] text-ds-text-dim font-mono">₹250 / hr (up to 4P)</div>
-                    </div>
-                  </div>
-                  {isPool && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                  Switch to {isPool ? 'PlayStation 5' : 'Snooker Lounge'}
                 </button>
               </div>
+
+              {/* Chosen Arena Display: ONLY show the selected arena! */}
+              {isPool ? (
+                <div className="p-3 sm:p-3.5 rounded-2xl border bg-emerald-950/40 border-emerald-400 text-white shadow-md shadow-emerald-950/50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                      🎱
+                    </div>
+                    <div>
+                      <div className="font-heading font-black text-xs sm:text-sm uppercase text-white flex items-center gap-2">
+                        <span>Snooker Lounge</span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                          Selected Arena
+                        </span>
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] text-emerald-300/90 font-mono mt-0.5">
+                        ₹250 / hr (up to 4 Players • +₹50/extra for &gt; 4)
+                      </div>
+                    </div>
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                </div>
+              ) : (
+                <div className="p-3 sm:p-3.5 rounded-2xl border bg-cyan-950/40 border-cyan-400 text-white shadow-md shadow-cyan-950/50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl shrink-0">
+                      🎮
+                    </div>
+                    <div>
+                      <div className="font-heading font-black text-xs sm:text-sm uppercase text-white flex items-center gap-2">
+                        <span>PlayStation 5 Arena</span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">
+                          Selected Arena
+                        </span>
+                      </div>
+                      <div className="text-[10px] sm:text-[11px] text-cyan-300/90 font-mono mt-0.5">
+                        From ₹150 / hr (1P: ₹150 • 2P: ₹200 • 3–4P: ₹250)
+                      </div>
+                    </div>
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0" />
+                </div>
+              )}
 
               {/* Specific Station Dropdown */}
               <div className="pt-1">
@@ -463,7 +495,9 @@ export function StaffPreBookingModal({
                   onChange={(e) => setStationId(e.target.value)}
                   className="w-full bg-ds-dark border border-ds-border rounded-xl px-3 py-2 text-xs text-ds-text font-mono focus:border-cyan-400 focus:outline-none"
                 >
-                  <option value="ANY">✨ Any Available Station (Auto-Allocate)</option>
+                  <option value="ANY">
+                    ✨ Any Available {isPool ? 'Snooker Table' : 'PS5 Console'} (Auto-Allocate)
+                  </option>
                   {filteredCategoryStations.map((st) => (
                     <option key={st.id} value={st.id}>
                       {st.name} — ({st.facilityName})
@@ -553,8 +587,8 @@ export function StaffPreBookingModal({
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">4</span>
                   <span>Select Upcoming Time Slot</span>
                 </label>
-                <span className="text-[10px] font-mono text-cyan-400 font-bold">
-                  {selectedTime ? `Selected: ${selectedTime}` : 'Pick a time'}
+                <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                  {selectedTime ? `Selected: ${formatNormalTime(selectedTime)}` : 'Pick a time'}
                 </span>
               </div>
 
@@ -569,7 +603,7 @@ export function StaffPreBookingModal({
                 </div>
               ) : (
                 <div className="p-3 rounded-2xl bg-ds-surface/20 border border-ds-border space-y-3">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
                     {slots.map((slot) => {
                       const isSelected = selectedTime === slot.time;
                       return (
@@ -578,7 +612,7 @@ export function StaffPreBookingModal({
                           type="button"
                           disabled={!slot.available}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`p-2 rounded-xl text-center border font-mono transition-all text-xs flex flex-col items-center justify-center ${
+                          className={`p-2.5 rounded-xl text-center border font-mono transition-all text-xs flex flex-col items-center justify-center ${
                             isSelected
                               ? 'bg-cyan-500/30 border-cyan-400 text-white shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400'
                               : slot.available
@@ -586,7 +620,9 @@ export function StaffPreBookingModal({
                               : 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim/40 cursor-not-allowed opacity-50'
                           }`}
                         >
-                          <span className="font-bold text-[11px]">{slot.time}</span>
+                          <span className="font-bold text-xs text-white leading-tight">
+                            {formatNormalTime(slot.time)}
+                          </span>
                           <span
                             className={`text-[9px] uppercase font-bold mt-0.5 ${
                               isSelected
@@ -803,7 +839,7 @@ export function StaffPreBookingModal({
                 ₹{totalPayable}
               </span>
               <span className="text-[10px] text-ds-text-dim font-mono">
-                ({durationMinutes}m • {playerCount}P)
+                ({durationMinutes}m • {playerCount}P{selectedTime ? ` • ${formatNormalTime(selectedTime)}` : ''})
               </span>
             </div>
 
