@@ -67,6 +67,9 @@ interface Station {
     paymentStatus?: string;
     paymentMethod?: string;
     totalPricePaise?: number;
+    unpaidPaise?: number;
+    paidPaise?: number;
+    isPayOnExit?: boolean;
   } | null;
   upcomingBookings?: Array<{
     id: string;
@@ -158,6 +161,8 @@ export default function StaffStationGridPage() {
       paymentStatus: station.activeSession.paymentStatus,
       paymentMethod: station.activeSession.paymentMethod,
       totalPricePaise: station.activeSession.totalPricePaise,
+      unpaidPaise: station.activeSession.unpaidPaise,
+      isPayOnExit: station.activeSession.isPayOnExit,
     });
   };
 
@@ -818,7 +823,14 @@ export default function StaffStationGridPage() {
                           </div>
 
                           <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
-                            <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
+                              {station.activeSession.isPayOnExit && (
+                                <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  TAB (PAY ON EXIT)
+                                </span>
+                              )}
+                            </div>
                             <span suppressHydrationWarning>
                               End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>

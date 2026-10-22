@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
                     payments: {
                       select: { id: true, amountPaise: true, status: true, method: true },
                       orderBy: { createdAt: 'desc' },
-                      take: 1,
+                      take: 10,
                     },
                   },
                 },
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
                 payments: {
                   select: { id: true, amountPaise: true, status: true, method: true },
                   orderBy: { createdAt: 'desc' },
-                  take: 1,
+                  take: 10,
                 },
               },
             },
@@ -126,8 +126,51 @@ export async function GET(req: NextRequest) {
             description: g.description,
           }));
 
-          const activeLatestPayment = activeSession?.booking?.payments?.[0];
-          const currentLatestPayment = currentBooking?.payments?.[0];
+          // Calculate payment & tab status for active session
+          const activePayments = activeSession?.booking?.payments || [];
+          const activeHasPending =
+            activePayments.some((p) => p.status === 'PENDING') ||
+            Boolean(activeSession?.notes?.includes('[PAY ON EXIT]')) ||
+            Boolean(activeSession?.booking?.notes?.includes('[PAY ON EXIT]'));
+          const activePaidPaise = activePayments
+            .filter((p) => p.status === 'COMPLETED')
+            .reduce((sum, p) => sum + p.amountPaise, 0);
+          const activeTotalPaise = activeSession?.booking?.totalPricePaise || 0;
+          const activeUnpaidPaise = activeHasPending
+            ? Math.max(0, activeTotalPaise - activePaidPaise)
+            : 0;
+          const activeLatestPayment = activePayments[0];
+
+          // Sanitize gameTitle: strip any '[PAY ON EXIT]' tags so it is never displayed as a game title
+          let activeGameTitle = activeSession?.booking?.gameTitle || null;
+          if (!activeGameTitle && activeSession?.notes) {
+            const stripped = activeSession.notes.replace(/\[PAY ON EXIT\]/gi, '').trim();
+            if (stripped) activeGameTitle = stripped;
+          }
+          if (!activeGameTitle && activeSession?.booking?.notes) {
+            const match = activeSession.booking.notes.match(/Game:\s*([^.\n\r\[]+)/);
+            if (match?.[1]?.trim()) activeGameTitle = match[1].trim();
+          }
+
+          // Same for current booking fallback
+          const currentPayments = currentBooking?.payments || [];
+          const currentHasPending =
+            currentPayments.some((p) => p.status === 'PENDING') ||
+            Boolean(currentBooking?.notes?.includes('[PAY ON EXIT]'));
+          const currentPaidPaise = currentPayments
+            .filter((p) => p.status === 'COMPLETED')
+            .reduce((sum, p) => sum + p.amountPaise, 0);
+          const currentTotalPaise = currentBooking?.totalPricePaise || 0;
+          const currentUnpaidPaise = currentHasPending
+            ? Math.max(0, currentTotalPaise - currentPaidPaise)
+            : 0;
+          const currentLatestPayment = currentPayments[0];
+
+          let currentGameTitle = currentBooking?.gameTitle || null;
+          if (!currentGameTitle && currentBooking?.notes) {
+            const match = currentBooking.notes.match(/Game:\s*([^.\n\r\[]+)/);
+            if (match?.[1]?.trim()) currentGameTitle = match[1].trim();
+          }
 
           const resolvedSession = activeSession
             ? {
@@ -144,14 +187,13 @@ export async function GET(req: NextRequest) {
                 startedAt: activeSession.startedAt,
                 scheduledEndAt: activeSession.scheduledEndAt,
                 extensionMinutes: activeSession.extensionMinutes,
-                paymentStatus: activeLatestPayment?.status || 'COMPLETED',
+                paymentStatus: activeHasPending ? 'PENDING' : 'COMPLETED',
                 paymentMethod: activeLatestPayment?.method || 'CASH',
-                totalPricePaise: activeSession.booking?.totalPricePaise || 0,
-                gameTitle:
-                  activeSession.notes ||
-                  activeSession.booking?.gameTitle ||
-                  (activeSession.booking?.notes?.match(/Game:\s*([^.\n\r\[]+)/)?.[1]?.trim()) ||
-                  null,
+                isPayOnExit: Boolean(activeHasPending),
+                totalPricePaise: activeTotalPaise,
+                paidPaise: activePaidPaise,
+                unpaidPaise: activeUnpaidPaise,
+                gameTitle: activeGameTitle,
               }
             : currentBooking
             ? {
@@ -168,13 +210,13 @@ export async function GET(req: NextRequest) {
                 startedAt: currentBooking.startTime,
                 scheduledEndAt: currentBooking.endTime,
                 extensionMinutes: 0,
-                paymentStatus: currentLatestPayment?.status || 'COMPLETED',
+                paymentStatus: currentHasPending ? 'PENDING' : 'COMPLETED',
                 paymentMethod: currentLatestPayment?.method || 'CASH',
-                totalPricePaise: currentBooking.totalPricePaise || 0,
-                gameTitle:
-                  currentBooking.gameTitle ||
-                  (currentBooking.notes?.match(/Game:\s*([^.\n\r\[]+)/)?.[1]?.trim()) ||
-                  null,
+                isPayOnExit: Boolean(currentHasPending),
+                totalPricePaise: currentTotalPaise,
+                paidPaise: currentPaidPaise,
+                unpaidPaise: currentUnpaidPaise,
+                gameTitle: currentGameTitle,
               }
             : null;
 

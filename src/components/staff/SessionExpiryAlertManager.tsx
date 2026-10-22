@@ -244,6 +244,10 @@ export function SessionExpiryAlertManager() {
         customerName: alert.session.customerName,
         bookingRef: alert.session.bookingRef,
         scheduledEndAt: alert.session.scheduledEndAt,
+        paymentStatus: alert.session.paymentStatus,
+        paymentMethod: alert.session.paymentMethod,
+        totalPricePaise: alert.session.totalPricePaise,
+        isPayOnExit: alert.session.paymentStatus === 'PENDING',
       },
     });
   };

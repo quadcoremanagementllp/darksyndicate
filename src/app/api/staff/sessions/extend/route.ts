@@ -9,7 +9,8 @@ const extendSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   additionalMinutes: z.number().int().min(15).max(300).default(30),
-  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER']).default('CASH'),
+  paymentTiming: z.enum(['PRE_PAID', 'PAY_ON_EXIT']).optional(),
+  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER', 'PAY_ON_EXIT']).default('CASH'),
 });
 
 export async function POST(req: NextRequest) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
         const hourlyRate = session.station?.pricePerHourPaise || 15000;
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
+        const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -115,25 +117,55 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            // Record payment for extension
-            await tx.payment.create({
-              data: {
-                bookingId: session.bookingId,
-                userId: session.booking.userId,
-                amountPaise: extensionFeePaise,
-                method: recordedMethod,
-                status: 'COMPLETED',
-                paidAt: new Date(),
-                recordedByStaffId: staffSession.userId,
-                notes: `Session extended +${data.additionalMinutes} mins (${data.paymentMethod}) by ${staffName}`,
-              },
-            });
-
-            if (session.booking?.userId) {
-              await tx.customerProfile.updateMany({
-                where: { userId: session.booking.userId },
-                data: { totalSpent: { increment: extensionFeePaise } },
+            if (isPayOnExit) {
+              // Add to open desk tab
+              const existingPending = await tx.payment.findFirst({
+                where: { bookingId: session.bookingId, status: 'PENDING' },
               });
+
+              if (existingPending) {
+                await tx.payment.update({
+                  where: { id: existingPending.id },
+                  data: {
+                    amountPaise: { increment: extensionFeePaise },
+                    notes: `${existingPending.notes || ''} [Ext +${data.additionalMinutes}m: ₹${(extensionFeePaise / 100).toFixed(0)}]`,
+                  },
+                });
+              } else {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: extensionFeePaise,
+                    method: 'OTHER',
+                    status: 'PENDING',
+                    paidAt: null,
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Session extended +${data.additionalMinutes} mins (Pay on Exit open tab) by ${staffName}`,
+                  },
+                });
+              }
+            } else {
+              // Pre-paid immediate collection
+              await tx.payment.create({
+                data: {
+                  bookingId: session.bookingId,
+                  userId: session.booking.userId,
+                  amountPaise: extensionFeePaise,
+                  method: recordedMethod,
+                  status: 'COMPLETED',
+                  paidAt: new Date(),
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Session extended +${data.additionalMinutes} mins (${data.paymentMethod}) by ${staffName}`,
+                },
+              });
+
+              if (session.booking?.userId) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: session.booking.userId },
+                  data: { totalSpent: { increment: extensionFeePaise } },
+                });
+              }
             }
 
             // Log staff activity
@@ -147,6 +179,8 @@ export async function POST(req: NextRequest) {
                   stationName: session.station?.name,
                   additionalMinutes: data.additionalMinutes,
                   extensionFeePaise,
+                  isPayOnExit,
+                  paymentMethod: isPayOnExit ? 'PAY_ON_EXIT' : data.paymentMethod,
                   staffName,
                 },
               },
@@ -157,9 +191,12 @@ export async function POST(req: NextRequest) {
         });
 
         return apiSuccess({
-          message: `Session extended by +${data.additionalMinutes} minutes!`,
+          message: isPayOnExit
+            ? `Session extended by +${data.additionalMinutes} minutes and added to exit tab (₹${(extensionFeePaise / 100).toFixed(0)})!`
+            : `Session extended by +${data.additionalMinutes} minutes!`,
           newScheduledEndAt: updated.scheduledEndAt,
           extensionFeePaise,
+          isPayOnExit,
         });
       }
 
@@ -175,6 +212,8 @@ export async function POST(req: NextRequest) {
           const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
           const hourlyRate = booking.station?.pricePerHourPaise || 15000;
           const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
+          const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
+          const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
           await prisma.$transaction(async (tx) => {
             await tx.booking.update({
@@ -186,24 +225,63 @@ export async function POST(req: NextRequest) {
               },
             });
 
-            await tx.payment.create({
-              data: {
-                bookingId: booking.id,
-                userId: booking.userId,
-                amountPaise: extensionFeePaise,
-                method: data.paymentMethod === 'UPI' ? 'UPI' : 'CASH',
-                status: 'COMPLETED',
-                paidAt: new Date(),
-                recordedByStaffId: staffSession.userId,
-                notes: `Session extended +${data.additionalMinutes} mins by ${staffName}`,
-              },
-            });
+            if (isPayOnExit) {
+              const existingPending = await tx.payment.findFirst({
+                where: { bookingId: booking.id, status: 'PENDING' },
+              });
+
+              if (existingPending) {
+                await tx.payment.update({
+                  where: { id: existingPending.id },
+                  data: {
+                    amountPaise: { increment: extensionFeePaise },
+                    notes: `${existingPending.notes || ''} [Ext +${data.additionalMinutes}m: ₹${(extensionFeePaise / 100).toFixed(0)}]`,
+                  },
+                });
+              } else {
+                await tx.payment.create({
+                  data: {
+                    bookingId: booking.id,
+                    userId: booking.userId,
+                    amountPaise: extensionFeePaise,
+                    method: 'OTHER',
+                    status: 'PENDING',
+                    paidAt: null,
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Session extended +${data.additionalMinutes} mins (Pay on Exit open tab) by ${staffName}`,
+                  },
+                });
+              }
+            } else {
+              await tx.payment.create({
+                data: {
+                  bookingId: booking.id,
+                  userId: booking.userId,
+                  amountPaise: extensionFeePaise,
+                  method: recordedMethod,
+                  status: 'COMPLETED',
+                  paidAt: new Date(),
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Session extended +${data.additionalMinutes} mins by ${staffName}`,
+                },
+              });
+
+              if (booking.userId) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: booking.userId },
+                  data: { totalSpent: { increment: extensionFeePaise } },
+                });
+              }
+            }
           });
 
           return apiSuccess({
-            message: `Session extended by +${data.additionalMinutes} minutes!`,
+            message: isPayOnExit
+              ? `Session extended by +${data.additionalMinutes} minutes and added to exit tab (₹${(extensionFeePaise / 100).toFixed(0)})!`
+              : `Session extended by +${data.additionalMinutes} minutes!`,
             newScheduledEndAt: newEnd.toISOString(),
             extensionFeePaise,
+            isPayOnExit,
           });
         }
       }

@@ -224,6 +224,11 @@ export default function StaffBookingsSchedulePage() {
         bookingRef: booking.bookingRef,
         scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
         gameTitle: booking.gameTitle || booking.session?.gameTitle || null,
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        totalPricePaise: booking.totalPricePaise,
+        isPayOnExit: booking.paymentStatus === 'PENDING' || booking.notes?.includes('[PAY ON EXIT]'),
+        unpaidPaise: booking.unpaidPaise,
       },
     });
   };

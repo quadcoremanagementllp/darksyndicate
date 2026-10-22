@@ -21,6 +21,8 @@ export interface EndSessionTarget {
   paymentStatus?: string;
   paymentMethod?: string;
   totalPricePaise?: number;
+  unpaidPaise?: number;
+  isPayOnExit?: boolean;
 }
 
 interface EndSessionModalProps {
@@ -58,10 +60,15 @@ export function EndSessionModal({
     : null;
   const isStalePreviousSession = extraMinutes > 180;
 
-  const isPostPaidPending = target?.paymentStatus === 'PENDING';
-  const baseBookingPaise = target?.totalPricePaise || 0;
+  const isPostPaidPending = target?.paymentStatus === 'PENDING' || target?.isPayOnExit;
+  const baseBookingPaise =
+    target?.unpaidPaise !== undefined
+      ? target.unpaidPaise
+      : isPostPaidPending
+      ? target?.totalPricePaise || 0
+      : 0;
   const overtimePaise = chargeOvertime && overtimeCharge ? overtimeCharge * 100 : 0;
-  const totalCollectPaise = (isPostPaidPending ? baseBookingPaise : 0) + overtimePaise;
+  const totalCollectPaise = baseBookingPaise + overtimePaise;
   const totalCollectRupees = Math.round(totalCollectPaise / 100);
 
   const cashTenderedNum = parseFloat(cashTendered) || 0;
