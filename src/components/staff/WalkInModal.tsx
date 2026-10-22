@@ -5,11 +5,9 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Gamepad2, Banknote, CreditCard, Sparkles, QrCode, Copy, Check, Search, Monitor, AlertCircle, Crown, Clock, Maximize2 } from 'lucide-react';
-import QRCode from 'qrcode';
+import { Gamepad2, Search, Monitor, AlertCircle, Crown, Clock, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { ARENA_GAMES, lookupGame, type GameCatalogItem } from '@/lib/gameCatalog';
-import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
 
 interface StationGame {
   id: string;
@@ -169,9 +167,6 @@ export function WalkInModal({
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
-  const [paymentTiming, setPaymentTiming] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
-  const [upfrontMethod, setUpfrontMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
-  const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
 
@@ -202,7 +197,6 @@ export function WalkInModal({
     badgeColor: string;
     expiresAt: string;
   } | null>(null);
-  const [cashTendered, setCashTendered] = useState<string>('');
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Form Validation State & Helpers
@@ -313,13 +307,6 @@ export function WalkInModal({
     }
   };
 
-  // Admin QR & UPI Details
-  const [adminQrUrl, setAdminQrUrl] = useState<string>('');
-  const [upiId, setUpiId] = useState<string>('darksyndicate@icici');
-  const [upiPayeeName, setUpiPayeeName] = useState<string>('Dark Syndicate Gaming World');
-  const [dynamicQrUrl, setDynamicQrUrl] = useState<string>('');
-  const [copied, setCopied] = useState<boolean>(false);
-
   // Ref to track modal transition so 10-second polling does not wipe what staff is typing
   const prevIsOpenRef = React.useRef(false);
 
@@ -340,9 +327,6 @@ export function WalkInModal({
         setActiveCategory(target.stationType);
       }
       setDurationMinutes(60);
-      setPaymentTiming('PREPAID');
-      setUpfrontMethod('CASH');
-      setShowQrPopup(false);
       setSelectedGameTitle('');
       setCustomerName('');
       setCustomerPhone('');
@@ -353,28 +337,8 @@ export function WalkInModal({
       setActiveMembership(null);
       setSearchResults([]);
       setShowSearchDropdown(false);
-      setCashTendered('');
     }
   }, [isOpen, preselectedStationId, stations, durationMinutes, activeCategory]);
-
-  // Fetch Admin uploaded QR Code and UPI configuration
-  useEffect(() => {
-    let isMounted = true;
-    fetch('/api/cms/public')
-      .then((res) => res.json())
-      .then((json) => {
-        if (isMounted && json.success && json.data?.settings) {
-          const s = json.data.settings;
-          if (s.counter_upi_qr_url) setAdminQrUrl(s.counter_upi_qr_url);
-          if (s.counter_upi_id) setUpiId(s.counter_upi_id);
-          if (s.counter_upi_name) setUpiPayeeName(s.counter_upi_name);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   const categoryStations = stations.filter((s) => s.stationType === activeCategory);
@@ -413,9 +377,6 @@ export function WalkInModal({
   const discountPercent = activeMembership?.discountPercent || 0;
   const discountPaise = discountPercent > 0 ? Math.round((subtotalPaise * discountPercent) / 100) : 0;
   const totalFeePaise = Math.max(0, subtotalPaise - discountPaise);
-
-  const cashTenderedNum = parseFloat(cashTendered) || 0;
-  const changeDue = Math.max(0, cashTenderedNum - (totalFeePaise / 100));
 
   // Switch category and auto-select first available station
   const handleCategoryChange = (catKey: string) => {
@@ -487,29 +448,6 @@ export function WalkInModal({
     return list.slice(0, 8);
   }, [platformGames, selectedStation]);
 
-  // Generate dynamic QR fallback if admin has not uploaded a static QR image
-  useEffect(() => {
-    if (paymentTiming === 'PREPAID' && upfrontMethod === 'UPI' && !adminQrUrl) {
-      const amount = (totalFeePaise / 100).toFixed(2);
-      const stationName = selectedStation?.name || 'Walk-in Gaming';
-      const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiPayeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Walk-in ${stationName}`)}`;
-      QRCode.toDataURL(upiUrl, {
-        width: 220,
-        margin: 1,
-        color: { dark: '#000000', light: '#ffffff' },
-      })
-        .then((url) => setDynamicQrUrl(url))
-        .catch(() => {});
-    }
-  }, [paymentTiming, upfrontMethod, adminQrUrl, upiId, upiPayeeName, totalFeePaise, selectedStation?.name]);
-
-  const handleCopyUpi = () => {
-    navigator.clipboard.writeText(upiId);
-    setCopied(true);
-    toast.success('UPI ID copied to clipboard');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
@@ -546,7 +484,7 @@ export function WalkInModal({
 
     const rawDigits = customerPhone.replace(/\D/g, '');
     const cleanPhone = rawDigits.length === 12 && rawDigits.startsWith('91') ? rawDigits.slice(2) : rawDigits;
-    const resolvedPaymentMethod = paymentTiming === 'POSTPAID' ? 'PAY_ON_EXIT' : upfrontMethod;
+    const resolvedPaymentMethod = 'PAY_ON_EXIT';
 
     setSubmitting(true);
     try {
@@ -567,11 +505,7 @@ export function WalkInModal({
 
       const json = await res.json();
       if (json.success) {
-        if (paymentTiming === 'POSTPAID') {
-          toast.success(`Walk-in tab opened for ${customerName}! (Pay on Exit)`);
-        } else {
-          toast.success(`Walk-in session started for ${customerName}! (Pre-Paid via ${upfrontMethod})`);
-        }
+        toast.success(`Walk-in tab opened for ${customerName}! (Pay on Exit)`);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('ds-booking-updated'));
         }
@@ -586,8 +520,6 @@ export function WalkInModal({
       setSubmitting(false);
     }
   };
-
-  const displayQrCode = adminQrUrl || dynamicQrUrl;
 
   return (
     <Modal
@@ -612,13 +544,11 @@ export function WalkInModal({
             </div>
 
             <div className="pl-2.5 sm:pl-3 border-l border-ds-border shrink-0 text-right sm:text-left">
-              <span className="text-[9px] uppercase font-mono text-ds-text-dim block leading-tight">
-                {paymentTiming === 'POSTPAID' ? (
-                  <span className="text-cyan-400 font-bold">To Collect on Exit (Open Tab)</span>
-                ) : activeMembership && discountPaise > 0 ? (
+              <span className="text-[9px] uppercase font-mono text-cyan-400 font-bold block leading-tight">
+                {activeMembership && discountPaise > 0 ? (
                   <span className="text-amber-400 font-bold">{activeMembership.planName} (Save ₹{(discountPaise / 100).toFixed(0)})</span>
                 ) : (
-                  'Total Collection (Upfront)'
+                  'To Collect on Exit (Open Tab)'
                 )}
               </span>
               <div className="flex items-baseline gap-1.5 justify-end sm:justify-start">
@@ -655,15 +585,10 @@ export function WalkInModal({
             >
               {submitting ? (
                 'Allocating...'
-              ) : paymentTiming === 'POSTPAID' ? (
+              ) : (
                 <>
                   <span className="sm:hidden">Confirm & Open Tab</span>
                   <span className="hidden sm:inline">Confirm & Open Tab (Pay on Exit)</span>
-                </>
-              ) : (
-                <>
-                  <span className="sm:hidden">Confirm & Collect</span>
-                  <span className="hidden sm:inline">Confirm & Collect ₹{(totalFeePaise / 100).toFixed(0)}</span>
                 </>
               )}
             </Button>
@@ -1235,302 +1160,59 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Desk Payment Timing & Method (Two-Tier Architecture) */}
+            {/* Desk Payment Policy (Pay After / Post-Paid Tab Only) */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">
                     {isConsoleStation ? '6' : '5'}
                   </span>
-                  <span>Payment Policy (Timing & Method)</span>
+                  <span>Payment Policy</span>
                 </label>
-                <span className="text-[10px] font-mono font-bold uppercase text-ds-text-dim">
-                  {paymentTiming === 'PREPAID' ? '⚡ Collect Upfront' : '⏳ Settle on Exit'}
+                <span className="text-[10px] font-mono font-bold uppercase text-cyan-400 flex items-center gap-1">
+                  <Clock className="w-3 h-3" /> Settle on Exit
                 </span>
               </div>
 
-              {/* TIER 1: Timing Selector (Before vs After) */}
-              <div className="grid grid-cols-2 gap-2.5">
-                {/* Pay Before Button */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentTiming('PREPAID')}
-                  className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-1.5 ${
-                    paymentTiming === 'PREPAID'
-                      ? 'bg-emerald-950/40 border-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/80'
-                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:border-emerald-500/40 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                          paymentTiming === 'PREPAID' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-ds-surface text-ds-text-dim'
-                        }`}
-                      >
-                        <Banknote className="w-4 h-4" />
-                      </div>
-                      <span className="font-heading font-black text-xs">Pay Before</span>
+              {/* Post-Paid Open Tab Confirmation Card */}
+              <div className="p-3.5 rounded-2xl bg-[#08101a] border border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-400/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0">
+                      <Clock className="w-4 h-4" />
                     </div>
-                    <span
-                      className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
-                        paymentTiming === 'PREPAID'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                          : 'bg-ds-surface text-ds-text-dim'
-                      }`}
-                    >
-                      Pre-Paid
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-ds-text-dim leading-snug">
-                    Collect ₹{(totalFeePaise / 100).toFixed(0)} upfront before gaming starts.
-                  </p>
-                </button>
-
-                {/* Pay After Button */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentTiming('POSTPAID')}
-                  className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-1.5 ${
-                    paymentTiming === 'POSTPAID'
-                      ? 'bg-cyan-950/40 border-cyan-400 text-white shadow-[0_0_16px_rgba(6,182,212,0.3)] ring-1 ring-cyan-400/80'
-                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:border-cyan-500/40 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                          paymentTiming === 'POSTPAID' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-ds-surface text-ds-text-dim'
-                        }`}
-                      >
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <span className="font-heading font-black text-xs">Pay After</span>
-                    </div>
-                    <span
-                      className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
-                        paymentTiming === 'POSTPAID'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
-                          : 'bg-ds-surface text-ds-text-dim'
-                      }`}
-                    >
-                      Post-Paid Tab
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-ds-text-dim leading-snug">
-                    Open tab. Gamer settles ₹{(totalFeePaise / 100).toFixed(0)} upon exit.
-                  </p>
-                </button>
-              </div>
-
-              {/* TIER 2: Payment Instruments (If Pre-Paid) */}
-              {paymentTiming === 'PREPAID' ? (
-                <div className="space-y-2.5 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between text-[11px] text-ds-text-dim">
-                    <span className="font-mono uppercase font-bold text-ds-text-muted">Select Upfront Payment Instrument:</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'CASH', label: 'Cash Desk', icon: Banknote },
-                      { id: 'UPI', label: 'UPI / QR', icon: Sparkles },
-                      { id: 'CARD', label: 'POS Card', icon: CreditCard },
-                    ].map(({ id, label, icon: Icon }) => (
-                      <button
-                        type="button"
-                        key={id}
-                        onClick={() => {
-                          setUpfrontMethod(id as any);
-                          if (id === 'UPI') {
-                            setShowQrPopup(true);
-                          }
-                        }}
-                        className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${
-                          upfrontMethod === id
-                            ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span className="text-xs font-heading font-bold">{label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Cash Tendered & Change Helper */}
-                  {upfrontMethod === 'CASH' && (
-                    <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border space-y-2 animate-in fade-in">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[10px] font-mono uppercase text-ds-text-dim">Cash Change Helper</span>
-                        {cashTenderedNum > 0 && cashTenderedNum >= totalFeePaise / 100 && (
-                          <Badge variant="success" size="sm" className="font-mono text-xs font-bold animate-in zoom-in-75">
-                            Change: ₹{(cashTenderedNum - totalFeePaise / 100).toFixed(0)}
-                          </Badge>
-                        )}
-                      </div>
+                    <div>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="Cash Received (₹)"
-                          value={cashTendered}
-                          onChange={(e) => setCashTendered(e.target.value)}
-                          className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
-                        />
-                        <div className="flex items-center gap-1 shrink-0">
-                          {[
-                            { val: (totalFeePaise / 100).toString(), label: 'Exact' },
-                            { val: '200', label: '₹200' },
-                            { val: '500', label: '₹500' },
-                            { val: '1000', label: '₹1000' },
-                          ].map((btn) => (
-                            <button
-                              type="button"
-                              key={btn.label}
-                              onClick={() => setCashTendered(btn.val)}
-                              className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500/50 hover:text-emerald-400 transition-all cursor-pointer"
-                            >
-                              {btn.label}
-                            </button>
-                          ))}
-                        </div>
+                        <span className="font-heading font-black text-sm text-white">Pay After</span>
+                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                          Post-Paid Tab
+                        </span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* UPI QR Display if selected */}
-                  {upfrontMethod === 'UPI' && (
-                    <div className="p-3.5 rounded-xl bg-ds-surface/80 border border-emerald-500/40 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-heading font-bold text-xs">
-                          <QrCode className="w-4 h-4" />
-                          <span>Scan & Pay via UPI</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="success" size="sm" className="font-mono text-[10px]">
-                            Collect ₹{(totalFeePaise / 100).toFixed(0)}
-                          </Badge>
-                          <button
-                            type="button"
-                            onClick={() => setShowQrPopup(true)}
-                            className="text-[10px] font-mono font-bold text-emerald-300 hover:text-white bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
-                          >
-                            <Maximize2 className="w-3 h-3" />
-                            <span>Popup QR</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() => setShowQrPopup(true)}
-                        className="flex items-center gap-3.5 bg-ds-dark/90 p-2.5 rounded-xl border border-ds-border hover:border-emerald-400/60 transition-all cursor-pointer group"
-                        title="Click to pop up large QR code for customer"
-                      >
-                        <div className="w-24 h-24 bg-white p-1.5 rounded-lg shadow-md shrink-0 flex items-center justify-center relative">
-                          {displayQrCode ? (
-                            <img
-                              src={displayQrCode}
-                              alt="Counter UPI QR"
-                              className="w-full h-full object-contain"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                          )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center text-white text-[10px] font-mono font-bold">
-                            🔍 Popup QR
-                          </div>
-                        </div>
-                        <div className="space-y-1 text-xs min-w-0 flex-1">
-                          <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Official Payee</span>
-                          <span className="font-heading font-bold text-ds-text block truncate text-xs">
-                            {upiPayeeName}
-                          </span>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <code className="bg-ds-surface px-1.5 py-0.5 rounded text-ds-ice font-mono font-bold text-[10px] border border-ds-border truncate">
-                              {upiId}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopyUpi();
-                              }}
-                              className="text-[10px] font-mono text-ds-accent hover:underline flex items-center gap-0.5 shrink-0"
-                            >
-                              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                            </button>
-                          </div>
-                          <span className="text-[10px] text-emerald-400 font-mono block pt-0.5 group-hover:underline">
-                            👆 Tap to popup full QR for customer
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* POS Card Machine Notice */}
-                  {upfrontMethod === 'CARD' && (
-                    <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border flex items-center gap-3 animate-in fade-in">
-                      <CreditCard className="w-5 h-5 text-ds-cyan shrink-0" />
-                      <div className="text-xs text-ds-text-dim">
-                        <strong className="text-white block font-heading font-bold">POS Terminal Swipe / Tap</strong>
-                        Swipe or tap customer card for <strong className="text-emerald-400">₹{(totalFeePaise / 100).toFixed(0)}</strong> on the desk card machine.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* TIER 2: Post-Paid Open Tab Confirmation Box */
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-transparent border border-cyan-500/40 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400">
-                        <Clock className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="font-heading font-bold text-xs text-cyan-300 uppercase tracking-wide">
-                        Open Tab Activated
-                      </span>
-                    </div>
-                    <Badge variant="info" size="sm" className="font-mono text-[10px]">
-                      Pay on Exit
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-ds-text-dim leading-relaxed space-y-2">
-                    <p>
-                      Session starts immediately. No payment collected upfront at the desk.
-                    </p>
-                    <div className="p-2.5 rounded-xl bg-black/50 border border-cyan-900/40 flex items-center justify-between font-mono text-xs">
-                      <span className="text-ds-text-dim">Pending Bill on Checkout:</span>
-                      <span className="text-cyan-300 font-bold font-heading text-sm">
-                        ₹{(totalFeePaise / 100).toFixed(0)}
-                        <span className="text-ds-text-dim font-normal text-[10px] ml-1">(+ overtime if any)</span>
-                      </span>
-                    </div>
-                    <div className="p-2 rounded-lg bg-cyan-950/20 border border-cyan-500/20 text-[11px] text-cyan-200/90 flex items-center gap-1.5">
-                      <span>ℹ️</span>
-                      <span>When player concludes session, cashier will collect payment via Cash Desk or UPI QR.</span>
+                      <p className="text-[11px] text-ds-text-dim">Open tab. Gamer settles ₹{(totalFeePaise / 100).toFixed(0)} upon exit.</p>
                     </div>
                   </div>
+                  <Badge variant="info" size="sm" className="font-mono text-[10px]">
+                    Zero Upfront
+                  </Badge>
                 </div>
-              )}
+
+                <div className="p-2.5 rounded-xl bg-black/50 border border-cyan-900/40 flex items-center justify-between font-mono text-xs">
+                  <span className="text-ds-text-dim">Pending Bill on Checkout:</span>
+                  <span className="text-cyan-300 font-bold font-heading text-sm">
+                    ₹{(totalFeePaise / 100).toFixed(0)}
+                    <span className="text-ds-text-dim font-normal text-[10px] ml-1">(+ overtime if any)</span>
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-cyan-950/30 border border-cyan-500/20 text-[11px] text-cyan-200/90 flex items-center gap-1.5">
+                  <span className="shrink-0">ℹ️</span>
+                  <span>Session starts immediately. No upfront collection at desk. Cashier settles payment at checkout.</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </form>
-
-      <QrPaymentModal
-        isOpen={showQrPopup}
-        onClose={() => setShowQrPopup(false)}
-        amountRupees={Math.round(totalFeePaise / 100)}
-        customerName={customerName || 'Walk-in Guest'}
-        stationName={selectedStation?.name}
-        upiId={upiId}
-        payeeName={upiPayeeName}
-        staticQrUrl={adminQrUrl || undefined}
-        onPaymentVerified={() => {
-          setShowQrPopup(false);
-          toast.success('UPI Payment confirmed for walk-in session');
-        }}
-      />
     </Modal>
   );
 }
