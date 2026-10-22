@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -455,157 +454,42 @@ export function WalkInModal({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-32 sm:pb-36">
           {/* ─── LEFT COLUMN: CATEGORY, STATION & GAME (7 COLS) ─── */}
           <div className="lg:col-span-7 space-y-4">
-            {/* 1. Arena Zone Selection: Visual Cards with Hero Image matching User Booking Flow */}
+            {/* 1. Choose Station: When PlayStation is selected, show ONLY PlayStations (3 consoles); when Snooker is selected, show ONLY Snookers (3 tables) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
-                  <span>Select Gaming Zone</span>
-                </label>
-                <span className="text-[11px] font-mono text-ds-text-dim">
-                  {stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} Units Available Now
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* PlayStation 5 Arena Card */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleCategoryChange('PS5')}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCategoryChange('PS5'); }}
-                  className={`group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg ${
-                    activeCategory === 'PS5'
-                      ? 'border-cyan-400 ring-2 ring-cyan-400/50 shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-ds-dark'
-                      : 'border-ds-border hover:border-cyan-400/60 bg-ds-dark/60 opacity-80 hover:opacity-100'
-                  }`}
-                >
-                  <div className="relative w-full h-32 sm:h-36 overflow-hidden">
-                    <Image
-                      src="/ps5-station.jpg"
-                      alt="PlayStation 5 Arena"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
-                    
-                    {/* Live Ready Badge */}
-                    <div className="absolute top-2.5 right-2.5 z-10">
-                      {(() => {
-                        const readyCount = stations.filter((s) => s.stationType === 'PS5' && getStationAvailabilityState(s, durationMinutes).isAvailable).length;
-                        const totalCount = stations.filter((s) => s.stationType === 'PS5').length;
-                        return readyCount > 0 ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
-                            {readyCount} of {totalCount} Ready
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-ds-surface/90 border border-ds-accent/50 text-ds-ice shadow-md backdrop-blur-sm flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            {totalCount} Consoles • Fully Booked
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {activeCategory === 'PS5' && (
-                      <div className="absolute top-2.5 left-2.5 z-10 w-6 h-6 rounded-full bg-cyan-400 text-black flex items-center justify-center font-black text-xs shadow-md shadow-cyan-400/50">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-3 flex items-center justify-between border-t border-ds-border/60 bg-ds-surface/60">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🎮</span>
-                      <div>
-                        <div className="font-heading font-black text-xs text-white uppercase group-hover:text-cyan-300 transition-colors">
-                          PlayStation 5 Arena
-                        </div>
-                        <div className="text-[10px] text-ds-text-dim">3 Consoles • 4K 120Hz Displays</div>
-                      </div>
-                    </div>
-                    <span className="text-cyan-400 font-mono font-bold text-[11px] bg-ds-dark px-2.5 py-1 rounded-lg border border-ds-border">
-                      From ₹150/hr
-                    </span>
-                  </div>
-                </div>
-
-                {/* Snooker Lounge Card */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleCategoryChange('POOL_TABLE')}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCategoryChange('POOL_TABLE'); }}
-                  className={`group relative rounded-2xl overflow-hidden border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between shadow-lg ${
-                    activeCategory === 'POOL_TABLE'
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)] bg-ds-dark'
-                      : 'border-ds-border hover:border-emerald-500/60 bg-ds-dark/60 opacity-80 hover:opacity-100'
-                  }`}
-                >
-                  <div className="relative w-full h-32 sm:h-36 overflow-hidden">
-                    <Image
-                      src="/snooker-table.jpg"
-                      alt="Snooker Lounge"
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-ds-dark via-ds-dark/30 to-transparent" />
-                    
-                    {/* Live Ready Badge */}
-                    <div className="absolute top-2.5 right-2.5 z-10">
-                      {(() => {
-                        const readyCount = stations.filter((s) => s.stationType === 'POOL_TABLE' && getStationAvailabilityState(s, durationMinutes).isAvailable).length;
-                        const totalCount = stations.filter((s) => s.stationType === 'POOL_TABLE').length;
-                        return readyCount > 0 ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/90 text-white shadow-md backdrop-blur-sm flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
-                            {readyCount} of {totalCount} Ready
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-ds-surface/90 border border-emerald-500/50 text-emerald-400 shadow-md backdrop-blur-sm flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            {totalCount} Tables • Fully Booked
-                          </span>
-                        );
-                      })()}
-                    </div>
-
-                    {activeCategory === 'POOL_TABLE' && (
-                      <div className="absolute top-2.5 left-2.5 z-10 w-6 h-6 rounded-full bg-emerald-400 text-black flex items-center justify-center font-black text-xs shadow-md shadow-emerald-400/50">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-3 flex items-center justify-between border-t border-ds-border/60 bg-ds-surface/60">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🎱</span>
-                      <div>
-                        <div className="font-heading font-black text-xs text-white uppercase group-hover:text-emerald-400 transition-colors">
-                          Snooker Lounge
-                        </div>
-                        <div className="text-[10px] text-ds-text-dim">3 Championship Slate Tables</div>
-                      </div>
-                    </div>
-                    <span className="text-emerald-400 font-mono font-bold text-[11px] bg-ds-dark px-2.5 py-1 rounded-lg border border-ds-border">
-                      ₹250/hr
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Choose Station: When PlayStation is selected, show ONLY PlayStations (3 consoles); when Snooker is selected, show ONLY Snookers (3 tables) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">2</span>
                   <span>Choose {activeCategory === 'PS5' ? 'PlayStation Console (3 Units)' : 'Snooker Table (3 Units)'}</span>
                 </label>
-                <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                  {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Ready
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-[#08101a] p-1 rounded-xl border border-cyan-950/80">
+                    <button
+                      type="button"
+                      onClick={() => handleCategoryChange('PS5')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-bold uppercase transition-all flex items-center gap-1 ${
+                        activeCategory === 'PS5'
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 shadow-sm'
+                          : 'text-ds-text-dim hover:text-white'
+                      }`}
+                    >
+                      <span>🎮 PS5</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCategoryChange('POOL_TABLE')}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-bold uppercase transition-all flex items-center gap-1 ${
+                        activeCategory === 'POOL_TABLE'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-sm'
+                          : 'text-ds-text-dim hover:text-white'
+                      }`}
+                    >
+                      <span>🎱 Snooker</span>
+                    </button>
+                  </div>
+                  <span className="text-[11px] font-mono text-cyan-400 font-bold hidden sm:inline">
+                    {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Ready
+                  </span>
+                </div>
               </div>
 
               {formErrors.station && (
@@ -704,13 +588,13 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* 3. Game Selection (Consoles Only — Automatically Hidden for Snooker/Pool) */}
+            {/* 2. Game Selection (Consoles Only — Automatically Hidden for Snooker/Pool) */}
             {isConsoleStation && (
               <div className="space-y-3 p-3.5 rounded-xl bg-ds-surface/50 border border-ds-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div>
                     <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">3</span>
+                      <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">2</span>
                       <Gamepad2 className="w-4 h-4 text-cyan-400" />
                       <span>Select Game To Play</span>
                       <span className="text-[10px] text-ds-text-dim normal-case font-normal">(optional)</span>
@@ -815,7 +699,7 @@ export function WalkInModal({
             <div className="space-y-1.5">
               <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '4' : '3'}
+                  {isConsoleStation ? '3' : '2'}
                 </span>
                 <span>Session Duration</span>
               </label>
@@ -847,7 +731,7 @@ export function WalkInModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '5' : '4'}
+                    {isConsoleStation ? '4' : '3'}
                   </span>
                   <span>Number of Players</span>
                 </label>
@@ -888,7 +772,7 @@ export function WalkInModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '6' : '5'}
+                    {isConsoleStation ? '5' : '4'}
                   </span>
                   <span>Gamer Information</span>
                 </label>
@@ -984,7 +868,7 @@ export function WalkInModal({
             <div className="space-y-1.5">
               <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '7' : '6'}
+                  {isConsoleStation ? '6' : '5'}
                 </span>
                 <span>Desk Payment Received</span>
               </label>
