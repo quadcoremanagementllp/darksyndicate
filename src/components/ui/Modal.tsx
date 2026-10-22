@@ -9,8 +9,8 @@ import { X } from 'lucide-react';
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
-  description?: string;
+  title?: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   closeOnOverlay?: boolean;
@@ -89,12 +89,12 @@ export function Modal({
           <div className="flex items-start justify-between p-4 sm:p-6 pb-0 shrink-0">
             <div>
               {title && (
-                <h2
+                <div
                   id="modal-title"
                   className="text-lg sm:text-xl font-heading font-bold text-ds-text"
                 >
                   {title}
-                </h2>
+                </div>
               )}
               {description && (
                 <p className="mt-1 text-xs sm:text-sm text-ds-text-muted">

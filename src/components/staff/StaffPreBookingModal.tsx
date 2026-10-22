@@ -124,12 +124,18 @@ export function StaffPreBookingModal({
   const [paymentMode, setPaymentMode] = useState<'PAY_ON_ARRIVAL' | 'CASH_NOW' | 'UPI_NOW'>('PAY_ON_ARRIVAL');
 
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [periodFilter, setPeriodFilter] = useState<'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT'>('ALL');
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [successBooking, setSuccessBooking] = useState<any | null>(null);
 
   const isPs5 = category === 'PS5';
   const isPool = category === 'POOL_TABLE';
+
+  const filteredSlots = useMemo(() => {
+    if (periodFilter === 'ALL') return slots;
+    return slots.filter((s) => s.period === periodFilter);
+  }, [slots, periodFilter]);
 
   // Synchronize category with initialCategory when modal opens
   useEffect(() => {
@@ -225,8 +231,8 @@ export function StaffPreBookingModal({
     setPlayerCount(newCat === 'POOL_TABLE' ? 2 : 1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!selectedTime) {
       toast.error('Please select an available upcoming time slot.');
       return;
@@ -302,11 +308,81 @@ export function StaffPreBookingModal({
       onClose={onClose}
       size="xl"
       showCloseButton={!submitting}
-      className="p-0 border border-ds-border/80 bg-ds-dark shadow-2xl overflow-hidden"
+      title={
+        successBooking ? undefined : (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-heading font-black text-base sm:text-lg text-white uppercase tracking-wide">
+                  Pre-Book Upcoming Slot
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  24/7 Advance
+                </span>
+              </div>
+              <p className="text-[11px] text-ds-text-dim mt-0.5">
+                24 Hours Open (Round-the-Clock) • Schedule upcoming slots even when current stations are busy.
+              </p>
+            </div>
+          </div>
+        )
+      }
+      footer={
+        successBooking ? undefined : (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+            <div className="flex items-baseline gap-2 text-xs">
+              <span className="text-ds-text-dim uppercase font-heading font-bold">Total Payable:</span>
+              <span className="text-2xl font-heading font-black text-ds-ice font-mono">
+                ₹{totalPayable}
+              </span>
+              <span className="text-[10px] text-ds-text-dim font-mono">
+                ({durationMinutes}m • {playerCount}P{selectedTime ? ` • ${formatNormalTime(selectedTime)}` : ''})
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 sm:flex-none text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                type="button"
+                disabled={submitting || !selectedTime || !customerName.trim()}
+                onClick={() => handleSubmit()}
+                className="flex-1 sm:flex-none font-heading font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-ds-accent/20 cursor-pointer"
+              >
+                {submitting ? (
+                  <>
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                    <span>Reserving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4" />
+                    <span>Confirm Upcoming Slot</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )
+      }
+      className="border border-ds-border/80 bg-ds-dark shadow-2xl"
     >
       {/* ─── SUCCESS SCREEN ─── */}
       {successBooking ? (
-        <div className="p-6 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
+        <div className="p-4 sm:p-6 space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
           <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -393,40 +469,8 @@ export function StaffPreBookingModal({
           </div>
         </div>
       ) : (
-        /* ─── BOOKING FORM ─── */
-        <form onSubmit={handleSubmit} className="flex flex-col max-h-[90vh]">
-          {/* Modal Header */}
-          <div className="p-4 sm:p-5 border-b border-ds-border flex items-center justify-between bg-ds-dark/90 sticky top-0 z-20">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-heading font-black text-base sm:text-lg text-white uppercase tracking-wide">
-                    Pre-Book Upcoming Slot
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    Advance Reservation
-                  </span>
-                </div>
-                <p className="text-[11px] text-ds-text-dim">
-                  Schedule upcoming slots for today or future dates even when current stations are busy.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-ds-text-dim hover:text-white p-1.5 rounded-xl hover:bg-ds-surface/60 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Modal Body (Scrollable) */}
-          <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs">
+        /* ─── BOOKING FORM (Single scrollbar, NO duplicate X, NO inner header) ─── */
+        <div className="space-y-5 text-xs py-1">
             {/* 1. Arena & Station Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -580,7 +624,7 @@ export function StaffPreBookingModal({
               </div>
             </div>
 
-            {/* 3. Upcoming Time Slot Selection */}
+            {/* 3. Upcoming Time Slot Selection (24 Hours Open) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
@@ -592,19 +636,43 @@ export function StaffPreBookingModal({
                 </span>
               </div>
 
+              {/* 24-Hour Period Filter Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { id: 'ALL', label: `All 24 Hours (${slots.length})` },
+                  { id: 'NIGHT', label: 'Night (9PM – 6AM)' },
+                  { id: 'MORNING', label: 'Morning (6AM – 12PM)' },
+                  { id: 'AFTERNOON', label: 'Afternoon (12PM – 5PM)' },
+                  { id: 'EVENING', label: 'Evening (5PM – 9PM)' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPeriodFilter(p.id as any)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all border ${
+                      periodFilter === p.id
+                        ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 font-bold shadow-sm'
+                        : 'bg-ds-surface/40 border-ds-border/60 text-ds-text-dim hover:text-white'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               {loadingSlots ? (
                 <div className="p-8 text-center bg-ds-surface/30 rounded-2xl border border-ds-border flex flex-col items-center justify-center gap-2 text-ds-text-dim font-mono text-xs">
                   <RotateCw className="w-5 h-5 animate-spin text-cyan-400" />
                   <span>Checking live station availability for {selectedDate}...</span>
                 </div>
-              ) : slots.length === 0 ? (
+              ) : filteredSlots.length === 0 ? (
                 <div className="p-6 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim text-xs">
-                  No slots found for this date.
+                  No slots found for this time period.
                 </div>
               ) : (
                 <div className="p-3 rounded-2xl bg-ds-surface/20 border border-ds-border space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {slots.map((slot) => {
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-52 overflow-y-auto pr-1">
+                    {filteredSlots.map((slot) => {
                       const isSelected = selectedTime === slot.time;
                       return (
                         <button
@@ -638,13 +706,15 @@ export function StaffPreBookingModal({
                       );
                     })}
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-ds-text-dim font-mono px-1">
-                    <span>Operating Hours: 10:00 AM – 11:30 PM</span>
-                    <span className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" /> Available
+                  <div className="flex flex-col sm:flex-row items-center justify-between text-[10px] text-ds-text-dim font-mono gap-1.5 pt-1 border-t border-ds-border/40">
+                    <span className="text-amber-400 font-bold flex items-center gap-1">
+                      <span>⚡ Operating Hours: 24 Hours Open (Round-the-Clock 24/7)</span>
+                    </span>
+                    <span className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Available
                       </span>
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 text-rose-400/80">
                         <span className="w-2 h-2 rounded-full bg-rose-400/60" /> Booked
                       </span>
                     </span>
@@ -830,53 +900,7 @@ export function StaffPreBookingModal({
               </div>
             </div>
           </div>
-
-          {/* Modal Footer (Sticky Bottom Action) */}
-          <div className="p-4 sm:p-5 border-t border-ds-border bg-ds-dark/95 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
-            <div className="flex items-baseline gap-2 text-xs">
-              <span className="text-ds-text-dim uppercase font-heading font-bold">Total Payable:</span>
-              <span className="text-2xl font-heading font-black text-ds-ice font-mono">
-                ₹{totalPayable}
-              </span>
-              <span className="text-[10px] text-ds-text-dim font-mono">
-                ({durationMinutes}m • {playerCount}P{selectedTime ? ` • ${formatNormalTime(selectedTime)}` : ''})
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={onClose}
-                disabled={submitting}
-                className="flex-1 sm:flex-none"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                size="sm"
-                type="submit"
-                disabled={submitting || !selectedTime || !customerName.trim()}
-                className="flex-1 sm:flex-none font-heading font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-ds-accent/20"
-              >
-                {submitting ? (
-                  <>
-                    <RotateCw className="w-4 h-4 animate-spin" />
-                    <span>Reserving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-4 h-4" />
-                    <span>Confirm Upcoming Slot</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </form>
-      )}
-    </Modal>
-  );
-}
+        )}
+      </Modal>
+    );
+  }

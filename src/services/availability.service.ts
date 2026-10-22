@@ -21,8 +21,8 @@ export interface AvailabilityResult {
   totalStationsInZone?: number;
 }
 
-const OPERATING_START_HOUR = 10; // 10:00 AM
-const OPERATING_END_HOUR = 24; // 12:00 AM Midnight
+const OPERATING_START_HOUR = 0; // 12:00 AM Midnight (24 Hours Open)
+const OPERATING_END_HOUR = 24; // 12:00 AM Next Day Midnight (24 Hours Open)
 
 /**
  * Format 24h string 'HH:mm' to 12h display 'h:mm A'
@@ -38,13 +38,13 @@ function format12Hour(time24: string): string {
 }
 
 /**
- * Get period classification for grouping
+ * Get period classification for grouping across 24 hours
  */
 function getPeriod(hour: number): 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' {
-  if (hour < 13) return 'MORNING'; // 10am - 12:59pm
-  if (hour < 17) return 'AFTERNOON'; // 1pm - 4:59pm
-  if (hour < 21) return 'EVENING'; // 5pm - 8:59pm
-  return 'NIGHT'; // 9pm - 12am
+  if (hour >= 6 && hour < 12) return 'MORNING'; // 6:00 AM - 11:59 AM
+  if (hour >= 12 && hour < 17) return 'AFTERNOON'; // 12:00 PM - 4:59 PM
+  if (hour >= 17 && hour < 21) return 'EVENING'; // 5:00 PM - 8:59 PM
+  return 'NIGHT'; // 9:00 PM - 5:59 AM (Night & Late-Night)
 }
 
 /**
@@ -163,21 +163,35 @@ export async function getStationAvailability(
 
   const [dateYear, dateMonth, dateDay] = dateStr.split('-').map(Number);
 
-  for (let hour = OPERATING_START_HOUR; hour <= OPERATING_END_HOUR - durationHours; hour++) {
-    const startHourStr = hour.toString().padStart(2, '0');
-    const endHourStr = (hour + durationHours).toString().padStart(2, '0');
-    const startTimeStr = `${startHourStr}:00`;
-    const endTimeStr = `${endHourStr}:00`;
+  // 24 Hours Open: generate 30-minute intervals from 00:00 to 24:00
+  const stepMinutes = 30;
+  const totalMinutesStart = OPERATING_START_HOUR * 60; // 00:00 (12:00 AM)
+  const totalMinutesEnd = OPERATING_END_HOUR * 60; // 24:00 (12:00 AM Next Day)
+
+  for (let currentMinute = totalMinutesStart; currentMinute <= totalMinutesEnd - durationMinutes; currentMinute += stepMinutes) {
+    const startHour = Math.floor(currentMinute / 60);
+    const startMin = currentMinute % 60;
+    const endMinuteTotal = currentMinute + durationMinutes;
+    const endHour = Math.floor(endMinuteTotal / 60);
+    const endMin = endMinuteTotal % 60;
+
+    const startHourStr = (startHour % 24).toString().padStart(2, '0');
+    const startMinStr = startMin.toString().padStart(2, '0');
+    const endHourStr = (endHour % 24).toString().padStart(2, '0');
+    const endMinStr = endMin.toString().padStart(2, '0');
+
+    const startTimeStr = `${startHourStr}:${startMinStr}`;
+    const endTimeStr = `${endHourStr}:${endMinStr}`;
 
     const label = `${format12Hour(startTimeStr)} – ${format12Hour(endTimeStr)}`;
-    const period = getPeriod(hour);
+    const period = getPeriod(startHour % 24);
 
     // Exact UTC timestamp boundaries for this candidate slot
     const slotStartUtc = new Date(
-      Date.UTC(dateYear, dateMonth - 1, dateDay, hour, 0, 0, 0) - istOffsetMs
+      Date.UTC(dateYear, dateMonth - 1, dateDay, startHour, startMin, 0, 0) - istOffsetMs
     );
     const slotEndUtc = new Date(
-      Date.UTC(dateYear, dateMonth - 1, dateDay, hour + durationHours, 0, 0, 0) - istOffsetMs
+      Date.UTC(dateYear, dateMonth - 1, dateDay, endHour, endMin, 0, 0) - istOffsetMs
     );
 
     // Skip time slots that have already started or start within 5 minutes for today
@@ -245,7 +259,7 @@ export async function getStationAvailability(
     zone: zone || null,
     date: dateStr,
     durationMinutes,
-    operatingHours: { open: '10:00', close: '24:00' },
+    operatingHours: { open: '00:00', close: '24:00' },
     slots,
     totalStationsInZone: stationsToCheck.length,
   };
