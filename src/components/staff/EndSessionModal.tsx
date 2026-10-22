@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard } from 'lucide-react';
+import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard, Maximize2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
 
 export interface EndSessionTarget {
   sessionId?: string;
@@ -39,6 +40,7 @@ export function EndSessionModal({
   const [chargeOvertime, setChargeOvertime] = useState<boolean>(true);
   const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI'>('CASH');
   const [cashTendered, setCashTendered] = useState<string>('');
+  const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const toast = useToast();
 
   const endDateTime = target?.scheduledEndAt ? new Date(target.scheduledEndAt) : null;
@@ -71,6 +73,7 @@ export function EndSessionModal({
       setChargeOvertime(extraMinutes > 0 && extraMinutes <= 180);
       setCashTendered('');
       setSettleMethod('CASH');
+      setShowQrPopup(false);
     }
   }, [isOpen, target?.sessionId, target?.bookingId, target?.stationId]);
 
@@ -354,7 +357,12 @@ export function EndSessionModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSettleMethod('UPI')}
+                  onClick={() => {
+                    setSettleMethod('UPI');
+                    if (totalCollectRupees > 0) {
+                      setShowQrPopup(true);
+                    }
+                  }}
                   className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 transition-all font-heading font-bold text-xs ${
                     settleMethod === 'UPI'
                       ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400'
@@ -406,9 +414,19 @@ export function EndSessionModal({
               )}
 
               {settleMethod === 'UPI' && (
-                <div className="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-ds-text-dim flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>Scan via counter UPI QR and verify payment confirmation on desk soundbox or phone.</span>
+                <div className="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-ds-text-dim flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span className="truncate">Scan counter UPI QR to collect ₹{totalCollectRupees}.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrPopup(true)}
+                    className="text-[10px] font-mono font-bold text-cyan-300 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0 transition-all cursor-pointer shadow-sm"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Popup QR</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -474,6 +492,19 @@ export function EndSessionModal({
           </Button>
         </div>
       </div>
+
+      <QrPaymentModal
+        isOpen={showQrPopup}
+        onClose={() => setShowQrPopup(false)}
+        amountRupees={totalCollectRupees}
+        customerName={target.customerName}
+        stationName={target.stationName}
+        bookingRef={target.bookingRef}
+        onPaymentVerified={() => {
+          setShowQrPopup(false);
+          toast.success(`Exit payment verified for ${target.customerName}`);
+        }}
+      />
     </Modal>
   );
 }

@@ -5,10 +5,11 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Gamepad2, Banknote, CreditCard, Sparkles, QrCode, Copy, Check, Search, Monitor, AlertCircle, Crown, Clock } from 'lucide-react';
+import { Gamepad2, Banknote, CreditCard, Sparkles, QrCode, Copy, Check, Search, Monitor, AlertCircle, Crown, Clock, Maximize2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useToast } from '@/components/ui/Toast';
 import { ARENA_GAMES, lookupGame, type GameCatalogItem } from '@/lib/gameCatalog';
+import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
 
 interface StationGame {
   id: string;
@@ -170,6 +171,7 @@ export function WalkInModal({
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [paymentTiming, setPaymentTiming] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
   const [upfrontMethod, setUpfrontMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
 
@@ -340,6 +342,7 @@ export function WalkInModal({
       setDurationMinutes(60);
       setPaymentTiming('PREPAID');
       setUpfrontMethod('CASH');
+      setShowQrPopup(false);
       setSelectedGameTitle('');
       setCustomerName('');
       setCustomerPhone('');
@@ -1267,7 +1270,12 @@ export function WalkInModal({
                       <button
                         type="button"
                         key={id}
-                        onClick={() => setUpfrontMethod(id as any)}
+                        onClick={() => {
+                          setUpfrontMethod(id as any);
+                          if (id === 'UPI') {
+                            setShowQrPopup(true);
+                          }
+                        }}
                         className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${
                           upfrontMethod === id
                             ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
@@ -1328,13 +1336,27 @@ export function WalkInModal({
                           <QrCode className="w-4 h-4" />
                           <span>Scan & Pay via UPI</span>
                         </div>
-                        <Badge variant="success" size="sm" className="font-mono text-[10px]">
-                          Collect ₹{(totalFeePaise / 100).toFixed(0)}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="success" size="sm" className="font-mono text-[10px]">
+                            Collect ₹{(totalFeePaise / 100).toFixed(0)}
+                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => setShowQrPopup(true)}
+                            className="text-[10px] font-mono font-bold text-emerald-300 hover:text-white bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                            <span>Popup QR</span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-3.5 bg-ds-dark/90 p-2.5 rounded-xl border border-ds-border">
-                        <div className="w-24 h-24 bg-white p-1.5 rounded-lg shadow-md shrink-0 flex items-center justify-center">
+                      <div
+                        onClick={() => setShowQrPopup(true)}
+                        className="flex items-center gap-3.5 bg-ds-dark/90 p-2.5 rounded-xl border border-ds-border hover:border-emerald-400/60 transition-all cursor-pointer group"
+                        title="Click to pop up large QR code for customer"
+                      >
+                        <div className="w-24 h-24 bg-white p-1.5 rounded-lg shadow-md shrink-0 flex items-center justify-center relative">
                           {displayQrCode ? (
                             <img
                               src={displayQrCode}
@@ -1344,6 +1366,9 @@ export function WalkInModal({
                           ) : (
                             <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                           )}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center text-white text-[10px] font-mono font-bold">
+                            🔍 Popup QR
+                          </div>
                         </div>
                         <div className="space-y-1 text-xs min-w-0 flex-1">
                           <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Official Payee</span>
@@ -1356,12 +1381,18 @@ export function WalkInModal({
                             </code>
                             <button
                               type="button"
-                              onClick={handleCopyUpi}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyUpi();
+                              }}
                               className="text-[10px] font-mono text-ds-accent hover:underline flex items-center gap-0.5 shrink-0"
                             >
                               {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                             </button>
                           </div>
+                          <span className="text-[10px] text-emerald-400 font-mono block pt-0.5 group-hover:underline">
+                            👆 Tap to popup full QR for customer
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1416,6 +1447,21 @@ export function WalkInModal({
           </div>
         </div>
       </form>
+
+      <QrPaymentModal
+        isOpen={showQrPopup}
+        onClose={() => setShowQrPopup(false)}
+        amountRupees={Math.round(totalFeePaise / 100)}
+        customerName={customerName || 'Walk-in Guest'}
+        stationName={selectedStation?.name}
+        upiId={upiId}
+        payeeName={upiPayeeName}
+        staticQrUrl={adminQrUrl || undefined}
+        onPaymentVerified={() => {
+          setShowQrPopup(false);
+          toast.success('UPI Payment confirmed for walk-in session');
+        }}
+      />
     </Modal>
   );
 }
