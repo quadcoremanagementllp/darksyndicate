@@ -449,41 +449,56 @@ export function WalkInModal({
       title="Desk Walk-in Rapid Allocation"
       description="Quickly assign available gaming consoles and snooker tables to walk-in players."
       size="full"
-      footerClassName="bg-[#090f19] border-t border-cyan-500/30 shadow-[0_-12px_32px_rgba(0,0,0,0.85)] z-20"
+      footerClassName="bg-[#090f19] border-t border-cyan-500/30 shadow-[0_-12px_32px_rgba(0,0,0,0.85)] z-20 py-2.5 sm:py-3.5 px-3 sm:px-6"
       footer={
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 w-full">
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center gap-2 min-w-0">
-              <Badge variant="accent" size="md" className="font-heading font-bold text-xs uppercase shrink-0">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 w-full">
+          <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Badge variant="accent" size="sm" className="font-heading font-bold text-xs uppercase shrink-0">
                 {selectedStation?.name || 'No Station'}
               </Badge>
               {selectedGameTitle && (
-                <Badge variant="default" size="md" className="font-mono text-xs text-ds-ice truncate max-w-[150px] sm:max-w-none">
+                <Badge variant="default" size="sm" className="font-mono text-[11px] sm:text-xs text-ds-ice truncate max-w-[130px] sm:max-w-none">
                   🎮 {selectedGameTitle}
                 </Badge>
               )}
             </div>
 
-            <div className="pl-3 border-l border-ds-border shrink-0">
-              <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Total Collection</span>
-              <span className="text-xl font-heading font-black text-ds-ice">
+            <div className="pl-2.5 sm:pl-3 border-l border-ds-border shrink-0 text-right sm:text-left">
+              <span className="text-[9px] uppercase font-mono text-ds-text-dim block leading-tight">Total Collection</span>
+              <span className="text-base sm:text-xl font-heading font-black text-ds-ice leading-tight">
                 ₹{(totalFeePaise / 100).toFixed(0)}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 font-heading font-semibold"
+            >
               Cancel
             </Button>
             <Button
               variant="accent"
+              size="sm"
               type="button"
               disabled={submitting}
               onClick={() => handleSubmit()}
-              className="px-6 py-2.5 shadow-lg shadow-ds-accent/20 cursor-pointer"
+              className="text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md shadow-ds-accent/20 cursor-pointer font-heading font-bold"
             >
-              {submitting ? 'Allocating Console...' : 'Confirm & Start Session'}
+              {submitting ? (
+                'Allocating...'
+              ) : (
+                <>
+                  <span className="sm:hidden">Confirm & Start</span>
+                  <span className="hidden sm:inline">Confirm & Start Session</span>
+                </>
+              )}
             </Button>
           </div>
         </div>

@@ -305,12 +305,32 @@ export function ExtendSessionModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="outline" type="button" onClick={onClose} disabled={submitting}>
+        <div className="flex items-center justify-end gap-2 sm:gap-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 font-heading font-semibold"
+          >
             Cancel
           </Button>
-          <Button variant="accent" onClick={handleExtend} disabled={submitting}>
-            {submitting ? 'Extending...' : 'Confirm Extension & Update End Time'}
+          <Button
+            variant="accent"
+            size="sm"
+            onClick={handleExtend}
+            disabled={submitting}
+            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md shadow-ds-accent/20 cursor-pointer font-heading font-bold"
+          >
+            {submitting ? (
+              'Extending...'
+            ) : (
+              <>
+                <span className="sm:hidden">Confirm Extension</span>
+                <span className="hidden sm:inline">Confirm Extension & Update End Time</span>
+              </>
+            )}
           </Button>
         </div>
       </div>

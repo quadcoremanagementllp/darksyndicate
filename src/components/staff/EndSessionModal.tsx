@@ -294,26 +294,28 @@ export function EndSessionModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-1">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 pt-1">
           <Button
             variant="outline"
+            size="sm"
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="text-xs"
+            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 font-heading font-semibold"
           >
-            Cancel / Keep Running
+            Cancel
           </Button>
 
           <Button
             variant="danger"
+            size="sm"
             type="button"
             onClick={handleConfirmEnd}
             disabled={submitting}
-            className="text-xs font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white"
+            className="text-xs sm:text-sm font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white py-1.5 sm:py-2 px-3.5 sm:px-4"
           >
             <Square className="w-3.5 h-3.5" />
-            <span>{submitting ? 'Ending Session...' : 'Confirm & End Session'}</span>
+            <span>{submitting ? 'Ending...' : 'Confirm & End Session'}</span>
           </Button>
         </div>
       </div>
