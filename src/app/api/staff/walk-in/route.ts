@@ -105,6 +105,16 @@ export async function POST(req: NextRequest) {
       // 5. Customer Resolution
       const phoneDigits = data.customerPhone ? data.customerPhone.replace(/\D/g, '').slice(-10) : '';
       const cleanEmail = data.customerEmail?.trim().toLowerCase() || null;
+      const phoneCandidates =
+        phoneDigits.length === 10
+          ? [
+              phoneDigits,
+              `+91${phoneDigits}`,
+              `91${phoneDigits}`,
+              `+91 ${phoneDigits}`,
+              `0${phoneDigits}`,
+            ]
+          : [];
       let registeredUser = null;
 
       if (cleanEmail) {
@@ -112,11 +122,11 @@ export async function POST(req: NextRequest) {
           where: { email: cleanEmail },
         });
       }
-      if (!registeredUser && phoneDigits.length === 10) {
+      if (!registeredUser && phoneCandidates.length > 0) {
+        // Exact indexed IN search across formats to prevent MariaDB binary collation error on LIKE
         registeredUser = await tx.user.findFirst({
           where: {
-            role: 'CUSTOMER',
-            phone: { contains: phoneDigits },
+            phone: { in: phoneCandidates },
           },
         });
       }
@@ -132,10 +142,19 @@ export async function POST(req: NextRequest) {
           const dummyPassword = crypto.randomBytes(16).toString('hex');
           const passwordHash = await hashPassword(dummyPassword);
 
+          // Check if either email or phone already belongs to an existing user (avoids unique constraint violation)
           const existingByEmail = await tx.user.findUnique({ where: { email: userEmail } });
+          const existingByPhone =
+            phoneCandidates.length > 0
+              ? await tx.user.findFirst({ where: { phone: { in: phoneCandidates } } })
+              : null;
+
           if (existingByEmail) {
             user = existingByEmail;
             registeredUser = existingByEmail;
+          } else if (existingByPhone) {
+            user = existingByPhone;
+            registeredUser = existingByPhone;
           } else {
             const newCustomer = await tx.user.create({
               data: {
