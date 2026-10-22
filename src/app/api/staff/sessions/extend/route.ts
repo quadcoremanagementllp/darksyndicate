@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
         let hourlyRate = session.station?.pricePerHourPaise || 15000;
         const playerMatch = session.booking?.notes?.match(/\[Players:\s*(\d+)\]/);
         const sessionPlayers = playerMatch ? parseInt(playerMatch[1], 10) : 1;
-        if (sessionPlayers > 4) {
+        const isSnooker =
+          session.station?.stationType === 'POOL_TABLE' ||
+          session.station?.name?.toUpperCase().includes('SNOOKER') ||
+          session.station?.name?.toUpperCase().includes('POOL');
+        if (isSnooker && sessionPlayers > 4) {
           hourlyRate += (sessionPlayers - 4) * 5000;
         }
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));

@@ -383,21 +383,32 @@ export function WalkInModal({
     selectedStation?.stationType === 'PC' ||
     Boolean(selectedStation?.games && selectedStation.games.length > 0);
 
-  const isPs5 = selectedStation?.stationType === 'PS5';
-  const isPool = selectedStation?.stationType === 'POOL_TABLE';
+  const isPs5 =
+    selectedStation?.stationType === 'PS5' ||
+    Boolean(selectedStation?.name?.toUpperCase().includes('PS5'));
+  const isPool =
+    selectedStation?.stationType === 'POOL_TABLE' ||
+    Boolean(selectedStation?.name?.toUpperCase().includes('SNOOKER')) ||
+    Boolean(selectedStation?.name?.toUpperCase().includes('POOL'));
+
   let dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
   if (isPs5) {
     if (playerCount === 2) dynamicHourlyRate = 20000;
-    else if (playerCount >= 3 && playerCount <= 4) dynamicHourlyRate = 25000;
-    else if (playerCount > 4) dynamicHourlyRate = 25000 + (playerCount - 4) * 5000;
+    else if (playerCount >= 3) dynamicHourlyRate = 25000;
     else dynamicHourlyRate = 15000;
   } else if (isPool) {
     const basePoolRate = selectedStation ? selectedStation.pricePerHourPaise : 25000;
     dynamicHourlyRate = basePoolRate + Math.max(0, playerCount - 4) * 5000;
   } else {
-    const baseRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
-    dynamicHourlyRate = baseRate + Math.max(0, playerCount - 4) * 5000;
+    dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
   }
+
+  // Safety clamp: if non-pool station is selected, clamp max players to 4
+  useEffect(() => {
+    if (!isPool && playerCount > 4) {
+      setPlayerCount(4);
+    }
+  }, [isPool, playerCount]);
   const subtotalPaise = Math.round(dynamicHourlyRate * (durationMinutes / 60));
   const discountPercent = activeMembership?.discountPercent || 0;
   const discountPaise = discountPercent > 0 ? Math.round((subtotalPaise * discountPercent) / 100) : 0;
@@ -946,13 +957,13 @@ export function WalkInModal({
                   <span>Number of Players</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  {playerCount > 4 && (
+                  {isPool && playerCount > 4 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
                       +{playerCount - 4} Extra ({playerCount - 4} × ₹50/hr = +₹{(playerCount - 4) * 50}/hr)
                     </span>
                   )}
                   <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                    {isPs5 && playerCount <= 4
+                    {isPs5
                       ? playerCount === 1
                         ? '₹150/hr'
                         : playerCount === 2
@@ -986,46 +997,48 @@ export function WalkInModal({
                 ))}
               </div>
 
-              {/* Extra Players for Pool / Snooker / Groups (> 4 Players: +₹50 per person / hr) */}
-              <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-ds-border/70 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
-                    <span>Extra Players (&gt; 4 Players)</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-amber-300/90 font-semibold">
-                    +₹50 / person per hour
-                  </span>
-                </div>
+              {/* Extra Players: ONLY for Snookers / Pool Table AND ONLY when 4 or more players are selected */}
+              {isPool && playerCount >= 4 && (
+                <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-amber-500/30 space-y-1.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
+                      <span>Add Extra Players (&gt; 4 Players)</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-amber-300/90 font-semibold">
+                      +₹50 / person per hour
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { count: 5, label: '5 Players', extra: '+₹50' },
-                    { count: 6, label: '6 Players', extra: '+₹100' },
-                    { count: 7, label: '7 Players', extra: '+₹150' },
-                    { count: 8, label: '8 Players', extra: '+₹200' },
-                  ].map(({ count, label, extra }) => (
-                    <button
-                      type="button"
-                      key={count}
-                      onClick={() => setPlayerCount(count)}
-                      className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
-                        playerCount === count
-                          ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
-                          : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
-                      }`}
-                    >
-                      <span className="text-[11px] font-bold">{label}</span>
-                      <span
-                        className={`text-[10px] font-mono font-bold mt-0.5 ${
-                          playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { count: 5, label: '5 Players', extra: '+₹50' },
+                      { count: 6, label: '6 Players', extra: '+₹100' },
+                      { count: 7, label: '7 Players', extra: '+₹150' },
+                      { count: 8, label: '8 Players', extra: '+₹200' },
+                    ].map(({ count, label, extra }) => (
+                      <button
+                        type="button"
+                        key={count}
+                        onClick={() => setPlayerCount(count)}
+                        className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
+                          playerCount === count
+                            ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
+                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
                         }`}
                       >
-                        {extra}/hr
-                      </span>
-                    </button>
-                  ))}
+                        <span className="text-[11px] font-bold">{label}</span>
+                        <span
+                          className={`text-[10px] font-mono font-bold mt-0.5 ${
+                            playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
+                          }`}
+                        >
+                          {extra}/hr
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Gamer Information (Name, Phone, optional Email) */}

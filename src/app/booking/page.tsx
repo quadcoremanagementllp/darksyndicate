@@ -1150,39 +1150,41 @@ function BookingContent() {
                             ))}
                           </div>
 
-                          {/* Extra players: 5 to 8 */}
-                          <div className="p-2.5 rounded-xl bg-ds-surface/30 border border-ds-border space-y-1.5">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="font-heading font-bold text-amber-400 uppercase tracking-wide">
-                                Extra Players (&gt; 4 Players)
-                              </span>
-                              <span className="font-mono text-[10px] text-amber-300/80">
-                                +₹50 / person per hour
-                              </span>
+                          {/* Extra players: 5 to 8 (ONLY shown when 4 or more players selected) */}
+                          {playerCount >= 4 && (
+                            <div className="p-2.5 rounded-xl bg-ds-surface/30 border border-ds-border space-y-1.5 animate-in fade-in duration-150">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-heading font-bold text-amber-400 uppercase tracking-wide">
+                                  Add Extra Players (&gt; 4 Players)
+                                </span>
+                                <span className="font-mono text-[10px] text-amber-300/80 font-semibold">
+                                  +₹50 / person per hour
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[
+                                  { count: 5, label: '5 Players', rate: '₹300/hr' },
+                                  { count: 6, label: '6 Players', rate: '₹350/hr' },
+                                  { count: 7, label: '7 Players', rate: '₹400/hr' },
+                                  { count: 8, label: '8 Players', rate: '₹450/hr' },
+                                ].map((opt) => (
+                                  <button
+                                    key={opt.count}
+                                    type="button"
+                                    onClick={() => setPlayerCount(opt.count)}
+                                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                                      playerCount === opt.count
+                                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm'
+                                        : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
+                                    }`}
+                                  >
+                                    <div className="text-[10px] sm:text-xs font-heading font-bold">{opt.label}</div>
+                                    <span className="text-[9px] font-mono font-semibold text-amber-400/90 block mt-0.5">{opt.rate}</span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
-                              {[
-                                { count: 5, label: '5 Players', rate: '₹300/hr' },
-                                { count: 6, label: '6 Players', rate: '₹350/hr' },
-                                { count: 7, label: '7 Players', rate: '₹400/hr' },
-                                { count: 8, label: '8 Players', rate: '₹450/hr' },
-                              ].map((opt) => (
-                                <button
-                                  key={opt.count}
-                                  type="button"
-                                  onClick={() => setPlayerCount(opt.count)}
-                                  className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
-                                    playerCount === opt.count
-                                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm'
-                                      : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
-                                  }`}
-                                >
-                                  <div className="text-[10px] sm:text-xs font-heading font-bold">{opt.label}</div>
-                                  <span className="text-[9px] font-mono font-semibold text-amber-400/90 block mt-0.5">{opt.rate}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
