@@ -137,6 +137,20 @@ export function StaffPreBookingModal({
     return slots.filter((s) => s.period === periodFilter);
   }, [slots, periodFilter]);
 
+  const periodCounts = useMemo(() => {
+    return {
+      ALL: slots.length,
+      MORNING: slots.filter((s) => s.period === 'MORNING').length,
+      AFTERNOON: slots.filter((s) => s.period === 'AFTERNOON').length,
+      EVENING: slots.filter((s) => s.period === 'EVENING').length,
+      NIGHT: slots.filter((s) => s.period === 'NIGHT').length,
+    };
+  }, [slots]);
+
+  const firstAvailableSlot = useMemo(() => {
+    return slots.find((s) => s.available);
+  }, [slots]);
+
   // Synchronize category with initialCategory when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -636,38 +650,124 @@ export function StaffPreBookingModal({
                 </span>
               </div>
 
-              {/* 24-Hour Period Filter Chips */}
+              {/* 24-Hour Chronological Period Filter Chips with live counts */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {[
-                  { id: 'ALL', label: `All 24 Hours (${slots.length})` },
-                  { id: 'NIGHT', label: 'Night (9PM – 6AM)' },
-                  { id: 'MORNING', label: 'Morning (6AM – 12PM)' },
-                  { id: 'AFTERNOON', label: 'Afternoon (12PM – 5PM)' },
-                  { id: 'EVENING', label: 'Evening (5PM – 9PM)' },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPeriodFilter(p.id as any)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all border ${
-                      periodFilter === p.id
-                        ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 font-bold shadow-sm'
-                        : 'bg-ds-surface/40 border-ds-border/60 text-ds-text-dim hover:text-white'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                  { id: 'ALL', label: 'All 24 Hours', count: slots.length },
+                  { id: 'MORNING', label: 'Morning (6AM – 12PM)', count: periodCounts.MORNING },
+                  { id: 'AFTERNOON', label: 'Afternoon (12PM – 5PM)', count: periodCounts.AFTERNOON },
+                  { id: 'EVENING', label: 'Evening (5PM – 9PM)', count: periodCounts.EVENING },
+                  { id: 'NIGHT', label: 'Night (9PM – 6AM)', count: periodCounts.NIGHT },
+                ].map((p) => {
+                  const isZero = p.count === 0 && p.id !== 'ALL';
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={isZero}
+                      onClick={() => setPeriodFilter(p.id as any)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all border flex items-center gap-1 ${
+                        periodFilter === p.id
+                          ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 font-bold shadow-sm'
+                          : isZero
+                          ? 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim/40 cursor-not-allowed'
+                          : 'bg-ds-surface/40 border-ds-border/60 text-ds-text-dim hover:text-white cursor-pointer'
+                      }`}
+                    >
+                      <span>{p.label}</span>
+                      <span className={`text-[9px] font-bold ${periodFilter === p.id ? 'text-cyan-300' : 'text-ds-text-dim'}`}>
+                        ({p.count})
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Earliest Slot Quick-Select Banner */}
+              {!loadingSlots && firstAvailableSlot && slots.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-cyan-400 font-bold flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Earliest Open Slot:</span>
+                    </span>
+                    <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                      {formatNormalTime(firstAvailableSlot.time)}
+                    </span>
+                    <span className="text-ds-text-dim text-[11px] hidden sm:inline">
+                      ({firstAvailableSlot.label})
+                    </span>
+                  </div>
+                  {selectedTime !== firstAvailableSlot.time && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTime(firstAvailableSlot.time);
+                        setPeriodFilter('ALL');
+                      }}
+                      className="text-[11px] font-heading font-bold text-cyan-300 hover:text-white uppercase transition-colors underline cursor-pointer"
+                    >
+                      Select Earliest Slot →
+                    </button>
+                  )}
+                </div>
+              )}
 
               {loadingSlots ? (
                 <div className="p-8 text-center bg-ds-surface/30 rounded-2xl border border-ds-border flex flex-col items-center justify-center gap-2 text-ds-text-dim font-mono text-xs">
                   <RotateCw className="w-5 h-5 animate-spin text-cyan-400" />
                   <span>Checking live station availability for {selectedDate}...</span>
                 </div>
+              ) : slots.length === 0 ? (
+                /* Empty state when NO slots are available for the entire day */
+                <div className="p-6 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto text-xl">
+                    🌙
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-black text-sm uppercase text-white">
+                      {selectedDate === todayStr
+                        ? 'No More Advance Slots for Tonight'
+                        : 'No Slots Available for Selected Date'}
+                    </h4>
+                    <p className="text-xs text-ds-text-muted mt-1 max-w-md mx-auto leading-relaxed">
+                      {selectedDate === todayStr
+                        ? 'All scheduled slots for today have concluded or are in-session. Advance bookings open continuously starting from 12:00 AM (Midnight) for tomorrow.'
+                        : 'All stations are fully booked for this selected date and duration. Try selecting a shorter duration or checking adjacent dates.'}
+                    </p>
+                  </div>
+                  {selectedDate === todayStr && (
+                    <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(tomorrowStr);
+                          setPeriodFilter('ALL');
+                          setSelectedTime('');
+                        }}
+                        className="text-xs flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+                      >
+                        <span>View Tomorrow (From 12:00 AM Midnight)</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               ) : filteredSlots.length === 0 ? (
-                <div className="p-6 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim text-xs">
-                  No slots found for this time period.
+                /* Empty state when a specific period chip has 0 slots, but other periods have slots */
+                <div className="p-6 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-2.5">
+                  <p className="text-xs text-ds-text-muted">
+                    No slots available in the <span className="font-bold text-cyan-300 uppercase">{periodFilter}</span> period.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPeriodFilter('ALL')}
+                    className="px-3 py-1 rounded-lg bg-ds-surface border border-ds-border hover:border-cyan-400 text-xs font-mono text-cyan-300 transition-all cursor-pointer"
+                  >
+                    Show All {slots.length} Open Slots
+                  </button>
                 </div>
               ) : (
                 <div className="p-3 rounded-2xl bg-ds-surface/20 border border-ds-border space-y-3">

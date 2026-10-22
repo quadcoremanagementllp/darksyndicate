@@ -571,18 +571,18 @@ export default function StaffBookingsSchedulePage() {
         </div>
       )}
 
-      {/* Filter & View Switcher Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 bg-ds-surface/50 p-3 sm:p-4 rounded-2xl border border-ds-border">
-        {/* Left Side: Status Tabs + Date Scope + Staff Scope */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 max-w-full">
+      {/* Filter & View Switcher Bar (Tablet & Desktop Optimized) */}
+      <div className="bg-ds-surface/50 p-3 sm:p-4 rounded-2xl border border-ds-border space-y-3 shadow-lg">
+        {/* Tier 1: Main Status Tabs & View Mode Switcher */}
+        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
           {/* Status Tabs */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar min-w-0 flex-nowrap shrink">
             {[
               {
                 id: 'ALL',
                 label: dateScope === 'TODAY' ? `All Today (${allBookingsCount})` : `All Bookings (${allBookingsCount})`,
               },
-              { id: 'ACTIVE', label: `In Session / Checked In (${activeInSessionCount})` },
+              { id: 'ACTIVE', label: `In Session (${activeInSessionCount})` },
               {
                 id: 'UPCOMING',
                 label:
@@ -595,7 +595,7 @@ export default function StaffBookingsSchedulePage() {
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs ${
+                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs shrink-0 cursor-pointer ${
                   statusFilter === tab.id
                     ? 'bg-ds-accent text-white shadow-sm'
                     : 'text-ds-text-dim hover:text-white'
@@ -606,94 +606,98 @@ export default function StaffBookingsSchedulePage() {
             ))}
           </div>
 
-          {/* Date Scope Filter */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
-            <button
-              onClick={() => setDateScope('TODAY')}
-              className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
-                dateScope === 'TODAY'
-                  ? 'bg-ds-surface text-ds-ice border border-ds-ice/30 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-              title="Only show reservations and sessions scheduled for today"
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Today Only</span>
-            </button>
-            <button
-              onClick={() => setDateScope('ALL')}
-              className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
-                dateScope === 'ALL'
-                  ? 'bg-ds-surface text-amber-300 border border-amber-500/30 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-              title="Show all historical bookings from previous days"
-            >
-              <span>All History</span>
-            </button>
-          </div>
-
-          {/* Staff Scope Filter */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
-            <button
-              onClick={() => setStaffScope('ALL')}
-              className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
-                staffScope === 'ALL'
-                  ? 'bg-ds-surface text-ds-accent border border-ds-accent/30 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-              title="Show all bookings across all stations on the arena floor"
-            >
-              <Gamepad2 className="w-3.5 h-3.5" />
-              <span>All Arena</span>
-            </button>
-            <button
-              onClick={() => setStaffScope('MINE')}
-              className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1 ${
-                staffScope === 'MINE'
-                  ? 'bg-ds-surface text-emerald-300 border border-emerald-500/30 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-              title="Show only bookings handled by you"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>My Walk-ins</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right Side: View Mode Switcher + Search Bar */}
-        <div className="flex items-center gap-2.5 sm:gap-3 w-full xl:w-auto justify-between xl:justify-end">
-          {/* Table vs Grid toggle available for ALL tabs */}
+          {/* Table vs Grid toggle */}
           <div className="flex items-center bg-ds-dark p-1 rounded-xl border border-ds-border shrink-0">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold transition-all cursor-pointer ${
                 viewMode === 'table' ? 'bg-ds-surface text-ds-ice shadow-sm border border-ds-ice/30' : 'text-ds-text-dim hover:text-white'
               }`}
               title="Table View"
             >
               <List className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Table</span>
+              <span>Table</span>
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold transition-all cursor-pointer ${
                 viewMode === 'grid' ? 'bg-ds-surface text-ds-ice shadow-sm border border-ds-ice/30' : 'text-ds-text-dim hover:text-white'
               }`}
               title="Grid Cards View"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cards</span>
+              <span>Cards</span>
             </button>
           </div>
+        </div>
 
-          <div className="relative flex-1 xl:flex-none">
+        {/* Tier 2: Refinement Filters & Search Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pt-2.5 border-t border-ds-border/40">
+          {/* Sub-Filters: Date Scope + Staff Scope */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap">
+            {/* Date Scope Filter */}
+            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
+              <button
+                onClick={() => setDateScope('TODAY')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1.5 cursor-pointer ${
+                  dateScope === 'TODAY'
+                    ? 'bg-ds-surface text-ds-ice border border-ds-ice/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Only show reservations and sessions scheduled for today"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Today Only</span>
+              </button>
+              <button
+                onClick={() => setDateScope('ALL')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1.5 cursor-pointer ${
+                  dateScope === 'ALL'
+                    ? 'bg-ds-surface text-amber-300 border border-amber-500/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Show all historical bookings from previous days"
+              >
+                <span>All History</span>
+              </button>
+            </div>
+
+            {/* Staff Scope Filter */}
+            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
+              <button
+                onClick={() => setStaffScope('ALL')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1.5 cursor-pointer ${
+                  staffScope === 'ALL'
+                    ? 'bg-ds-surface text-ds-accent border border-ds-accent/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Show all bookings across all stations on the arena floor"
+              >
+                <Gamepad2 className="w-3.5 h-3.5" />
+                <span>All Arena</span>
+              </button>
+              <button
+                onClick={() => setStaffScope('MINE')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase text-[11px] transition-all flex items-center gap-1.5 cursor-pointer ${
+                  staffScope === 'MINE'
+                    ? 'bg-ds-surface text-emerald-300 border border-emerald-500/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Show only bookings handled by you"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>My Walk-ins</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64 md:w-72 lg:w-80 shrink-0">
             <Input
               placeholder="Search ref, player, station..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs py-1.5 pl-8 w-full xl:w-60"
+              className="text-xs py-1.5 pl-8 w-full bg-ds-dark/90"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
           </div>

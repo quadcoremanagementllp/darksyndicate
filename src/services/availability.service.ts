@@ -101,7 +101,8 @@ export async function getStationAvailability(
     if (stationsToCheck.length > 0) {
       const [y, m, d] = dateStr.split('-').map(Number);
       const dayStartUtc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - istOffsetMs);
-      const dayEndUtc = new Date(Date.UTC(y, m - 1, d + 1, 0, 0, 0) - istOffsetMs);
+      // Extend query window by 12 hours into next day to catch late night sessions crossing midnight
+      const dayEndUtc = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0) - istOffsetMs);
       const targetDate = new Date(`${dateStr}T00:00:00.000Z`);
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
@@ -163,36 +164,36 @@ export async function getStationAvailability(
 
   const [dateYear, dateMonth, dateDay] = dateStr.split('-').map(Number);
 
-  // 24 Hours Open: generate 30-minute intervals from 00:00 to 24:00
+  // 24 Hours Open: generate every 30-minute start time across the 24-hour day (00:00 to 23:30)
+  // Even if a late-night session crosses midnight into the next morning, it is valid and checked for overlap.
   const stepMinutes = 30;
   const totalMinutesStart = OPERATING_START_HOUR * 60; // 00:00 (12:00 AM)
   const totalMinutesEnd = OPERATING_END_HOUR * 60; // 24:00 (12:00 AM Next Day)
 
-  for (let currentMinute = totalMinutesStart; currentMinute <= totalMinutesEnd - durationMinutes; currentMinute += stepMinutes) {
+  for (let currentMinute = totalMinutesStart; currentMinute < totalMinutesEnd; currentMinute += stepMinutes) {
     const startHour = Math.floor(currentMinute / 60);
     const startMin = currentMinute % 60;
-    const endMinuteTotal = currentMinute + durationMinutes;
-    const endHour = Math.floor(endMinuteTotal / 60);
-    const endMin = endMinuteTotal % 60;
 
-    const startHourStr = (startHour % 24).toString().padStart(2, '0');
+    const startHourStr = startHour.toString().padStart(2, '0');
     const startMinStr = startMin.toString().padStart(2, '0');
-    const endHourStr = (endHour % 24).toString().padStart(2, '0');
-    const endMinStr = endMin.toString().padStart(2, '0');
-
     const startTimeStr = `${startHourStr}:${startMinStr}`;
-    const endTimeStr = `${endHourStr}:${endMinStr}`;
-
-    const label = `${format12Hour(startTimeStr)} – ${format12Hour(endTimeStr)}`;
-    const period = getPeriod(startHour % 24);
 
     // Exact UTC timestamp boundaries for this candidate slot
     const slotStartUtc = new Date(
       Date.UTC(dateYear, dateMonth - 1, dateDay, startHour, startMin, 0, 0) - istOffsetMs
     );
-    const slotEndUtc = new Date(
-      Date.UTC(dateYear, dateMonth - 1, dateDay, endHour, endMin, 0, 0) - istOffsetMs
-    );
+    const slotEndUtc = new Date(slotStartUtc.getTime() + durationMinutes * 60 * 1000);
+
+    // End time in IST for display formatting
+    const endIst = new Date(slotEndUtc.getTime() + istOffsetMs);
+    const endHourIst = endIst.getUTCHours();
+    const endMinIst = endIst.getUTCMinutes();
+    const endHourStr = endHourIst.toString().padStart(2, '0');
+    const endMinStr = endMinIst.toString().padStart(2, '0');
+    const endTimeStr = `${endHourStr}:${endMinStr}`;
+
+    const label = `${format12Hour(startTimeStr)} – ${format12Hour(endTimeStr)}`;
+    const period = getPeriod(startHour);
 
     // Skip time slots that have already started or start within 5 minutes for today
     if (isToday && slotStartUtc.getTime() < Date.now() + 5 * 60 * 1000) {

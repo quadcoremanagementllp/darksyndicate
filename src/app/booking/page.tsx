@@ -1255,8 +1255,25 @@ function BookingContent() {
                         <span className="text-xs text-ds-text-muted">Scanning real-time arena schedule...</span>
                       </div>
                     ) : filteredSlots.length === 0 ? (
-                      <div className="p-8 text-center bg-ds-surface/30 rounded-xl border border-dashed border-ds-border text-xs text-ds-text-muted">
-                        No available slots for the selected period. Please try a different date or period.
+                      <div className="p-8 text-center bg-ds-surface/30 rounded-xl border border-dashed border-ds-border text-xs text-ds-text-muted space-y-3">
+                        <p>No available slots for the selected period.</p>
+                        {selectedDate === todayStr && (
+                          <div className="pt-1">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              type="button"
+                              onClick={() => {
+                                const tomorrowDate = new Date(Date.now() + istOffsetMs + 86400000).toISOString().split('T')[0];
+                                setSelectedDate(tomorrowDate);
+                                setSlotPeriod('ALL');
+                              }}
+                              className="text-xs"
+                            >
+                              <span>View Tomorrow&apos;s Slots (from 12:00 AM) →</span>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
