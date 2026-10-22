@@ -74,7 +74,7 @@ export default function MembershipPlansPage() {
     <div className="min-h-screen bg-ds-darker text-ds-text flex flex-col selection:bg-ds-accent selection:text-white">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-28 lg:pb-24 space-y-16">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 md:pt-28 pb-24 md:pb-16 lg:pb-20 space-y-12 sm:space-y-16">
         {/* Hero Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <Badge variant="accent" size="sm" className="shadow-glow-sm">
@@ -131,10 +131,11 @@ export default function MembershipPlansPage() {
             <span>Loading Syndicate Passes...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6">
-            {plans.map((plan) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pt-4 sm:pt-6">
+            {plans.map((plan, idx) => {
               const isGold = plan.tier === 'GOLD';
               const isVip = plan.tier === 'VIP';
+              const isLastOddCard = idx === 2; // VIP card: centered on 2-col tablet layout
 
               return (
                 <Card
@@ -146,7 +147,7 @@ export default function MembershipPlansPage() {
                       : isVip
                       ? 'border-ds-accent/70 shadow-xl shadow-ds-accent/15'
                       : 'border-ds-border'
-                  }`}
+                  } ${isLastOddCard ? 'md:col-span-2 lg:col-span-1 md:max-w-md md:mx-auto md:w-full' : ''}`}
                 >
                   {isGold && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
@@ -166,18 +167,18 @@ export default function MembershipPlansPage() {
 
                   <div>
                     {/* 3D Cybernetic Pass Showcase Banner */}
-                    <div className="relative w-full h-52 sm:h-56 bg-ds-dark rounded-t-2xl overflow-hidden">
+                    <div className="relative w-full h-44 sm:h-52 bg-ds-dark rounded-t-2xl overflow-hidden">
                       <Image
                         src={getPassImage(plan.tier)}
                         alt={plan.name}
                         fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-ds-surface/90 via-transparent to-black/20" />
                     </div>
 
-                    <div className="p-6 sm:p-8 space-y-6">
+                    <div className="p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
                       {/* Header */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between pb-1">
@@ -198,30 +199,30 @@ export default function MembershipPlansPage() {
                             </div>
                           )}
                         </div>
-                        <h3 className="text-xl font-heading font-extrabold text-ds-text group-hover:text-ds-ice transition-colors">
+                        <h3 className="text-xl sm:text-2xl font-heading font-extrabold text-ds-text group-hover:text-ds-ice transition-colors">
                           {plan.name}
                         </h3>
-                        <p className="text-xs text-ds-text-muted leading-relaxed min-h-[36px]">
+                        <p className="text-xs sm:text-sm text-ds-text-muted leading-relaxed min-h-[36px] sm:min-h-[44px]">
                           {plan.description}
                         </p>
                       </div>
 
-                      {/* Price Tag */}
-                      <div className="p-4 rounded-2xl bg-ds-dark/70 border border-ds-border">
+                      {/* Price Tag with Safe Wrap Badges */}
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-ds-dark/70 border border-ds-border">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-3xl font-heading font-black text-ds-text">
+                          <span className="text-2xl sm:text-3xl font-heading font-black text-ds-text">
                             ₹{(plan.pricePaise / 100).toLocaleString('en-IN')}
                           </span>
                           <span className="text-xs font-mono text-ds-text-dim">
                             /{plan.durationDays} Days
                           </span>
                         </div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge variant="accent" size="sm">
+                        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <Badge variant="accent" size="sm" className="font-heading font-bold text-[10px] sm:text-xs">
                             {plan.discountPercent}% OFF EVERY HOUR
                           </Badge>
                           {plan.freeHours > 0 && (
-                            <Badge variant="success" size="sm">
+                            <Badge variant="success" size="sm" className="font-heading font-bold text-[10px] sm:text-xs whitespace-nowrap">
                               +{plan.freeHours} FREE HRS
                             </Badge>
                           )}
@@ -229,13 +230,13 @@ export default function MembershipPlansPage() {
                       </div>
 
                       {/* Perks List */}
-                      <div className="space-y-3 pt-1">
-                        <span className="text-[10px] font-mono uppercase text-ds-text-dim tracking-wider block">
+                      <div className="space-y-2.5 sm:space-y-3 pt-1">
+                        <span className="text-[10px] font-mono uppercase text-ds-text-dim tracking-wider block font-semibold">
                           Included Privileges:
                         </span>
-                        <ul className="space-y-2.5 text-xs text-ds-text-muted">
+                        <ul className="space-y-2 text-xs text-ds-text-muted">
                           {plan.perks?.map((perk, idx) => (
-                            <li key={idx} className="flex items-start gap-2.5">
+                            <li key={idx} className="flex items-start gap-2.5 leading-relaxed">
                               <CheckCircle2
                                 className={`w-4 h-4 shrink-0 mt-0.5 ${
                                   isGold
@@ -254,7 +255,7 @@ export default function MembershipPlansPage() {
                   </div>
 
                   {/* Call to action */}
-                  <div className="p-6 sm:p-8 pt-0">
+                  <div className="p-5 sm:p-6 lg:p-7 pt-0">
                     <Button
                       variant={isGold ? 'primary' : isVip ? 'accent' : 'outline'}
                       className="w-full font-heading font-bold tracking-wider"
@@ -277,8 +278,8 @@ export default function MembershipPlansPage() {
         )}
 
         {/* Venue Advantage Banner */}
-        <Card variant="glass" className="p-8 sm:p-10 border-ds-accent/30 bg-gradient-to-r from-ds-dark via-ds-surface/60 to-ds-dark">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center md:text-left">
+        <Card variant="glass" className="p-6 sm:p-8 lg:p-10 border-ds-accent/30 bg-gradient-to-r from-ds-dark via-ds-surface/60 to-ds-dark">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-ds-accent/20 border border-ds-accent flex items-center justify-center text-ds-ice shrink-0">
                 <Zap className="w-6 h-6" />

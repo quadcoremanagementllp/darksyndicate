@@ -37,7 +37,7 @@ export function MobileBottomBar() {
   return (
     <aside
       aria-label="Mobile Navigation Dock"
-      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden pointer-events-auto"
+      className="fixed bottom-0 left-0 right-0 z-40 md:hidden pointer-events-auto"
     >
       {/* Top Cyber Accent Glow Border */}
       <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-ds-accent/60 to-transparent" />
