@@ -238,6 +238,8 @@ export function WalkInModal({
         setSelectedStationId(target.id);
         setActiveCategory(target.stationType);
       }
+      setDurationMinutes(60);
+      setPaymentMethod('CASH');
       setSelectedGameTitle('');
       setCustomerName('');
       setCustomerPhone('');
@@ -400,6 +402,14 @@ export function WalkInModal({
       return;
     }
 
+    if (selectedStation) {
+      const availState = getStationAvailabilityState(selectedStation, durationMinutes);
+      if (!availState.isAvailable) {
+        toast.error(`Selected station is ${availState.statusLabel}. Please choose an available station.`);
+        return;
+      }
+    }
+
     if (nameErr || phoneErr || emailErr) {
       toast.error(nameErr || phoneErr || emailErr || 'Please check the highlighted errors');
       return;
@@ -418,7 +428,7 @@ export function WalkInModal({
           durationMinutes,
           playerCount,
           customerName: customerName.trim(),
-          customerPhone: cleanPhone,
+          customerPhone: cleanPhone || undefined,
           customerEmail: customerEmail.trim() || undefined,
           paymentMethod,
           gameTitle: selectedGameTitle.trim() || undefined,
@@ -513,7 +523,7 @@ export function WalkInModal({
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
-                  <span>Choose {activeCategory === 'PS5' ? 'PlayStation Console (3 Units)' : 'Snooker Table (3 Units)'}</span>
+                  <span>Choose {activeCategory === 'PS5' ? `PlayStation Console (${categoryStations.length} Units)` : `Snooker Table (${categoryStations.length} Units)`}</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 bg-[#08101a] p-1 rounded-xl border border-cyan-950/80">

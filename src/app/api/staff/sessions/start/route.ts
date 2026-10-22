@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
@@ -60,9 +61,10 @@ export async function POST(req: NextRequest) {
           }
 
           const basePricePaise = station.pricePerHourPaise * (data.durationMinutes / 60);
+          const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
           const booking = await tx.booking.create({
             data: {
-              bookingRef: `DS-WALK-${Date.now().toString().slice(-4)}`,
+              bookingRef: `DS-WALK-${new Date().getFullYear()}-${randomHex}`,
               userId: guest.id,
               stationId: station.id,
               date: now,
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
               subtotalPaise: basePricePaise,
               totalPricePaise: basePricePaise,
               status: 'IN_PROGRESS',
-              qrToken: `ds-walk-${Date.now()}`,
+              qrToken: `ds-walk-${crypto.randomUUID()}`,
               isWalkIn: true,
               customerName: data.customerName || 'Walk-in Gamer',
               customerPhone: data.customerPhone || null,
