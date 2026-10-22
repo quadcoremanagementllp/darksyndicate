@@ -419,18 +419,39 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // If paying at counter, create a pending payment record
+        // If paying at counter, create a payment record
         if (data.payAtCounter) {
+          const isImmediateSettlement =
+            session &&
+            (session.role === 'STAFF' || session.role === 'ADMIN' || session.role === 'SUPER_ADMIN') &&
+            data.notes?.includes('[SETTLED]');
+
+          const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : 'CASH';
+
           await tx.payment.create({
             data: {
               bookingId: booking.id,
               userId,
               amountPaise: totalPricePaise,
-              method: 'CASH',
-              status: 'PENDING',
-              notes: 'Pay at front desk upon check-in',
+              method: recordedMethod,
+              status: isImmediateSettlement ? 'COMPLETED' : 'PENDING',
+              notes: isImmediateSettlement
+                ? `Paid in advance at desk via ${recordedMethod}`
+                : 'Pay at front desk upon check-in',
+              paidAt: isImmediateSettlement ? new Date() : null,
+              recordedByStaffId: isImmediateSettlement ? session.userId : null,
             },
           });
+
+          if (isImmediateSettlement && userId && totalPricePaise > 0) {
+            await tx.customerProfile
+              .upsert({
+                where: { userId },
+                create: { userId, totalSpent: totalPricePaise },
+                update: { totalSpent: { increment: totalPricePaise } },
+              })
+              .catch(() => {});
+          }
         }
 
         // Coupon redemption log

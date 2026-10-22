@@ -26,11 +26,16 @@ import {
   Flame,
   ArrowLeft,
   ArrowRight,
+  Calendar,
+  CalendarClock,
+  Zap,
+  X,
 } from 'lucide-react';
 import { QrScannerModal } from '@/components/staff/QrScannerModal';
 import { WalkInModal } from '@/components/staff/WalkInModal';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
+import { StaffPreBookingModal } from '@/components/staff/StaffPreBookingModal';
 import { useToast } from '@/components/ui/Toast';
 
 interface StationGame {
@@ -100,6 +105,12 @@ export default function StaffStationGridPage() {
   const [selectedWalkInStationId, setSelectedWalkInStationId] = useState<string | undefined>(undefined);
   const [extendModalStation, setExtendModalStation] = useState<Station | null>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
+
+  // Mode Selection & Pre-booking states
+  const [modeModalZone, setModeModalZone] = useState<'PS5' | 'POOL_TABLE' | null>(null);
+  const [preBookingOpen, setPreBookingOpen] = useState(false);
+  const [preBookingCategory, setPreBookingCategory] = useState<'PS5' | 'POOL_TABLE'>('PS5');
+  const [preBookingStationId, setPreBookingStationId] = useState<string | undefined>(undefined);
 
   // Station Games Modal state
   const [selectedStationForGames, setSelectedStationForGames] = useState<Station | null>(null);
@@ -341,6 +352,19 @@ export default function StaffStationGridPage() {
             <span>Desk Walk-in</span>
           </Button>
 
+          <Button
+            variant="outline"
+            onClick={() => {
+              setPreBookingCategory('PS5');
+              setPreBookingStationId('ANY');
+              setPreBookingOpen(true);
+            }}
+            className="flex items-center gap-1.5 text-xs text-amber-300 border-amber-500/40 hover:bg-amber-500/10 font-heading font-bold uppercase"
+          >
+            <Calendar className="w-3.5 h-3.5 text-amber-400" />
+            <span>Pre-Book Slot</span>
+          </Button>
+
           <Link href="/staff/bookings?tab=ACTIVE">
             <Button
               variant="outline"
@@ -450,9 +474,7 @@ export default function StaffStationGridPage() {
             {/* 1. PlayStation 5 Arena Card */}
             <div
               onClick={() => {
-                const firstAvail = ps5List.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
-                setSelectedWalkInStationId(firstAvail?.id || ps5List[0]?.id);
-                setWalkInOpen(true);
+                setModeModalZone('PS5');
               }}
               className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-ds-accent transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-ds-accent/20 bg-ds-dark flex flex-col justify-between"
             >
@@ -519,10 +541,14 @@ export default function StaffStationGridPage() {
                   <Button
                     variant="accent"
                     size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModeModalZone('PS5');
+                    }}
                     className="text-xs flex items-center gap-1.5 shadow-lg shadow-ds-accent/20"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>Desk Walk-in →</span>
+                    <span>Book Session →</span>
                   </Button>
                 </div>
               </div>
@@ -531,9 +557,7 @@ export default function StaffStationGridPage() {
             {/* 2. Snooker Lounge Card */}
             <div
               onClick={() => {
-                const firstAvail = poolList.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
-                setSelectedWalkInStationId(firstAvail?.id || poolList[0]?.id);
-                setWalkInOpen(true);
+                setModeModalZone('POOL_TABLE');
               }}
               className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-emerald-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-emerald-500/20 bg-ds-dark flex flex-col justify-between"
             >
@@ -600,10 +624,14 @@ export default function StaffStationGridPage() {
                   <Button
                     variant="accent"
                     size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModeModalZone('POOL_TABLE');
+                    }}
                     className="text-xs flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-black font-bold shadow-lg shadow-emerald-500/20"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>Desk Walk-in →</span>
+                    <span>Book Session →</span>
                   </Button>
                 </div>
               </div>
@@ -983,6 +1011,155 @@ export default function StaffStationGridPage() {
         stations={stations}
         preselectedStationId={selectedWalkInStationId}
         onSuccess={loadData}
+      />
+
+      {/* ─── BOOKING MODE SELECTION MODAL (Live Walk-In vs Pre-Booking) ─── */}
+      <Modal
+        isOpen={modeModalZone !== null}
+        onClose={() => setModeModalZone(null)}
+        size="lg"
+        showCloseButton={false}
+        className="p-0 border border-ds-border/90 bg-ds-dark shadow-2xl overflow-hidden"
+      >
+        <div className="p-6 sm:p-7 space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-ds-border/70">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-ds-surface border border-ds-border flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                {modeModalZone === 'PS5' ? '🎮' : '🎱'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-heading font-black text-lg sm:text-xl text-white uppercase tracking-wide">
+                    {modeModalZone === 'PS5' ? 'PlayStation 5 Arena' : 'Snooker Lounge'}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-ds-accent/15 border border-ds-accent/30 text-ds-ice">
+                    Choose Booking Mode
+                  </span>
+                </div>
+                <p className="text-xs text-ds-text-dim mt-0.5">
+                  Select whether to allocate an instant live session now or reserve an upcoming time slot.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setModeModalZone(null)}
+              className="text-ds-text-dim hover:text-white p-1.5 rounded-xl hover:bg-ds-surface/60 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Two Mode Choice Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Card 1: Start Live Session Now */}
+            <div
+              onClick={() => {
+                const targetZone = modeModalZone;
+                setModeModalZone(null);
+                if (targetZone === 'PS5') {
+                  const firstAvail = ps5List.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
+                  setSelectedWalkInStationId(firstAvail?.id || ps5List[0]?.id);
+                } else {
+                  const firstAvail = poolList.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
+                  setSelectedWalkInStationId(firstAvail?.id || poolList[0]?.id);
+                }
+                setWalkInOpen(true);
+              }}
+              className="p-5 rounded-2xl border-2 border-ds-border hover:border-cyan-400 bg-ds-surface/30 hover:bg-cyan-950/20 transition-all cursor-pointer group flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-cyan-950/50"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Play className="w-5 h-5 fill-current" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase">
+                    Play Right Now
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-heading font-black text-base text-white uppercase group-hover:text-cyan-300 transition-colors">
+                    Start Live Session
+                  </h4>
+                  <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
+                    Customer is at the desk and ready to play. Immediately assigns an available station and starts the live floor timer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-ds-border/60 flex items-center justify-between text-xs font-heading font-bold text-cyan-400 uppercase">
+                <span>Instant Walk-in</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+
+            {/* Card 2: Book Upcoming Slot (Pre-Booking) */}
+            <div
+              onClick={() => {
+                const targetZone = modeModalZone;
+                setModeModalZone(null);
+                setPreBookingCategory(targetZone || 'PS5');
+                setPreBookingStationId('ANY');
+                setPreBookingOpen(true);
+              }}
+              className="p-5 rounded-2xl border-2 border-ds-border hover:border-amber-400 bg-ds-surface/30 hover:bg-amber-950/20 transition-all cursor-pointer group flex flex-col justify-between space-y-4 hover:shadow-xl hover:shadow-amber-950/50"
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase">
+                    Reserve Ahead
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-heading font-black text-base text-white uppercase group-hover:text-amber-300 transition-colors">
+                    Book Upcoming Slot
+                  </h4>
+                  <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
+                    Customer wants to reserve later today or a future date. Check slot availability, pick a time, and confirm ahead even if current stations are full.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-ds-border/60 flex items-center justify-between text-xs font-heading font-bold text-amber-400 uppercase">
+                <span>Advance Reservation</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setModeModalZone(null)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── STAFF PRE-BOOKING MODAL (Upcoming Slot Reservation) ─── */}
+      <StaffPreBookingModal
+        isOpen={preBookingOpen}
+        onClose={() => setPreBookingOpen(false)}
+        stations={stations}
+        initialCategory={preBookingCategory}
+        initialStationId={preBookingStationId}
+        onBookingCreated={() => {
+          loadData();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('ds-booking-updated'));
+          }
+        }}
       />
 
       <ExtendSessionModal
