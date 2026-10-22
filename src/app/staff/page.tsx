@@ -64,6 +64,9 @@ interface Station {
     scheduledEndAt: string;
     extensionMinutes?: number;
     gameTitle?: string | null;
+    paymentStatus?: string;
+    paymentMethod?: string;
+    totalPricePaise?: number;
   } | null;
   upcomingBookings?: Array<{
     id: string;
@@ -152,6 +155,9 @@ export default function StaffStationGridPage() {
       scheduledEndAt: station.activeSession.scheduledEndAt,
       pricePerHourPaise: station.pricePerHourPaise,
       gameTitle: station.activeSession.gameTitle || null,
+      paymentStatus: station.activeSession.paymentStatus,
+      paymentMethod: station.activeSession.paymentMethod,
+      totalPricePaise: station.activeSession.totalPricePaise,
     });
   };
 

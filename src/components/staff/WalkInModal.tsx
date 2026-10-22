@@ -168,7 +168,8 @@ export function WalkInModal({
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'PAY_ON_EXIT'>('CASH');
+  const [paymentTiming, setPaymentTiming] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
+  const [upfrontMethod, setUpfrontMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
 
@@ -337,7 +338,8 @@ export function WalkInModal({
         setActiveCategory(target.stationType);
       }
       setDurationMinutes(60);
-      setPaymentMethod('CASH');
+      setPaymentTiming('PREPAID');
+      setUpfrontMethod('CASH');
       setSelectedGameTitle('');
       setCustomerName('');
       setCustomerPhone('');
@@ -468,7 +470,7 @@ export function WalkInModal({
 
   // Generate dynamic QR fallback if admin has not uploaded a static QR image
   useEffect(() => {
-    if (paymentMethod === 'UPI' && !adminQrUrl) {
+    if (paymentTiming === 'PREPAID' && upfrontMethod === 'UPI' && !adminQrUrl) {
       const amount = (totalFeePaise / 100).toFixed(2);
       const stationName = selectedStation?.name || 'Walk-in Gaming';
       const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiPayeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Walk-in ${stationName}`)}`;
@@ -480,7 +482,7 @@ export function WalkInModal({
         .then((url) => setDynamicQrUrl(url))
         .catch(() => {});
     }
-  }, [paymentMethod, adminQrUrl, upiId, upiPayeeName, totalFeePaise, selectedStation?.name]);
+  }, [paymentTiming, upfrontMethod, adminQrUrl, upiId, upiPayeeName, totalFeePaise, selectedStation?.name]);
 
   const handleCopyUpi = () => {
     navigator.clipboard.writeText(upiId);
@@ -525,6 +527,7 @@ export function WalkInModal({
 
     const rawDigits = customerPhone.replace(/\D/g, '');
     const cleanPhone = rawDigits.length === 12 && rawDigits.startsWith('91') ? rawDigits.slice(2) : rawDigits;
+    const resolvedPaymentMethod = paymentTiming === 'POSTPAID' ? 'PAY_ON_EXIT' : upfrontMethod;
 
     setSubmitting(true);
     try {
@@ -538,14 +541,18 @@ export function WalkInModal({
           customerName: customerName.trim(),
           customerPhone: cleanPhone || undefined,
           customerEmail: customerEmail.trim() || undefined,
-          paymentMethod,
+          paymentMethod: resolvedPaymentMethod,
           gameTitle: selectedGameTitle.trim() || undefined,
         }),
       });
 
       const json = await res.json();
       if (json.success) {
-        toast.success(`Walk-in session started for ${customerName}!`);
+        if (paymentTiming === 'POSTPAID') {
+          toast.success(`Walk-in tab opened for ${customerName}! (Pay on Exit)`);
+        } else {
+          toast.success(`Walk-in session started for ${customerName}! (Pre-Paid via ${upfrontMethod})`);
+        }
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('ds-booking-updated'));
         }
@@ -587,10 +594,12 @@ export function WalkInModal({
 
             <div className="pl-2.5 sm:pl-3 border-l border-ds-border shrink-0 text-right sm:text-left">
               <span className="text-[9px] uppercase font-mono text-ds-text-dim block leading-tight">
-                {activeMembership && discountPaise > 0 ? (
+                {paymentTiming === 'POSTPAID' ? (
+                  <span className="text-cyan-400 font-bold">To Collect on Exit (Open Tab)</span>
+                ) : activeMembership && discountPaise > 0 ? (
                   <span className="text-amber-400 font-bold">{activeMembership.planName} (Save ₹{(discountPaise / 100).toFixed(0)})</span>
                 ) : (
-                  'Total Collection'
+                  'Total Collection (Upfront)'
                 )}
               </span>
               <div className="flex items-baseline gap-1.5 justify-end sm:justify-start">
@@ -627,10 +636,15 @@ export function WalkInModal({
             >
               {submitting ? (
                 'Allocating...'
+              ) : paymentTiming === 'POSTPAID' ? (
+                <>
+                  <span className="sm:hidden">Confirm & Open Tab</span>
+                  <span className="hidden sm:inline">Confirm & Open Tab (Pay on Exit)</span>
+                </>
               ) : (
                 <>
-                  <span className="sm:hidden">Confirm & Start</span>
-                  <span className="hidden sm:inline">Confirm & Start Session</span>
+                  <span className="sm:hidden">Confirm & Collect</span>
+                  <span className="hidden sm:inline">Confirm & Collect ₹{(totalFeePaise / 100).toFixed(0)}</span>
                 </>
               )}
             </Button>
@@ -1149,134 +1163,256 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Desk Payment Method */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '6' : '5'}
+            {/* Desk Payment Timing & Method (Two-Tier Architecture) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">
+                    {isConsoleStation ? '6' : '5'}
+                  </span>
+                  <span>Payment Policy (Timing & Method)</span>
+                </label>
+                <span className="text-[10px] font-mono font-bold uppercase text-ds-text-dim">
+                  {paymentTiming === 'PREPAID' ? '⚡ Collect Upfront' : '⏳ Settle on Exit'}
                 </span>
-                <span>Desk Payment Method</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: 'CASH', label: 'Cash Desk', icon: Banknote },
-                  { id: 'UPI', label: 'UPI / QR', icon: Sparkles },
-                  { id: 'CARD', label: 'POS Card', icon: CreditCard },
-                  { id: 'PAY_ON_EXIT', label: 'Pay on Exit', icon: Clock },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    type="button"
-                    key={id}
-                    onClick={() => setPaymentMethod(id as any)}
-                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${
-                      paymentMethod === id
-                        ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500'
-                        : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="text-xs font-heading font-bold">{label}</span>
-                  </button>
-                ))}
               </div>
-            </div>
 
-            {/* Pay on Exit Notice */}
-            {paymentMethod === 'PAY_ON_EXIT' && (
-              <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 flex items-start gap-2.5 animate-in fade-in">
-                <Clock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                <div className="text-xs text-ds-text-dim">
-                  <strong className="text-cyan-300 block font-heading font-bold">Post-Paid Session</strong>
-                  Session launches now. The bill of <strong className="text-white">₹{(totalFeePaise / 100).toFixed(0)}</strong> (plus any overtime) will be collected upon conclusion.
-                </div>
+              {/* TIER 1: Timing Selector (Before vs After) */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Pay Before Button */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentTiming('PREPAID')}
+                  className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-1.5 ${
+                    paymentTiming === 'PREPAID'
+                      ? 'bg-emerald-950/40 border-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400/80'
+                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:border-emerald-500/40 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                          paymentTiming === 'PREPAID' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-ds-surface text-ds-text-dim'
+                        }`}
+                      >
+                        <Banknote className="w-4 h-4" />
+                      </div>
+                      <span className="font-heading font-black text-xs">Pay Before</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
+                        paymentTiming === 'PREPAID'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                          : 'bg-ds-surface text-ds-text-dim'
+                      }`}
+                    >
+                      Pre-Paid
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-ds-text-dim leading-snug">
+                    Collect ₹{(totalFeePaise / 100).toFixed(0)} upfront before gaming starts.
+                  </p>
+                </button>
+
+                {/* Pay After Button */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentTiming('POSTPAID')}
+                  className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-1.5 ${
+                    paymentTiming === 'POSTPAID'
+                      ? 'bg-cyan-950/40 border-cyan-400 text-white shadow-[0_0_16px_rgba(6,182,212,0.3)] ring-1 ring-cyan-400/80'
+                      : 'bg-[#08101a] border-cyan-950/70 text-ds-text-muted hover:border-cyan-500/40 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                          paymentTiming === 'POSTPAID' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-ds-surface text-ds-text-dim'
+                        }`}
+                      >
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <span className="font-heading font-black text-xs">Pay After</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
+                        paymentTiming === 'POSTPAID'
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                          : 'bg-ds-surface text-ds-text-dim'
+                      }`}
+                    >
+                      Post-Paid Tab
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-ds-text-dim leading-snug">
+                    Open tab. Gamer settles ₹{(totalFeePaise / 100).toFixed(0)} upon exit.
+                  </p>
+                </button>
               </div>
-            )}
 
-            {/* Cash Tendered & Change Helper */}
-            {paymentMethod === 'CASH' && (
-              <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-mono uppercase text-ds-text-dim">Cash Change Helper</span>
-                  {cashTenderedNum > 0 && cashTenderedNum >= totalFeePaise / 100 && (
-                    <Badge variant="success" size="sm" className="font-mono text-xs font-bold animate-in zoom-in-75">
-                      Change: ₹{(cashTenderedNum - totalFeePaise / 100).toFixed(0)}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Cash Received (₹)"
-                    value={cashTendered}
-                    onChange={(e) => setCashTendered(e.target.value)}
-                    className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
-                  />
-                  <div className="flex items-center gap-1 shrink-0">
+              {/* TIER 2: Payment Instruments (If Pre-Paid) */}
+              {paymentTiming === 'PREPAID' ? (
+                <div className="space-y-2.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-[11px] text-ds-text-dim">
+                    <span className="font-mono uppercase font-bold text-ds-text-muted">Select Upfront Payment Instrument:</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
                     {[
-                      { val: (totalFeePaise / 100).toString(), label: 'Exact' },
-                      { val: '200', label: '₹200' },
-                      { val: '500', label: '₹500' },
-                    ].map((btn) => (
+                      { id: 'CASH', label: 'Cash Desk', icon: Banknote },
+                      { id: 'UPI', label: 'UPI / QR', icon: Sparkles },
+                      { id: 'CARD', label: 'POS Card', icon: CreditCard },
+                    ].map(({ id, label, icon: Icon }) => (
                       <button
                         type="button"
-                        key={btn.label}
-                        onClick={() => setCashTendered(btn.val)}
-                        className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500/50 hover:text-emerald-400 transition-all cursor-pointer"
+                        key={id}
+                        onClick={() => setUpfrontMethod(id as any)}
+                        className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${
+                          upfrontMethod === id
+                            ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
+                        }`}
                       >
-                        {btn.label}
+                        <Icon className="w-4 h-4" />
+                        <span className="text-xs font-heading font-bold">{label}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* UPI QR Display if selected */}
-            {paymentMethod === 'UPI' && (
-              <div className="p-3.5 rounded-xl bg-ds-surface/80 border border-emerald-500/40 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-emerald-400 font-heading font-bold text-xs">
-                    <QrCode className="w-4 h-4" />
-                    <span>Scan & Pay via UPI</span>
-                  </div>
-                  <Badge variant="success" size="sm" className="font-mono text-[10px]">
-                    Collect ₹{(totalFeePaise / 100).toFixed(0)}
-                  </Badge>
-                </div>
+                  {/* Cash Tendered & Change Helper */}
+                  {upfrontMethod === 'CASH' && (
+                    <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border space-y-2 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[10px] font-mono uppercase text-ds-text-dim">Cash Change Helper</span>
+                        {cashTenderedNum > 0 && cashTenderedNum >= totalFeePaise / 100 && (
+                          <Badge variant="success" size="sm" className="font-mono text-xs font-bold animate-in zoom-in-75">
+                            Change: ₹{(cashTenderedNum - totalFeePaise / 100).toFixed(0)}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Cash Received (₹)"
+                          value={cashTendered}
+                          onChange={(e) => setCashTendered(e.target.value)}
+                          className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
+                        />
+                        <div className="flex items-center gap-1 shrink-0">
+                          {[
+                            { val: (totalFeePaise / 100).toString(), label: 'Exact' },
+                            { val: '200', label: '₹200' },
+                            { val: '500', label: '₹500' },
+                            { val: '1000', label: '₹1000' },
+                          ].map((btn) => (
+                            <button
+                              type="button"
+                              key={btn.label}
+                              onClick={() => setCashTendered(btn.val)}
+                              className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500/50 hover:text-emerald-400 transition-all cursor-pointer"
+                            >
+                              {btn.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="flex items-center gap-3.5 bg-ds-dark/90 p-2.5 rounded-xl border border-ds-border">
-                  <div className="w-24 h-24 bg-white p-1.5 rounded-lg shadow-md shrink-0 flex items-center justify-center">
-                    {displayQrCode ? (
-                      <img
-                        src={displayQrCode}
-                        alt="Counter UPI QR"
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    )}
+                  {/* UPI QR Display if selected */}
+                  {upfrontMethod === 'UPI' && (
+                    <div className="p-3.5 rounded-xl bg-ds-surface/80 border border-emerald-500/40 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-heading font-bold text-xs">
+                          <QrCode className="w-4 h-4" />
+                          <span>Scan & Pay via UPI</span>
+                        </div>
+                        <Badge variant="success" size="sm" className="font-mono text-[10px]">
+                          Collect ₹{(totalFeePaise / 100).toFixed(0)}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-3.5 bg-ds-dark/90 p-2.5 rounded-xl border border-ds-border">
+                        <div className="w-24 h-24 bg-white p-1.5 rounded-lg shadow-md shrink-0 flex items-center justify-center">
+                          {displayQrCode ? (
+                            <img
+                              src={displayQrCode}
+                              alt="Counter UPI QR"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          )}
+                        </div>
+                        <div className="space-y-1 text-xs min-w-0 flex-1">
+                          <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Official Payee</span>
+                          <span className="font-heading font-bold text-ds-text block truncate text-xs">
+                            {upiPayeeName}
+                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <code className="bg-ds-surface px-1.5 py-0.5 rounded text-ds-ice font-mono font-bold text-[10px] border border-ds-border truncate">
+                              {upiId}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={handleCopyUpi}
+                              className="text-[10px] font-mono text-ds-accent hover:underline flex items-center gap-0.5 shrink-0"
+                            >
+                              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* POS Card Machine Notice */}
+                  {upfrontMethod === 'CARD' && (
+                    <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-border flex items-center gap-3 animate-in fade-in">
+                      <CreditCard className="w-5 h-5 text-ds-cyan shrink-0" />
+                      <div className="text-xs text-ds-text-dim">
+                        <strong className="text-white block font-heading font-bold">POS Terminal Swipe / Tap</strong>
+                        Swipe or tap customer card for <strong className="text-emerald-400">₹{(totalFeePaise / 100).toFixed(0)}</strong> on the desk card machine.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* TIER 2: Post-Paid Open Tab Confirmation Box */
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-transparent border border-cyan-500/40 space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400">
+                        <Clock className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-heading font-bold text-xs text-cyan-300 uppercase tracking-wide">
+                        Open Tab Activated
+                      </span>
+                    </div>
+                    <Badge variant="info" size="sm" className="font-mono text-[10px]">
+                      Pay on Exit
+                    </Badge>
                   </div>
-                  <div className="space-y-1 text-xs min-w-0 flex-1">
-                    <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Official Payee</span>
-                    <span className="font-heading font-bold text-ds-text block truncate text-xs">
-                      {upiPayeeName}
-                    </span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <code className="bg-ds-surface px-1.5 py-0.5 rounded text-ds-ice font-mono font-bold text-[10px] border border-ds-border truncate">
-                        {upiId}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={handleCopyUpi}
-                        className="text-[10px] font-mono text-ds-accent hover:underline flex items-center gap-0.5 shrink-0"
-                      >
-                        {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      </button>
+                  <div className="text-xs text-ds-text-dim leading-relaxed space-y-2">
+                    <p>
+                      Session starts immediately. No payment collected upfront at the desk.
+                    </p>
+                    <div className="p-2.5 rounded-xl bg-black/50 border border-cyan-900/40 flex items-center justify-between font-mono text-xs">
+                      <span className="text-ds-text-dim">Pending Bill on Checkout:</span>
+                      <span className="text-cyan-300 font-bold font-heading text-sm">
+                        ₹{(totalFeePaise / 100).toFixed(0)}
+                        <span className="text-ds-text-dim font-normal text-[10px] ml-1">(+ overtime if any)</span>
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-cyan-950/20 border border-cyan-500/20 text-[11px] text-cyan-200/90 flex items-center gap-1.5">
+                      <span>ℹ️</span>
+                      <span>When player concludes session, cashier will collect payment via Cash Desk or UPI QR.</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </form>

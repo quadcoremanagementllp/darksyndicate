@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User } from 'lucide-react';
+import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 export interface EndSessionTarget {
@@ -17,6 +17,9 @@ export interface EndSessionTarget {
   scheduledEndAt?: string;
   pricePerHourPaise?: number;
   gameTitle?: string | null;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  totalPricePaise?: number;
 }
 
 interface EndSessionModalProps {
@@ -34,6 +37,8 @@ export function EndSessionModal({
 }: EndSessionModalProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [chargeOvertime, setChargeOvertime] = useState<boolean>(true);
+  const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI'>('CASH');
+  const [cashTendered, setCashTendered] = useState<string>('');
   const toast = useToast();
 
   const endDateTime = target?.scheduledEndAt ? new Date(target.scheduledEndAt) : null;
@@ -51,10 +56,21 @@ export function EndSessionModal({
     : null;
   const isStalePreviousSession = extraMinutes > 180;
 
+  const isPostPaidPending = target?.paymentStatus === 'PENDING';
+  const baseBookingPaise = target?.totalPricePaise || 0;
+  const overtimePaise = chargeOvertime && overtimeCharge ? overtimeCharge * 100 : 0;
+  const totalCollectPaise = (isPostPaidPending ? baseBookingPaise : 0) + overtimePaise;
+  const totalCollectRupees = Math.round(totalCollectPaise / 100);
+
+  const cashTenderedNum = parseFloat(cashTendered) || 0;
+  const changeDue = Math.max(0, cashTenderedNum - totalCollectRupees);
+
   React.useEffect(() => {
     if (isOpen && target) {
       // Auto-default to waive overtime if session was left open for > 3 hours (e.g. previous day)
       setChargeOvertime(extraMinutes > 0 && extraMinutes <= 180);
+      setCashTendered('');
+      setSettleMethod('CASH');
     }
   }, [isOpen, target?.sessionId, target?.bookingId, target?.stationId]);
 
@@ -71,6 +87,7 @@ export function EndSessionModal({
           stationId: target.stationId,
           bookingId: target.bookingId,
           extraMinutes: chargeOvertime ? extraMinutes : 0,
+          settlePaymentMethod: totalCollectPaise > 0 ? settleMethod : undefined,
         }),
       });
 
@@ -260,6 +277,19 @@ export function EndSessionModal({
             )}
           </div>
 
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-ds-text-muted">Payment Record</span>
+            {isPostPaidPending ? (
+              <Badge variant="warning" size="sm" className="font-mono font-bold text-[10px] animate-pulse">
+                ⏳ UNPAID TAB (PAY ON EXIT)
+              </Badge>
+            ) : (
+              <Badge variant="success" size="sm" className="font-mono text-[10px]">
+                ✓ PRE-PAID ({target.paymentMethod || 'CASH'})
+              </Badge>
+            )}
+          </div>
+
           {target.bookingRef && (
             <div className="flex items-center justify-between pt-2 border-t border-ds-border/60">
               <span className="text-ds-text-dim font-mono text-[11px]">Booking Reference</span>
@@ -269,6 +299,121 @@ export function EndSessionModal({
             </div>
           )}
         </div>
+
+        {/* Payment Settlement Card (if Post-Paid Tab or Overtime Fee due) */}
+        {totalCollectPaise > 0 && (
+          <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border-2 border-amber-500/40 space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-amber-300 font-heading font-black text-xs uppercase tracking-wider">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  {isPostPaidPending ? 'Collect Desk Payment (Open Tab)' : 'Collect Overtime Fee'}
+                </span>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full font-mono text-xs font-black bg-amber-500 text-black shadow-sm">
+                Total Due: ₹{totalCollectRupees}
+              </span>
+            </div>
+
+            <div className="space-y-1.5 text-xs text-ds-text-dim">
+              {isPostPaidPending && (
+                <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
+                  <span>Base Gaming Session:</span>
+                  <span className="font-mono font-bold text-white">₹{(baseBookingPaise / 100).toFixed(0)}</span>
+                </div>
+              )}
+              {overtimePaise > 0 && (
+                <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
+                  <span>Overtime Charge (+{extraMinutes} mins):</span>
+                  <span className="font-mono font-bold text-rose-300">+₹{(overtimePaise / 100).toFixed(0)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1 text-sm font-heading font-black text-amber-300">
+                <span>Total Desk Collection:</span>
+                <span className="text-base font-mono text-white">₹{totalCollectRupees}</span>
+              </div>
+            </div>
+
+            {/* Settle Method Selector */}
+            <div className="pt-2 border-t border-amber-500/30 space-y-2">
+              <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-amber-200 block">
+                How is customer paying at desk?
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSettleMethod('CASH')}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 transition-all font-heading font-bold text-xs ${
+                    settleMethod === 'CASH'
+                      ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-sm ring-1 ring-emerald-400'
+                      : 'bg-black/40 border-white/10 text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Banknote className="w-4 h-4 text-emerald-400" />
+                  <span>Cash Desk</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettleMethod('UPI')}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 transition-all font-heading font-bold text-xs ${
+                    settleMethod === 'UPI'
+                      ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400'
+                      : 'bg-black/40 border-white/10 text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span>UPI / QR</span>
+                </button>
+              </div>
+
+              {/* Cash Change Helper */}
+              {settleMethod === 'CASH' && (
+                <div className="p-2.5 rounded-xl bg-black/50 border border-white/10 space-y-2 mt-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-ds-text-dim uppercase font-mono">Cash Change Helper:</span>
+                    {cashTenderedNum >= totalCollectRupees && cashTenderedNum > 0 && (
+                      <Badge variant="success" size="sm" className="font-mono text-[10px] animate-in zoom-in-75">
+                        Change to return: ₹{changeDue}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="₹ Cash Received"
+                      value={cashTendered}
+                      onChange={(e) => setCashTendered(e.target.value)}
+                      className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
+                    />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered(totalCollectRupees.toString())}
+                        className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500 text-emerald-400"
+                      >
+                        Exact
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCashTendered('500')}
+                        className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500 text-white"
+                      >
+                        ₹500
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {settleMethod === 'UPI' && (
+                <div className="p-2.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-ds-text-dim flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Scan via counter UPI QR and verify payment confirmation on desk soundbox or phone.</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Operational Consequences Notice */}
         <div className="rounded-xl bg-ds-surface/50 border border-ds-border p-3.5 space-y-2 text-xs">
@@ -307,15 +452,25 @@ export function EndSessionModal({
           </Button>
 
           <Button
-            variant="danger"
+            variant={totalCollectPaise > 0 ? 'accent' : 'danger'}
             size="sm"
             type="button"
             onClick={handleConfirmEnd}
             disabled={submitting}
-            className="text-xs sm:text-sm font-bold flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white py-1.5 sm:py-2 px-3.5 sm:px-4"
+            className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
+              totalCollectPaise > 0
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                : 'bg-rose-600 hover:bg-rose-500 text-white'
+            }`}
           >
             <Square className="w-3.5 h-3.5" />
-            <span>{submitting ? 'Ending...' : 'Confirm & End Session'}</span>
+            <span>
+              {submitting
+                ? 'Processing...'
+                : totalCollectPaise > 0
+                ? `Collect ₹${totalCollectRupees} & End Session`
+                : 'Confirm & End Session'}
+            </span>
           </Button>
         </div>
       </div>

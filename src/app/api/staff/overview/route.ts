@@ -31,6 +31,11 @@ export async function GET(req: NextRequest) {
                 booking: {
                   include: {
                     user: { select: { firstName: true, lastName: true, phone: true } },
+                    payments: {
+                      select: { id: true, amountPaise: true, status: true, method: true },
+                      orderBy: { createdAt: 'desc' },
+                      take: 1,
+                    },
                   },
                 },
               },
@@ -57,6 +62,11 @@ export async function GET(req: NextRequest) {
               take: 20,
               include: {
                 user: { select: { firstName: true, lastName: true, phone: true } },
+                payments: {
+                  select: { id: true, amountPaise: true, status: true, method: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
               },
             },
           },
@@ -116,6 +126,9 @@ export async function GET(req: NextRequest) {
             description: g.description,
           }));
 
+          const activeLatestPayment = activeSession?.booking?.payments?.[0];
+          const currentLatestPayment = currentBooking?.payments?.[0];
+
           const resolvedSession = activeSession
             ? {
                 id: activeSession.id,
@@ -131,6 +144,9 @@ export async function GET(req: NextRequest) {
                 startedAt: activeSession.startedAt,
                 scheduledEndAt: activeSession.scheduledEndAt,
                 extensionMinutes: activeSession.extensionMinutes,
+                paymentStatus: activeLatestPayment?.status || 'COMPLETED',
+                paymentMethod: activeLatestPayment?.method || 'CASH',
+                totalPricePaise: activeSession.booking?.totalPricePaise || 0,
                 gameTitle:
                   activeSession.notes ||
                   activeSession.booking?.gameTitle ||
@@ -152,6 +168,9 @@ export async function GET(req: NextRequest) {
                 startedAt: currentBooking.startTime,
                 scheduledEndAt: currentBooking.endTime,
                 extensionMinutes: 0,
+                paymentStatus: currentLatestPayment?.status || 'COMPLETED',
+                paymentMethod: currentLatestPayment?.method || 'CASH',
+                totalPricePaise: currentBooking.totalPricePaise || 0,
                 gameTitle:
                   currentBooking.gameTitle ||
                   (currentBooking.notes?.match(/Game:\s*([^.\n\r\[]+)/)?.[1]?.trim()) ||

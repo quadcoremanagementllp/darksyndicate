@@ -9,6 +9,7 @@ const endSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
+  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD']).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -16,7 +17,9 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { sessionId, stationId, bookingId, extraMinutes } = endSessionSchema.parse(body);
+    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod } = endSessionSchema.parse(body);
+    const chosenMethod: 'CASH' | 'UPI' | 'OTHER' =
+      settlePaymentMethod === 'UPI' ? 'UPI' : settlePaymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
     if (!sessionId && !stationId && !bookingId) {
       throw new NotFoundError('Either sessionId, stationId, or bookingId is required');
@@ -94,9 +97,10 @@ export async function POST(req: NextRequest) {
               },
               data: {
                 status: 'COMPLETED',
+                method: chosenMethod,
                 paidAt: new Date(),
                 recordedByStaffId: staffSession.userId,
-                notes: `Desk balance settled upon session conclusion by ${staffName}`,
+                notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
               },
             });
 
@@ -117,11 +121,11 @@ export async function POST(req: NextRequest) {
                 bookingId: session.bookingId,
                 userId: session.booking.userId,
                 amountPaise: overtimePaise,
-                method: 'CASH',
+                method: chosenMethod,
                 status: 'COMPLETED',
                 paidAt: new Date(),
                 recordedByStaffId: staffSession.userId,
-                notes: `Overtime payment (+${overtimeMinutes} mins) collected on checkout by ${staffName}`,
+                notes: `Overtime payment (+${overtimeMinutes} mins) collected on checkout via ${chosenMethod} by ${staffName}`,
               },
             });
 
@@ -171,6 +175,20 @@ export async function POST(req: NextRequest) {
           await tx.booking.update({
             where: { id: bookingId },
             data: { status: 'COMPLETED' },
+          });
+
+          await tx.payment.updateMany({
+            where: {
+              bookingId,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'COMPLETED',
+              method: chosenMethod,
+              paidAt: new Date(),
+              recordedByStaffId: staffSession.userId,
+              notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
+            },
           });
         }
         if (stationId) {

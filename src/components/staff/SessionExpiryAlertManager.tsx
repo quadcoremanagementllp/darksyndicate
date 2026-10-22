@@ -38,6 +38,9 @@ export interface ActiveSessionData {
   customerName: string;
   customerPhone?: string;
   scheduledEndAt: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  totalPricePaise?: number;
 }
 
 export interface SessionAlert {
@@ -105,6 +108,9 @@ export function SessionExpiryAlertManager() {
               customerName: st.activeSession.customerName || 'Player',
               customerPhone: st.activeSession.customerPhone,
               scheduledEndAt: st.activeSession.scheduledEndAt,
+              paymentStatus: st.activeSession.paymentStatus,
+              paymentMethod: st.activeSession.paymentMethod,
+              totalPricePaise: st.activeSession.totalPricePaise,
             });
           }
         }
@@ -253,6 +259,9 @@ export function SessionExpiryAlertManager() {
       bookingRef: alert.session.bookingRef,
       scheduledEndAt: alert.session.scheduledEndAt,
       pricePerHourPaise: alert.session.pricePerHourPaise,
+      paymentStatus: alert.session.paymentStatus,
+      paymentMethod: alert.session.paymentMethod,
+      totalPricePaise: alert.session.totalPricePaise,
     });
   };
 

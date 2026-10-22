@@ -206,6 +206,9 @@ export default function StaffBookingsSchedulePage() {
       scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
       pricePerHourPaise: booking.pricePerHourPaise || 15000,
       gameTitle: booking.gameTitle || booking.session?.gameTitle || null,
+      paymentStatus: booking.paymentStatus,
+      paymentMethod: booking.paymentMethod,
+      totalPricePaise: booking.totalPricePaise,
     });
   };
 
