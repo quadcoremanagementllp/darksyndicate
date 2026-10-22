@@ -55,6 +55,13 @@ export default function StaffBookingsSchedulePage() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const toast = useToast();
 
+  // Auto-default to Cards view on tablet and mobile viewports (< 1024px) for optimal touch UX
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setViewMode('grid');
+    }
+  }, []);
+
   // Tick every second for live countdowns
   useEffect(() => {
     const tick = setInterval(() => setCurrentTime(Date.now()), 1000);
@@ -953,10 +960,17 @@ export default function StaffBookingsSchedulePage() {
               {/* Tablet/Mobile Swipe Hint Banner */}
               <div className="lg:hidden flex items-center justify-between px-3.5 py-2 bg-ds-dark/90 border-b border-ds-border/60 text-[11px] font-mono text-ds-text-dim">
                 <span className="flex items-center gap-1.5">
-                  <ArrowRight className="w-3.5 h-3.5 text-ds-accent" />
-                  <span>Swipe horizontally to view all columns</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Swipe horizontally for full table</span>
                 </span>
-                <span className="text-ds-accent font-bold">Actions sticky on right →</span>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 hover:underline ml-2 shrink-0"
+                >
+                  <LayoutGrid className="w-3 h-3" />
+                  <span>Cards View (Recommended) →</span>
+                </button>
               </div>
               <table className="w-full text-left text-xs min-w-[1040px]">
                 <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border tracking-wider">
@@ -967,7 +981,7 @@ export default function StaffBookingsSchedulePage() {
                     <th className="py-3 px-4 whitespace-nowrap min-w-[190px]">Time Window / Countdown</th>
                     <th className="py-3 px-4 whitespace-nowrap min-w-[110px]">Payment</th>
                     <th className="py-3 px-4 whitespace-nowrap min-w-[130px]">Status</th>
-                    <th className="py-3 px-4 text-right whitespace-nowrap min-w-[200px] sticky right-0 bg-ds-dark/95 backdrop-blur-md shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-20">
+                    <th className="py-3 px-4 text-right whitespace-nowrap min-w-[190px] lg:sticky lg:right-0 bg-ds-dark/95 backdrop-blur-md lg:shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-20">
                       Actions
                     </th>
                   </tr>
@@ -1129,7 +1143,7 @@ export default function StaffBookingsSchedulePage() {
                               : b.status}
                           </Badge>
                         </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap min-w-[200px] sticky right-0 bg-ds-dark/95 backdrop-blur-md shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-10">
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap min-w-[190px] lg:sticky lg:right-0 bg-ds-dark/95 backdrop-blur-md lg:shadow-[-12px_0_16px_rgba(0,0,0,0.6)] z-10">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* In-Session Quick Actions: Extend & End Session */}
                             {isSessionActive && (
