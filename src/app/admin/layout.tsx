@@ -252,7 +252,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
-  if (isLoading || !user || !isAdmin) {
+  if (!user || !isAdmin) {
     return (
       <div className="min-h-screen bg-ds-darker flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />

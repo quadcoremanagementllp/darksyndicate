@@ -16,8 +16,28 @@ import type { AuthUser, AuthContextType, RegisterData } from '@/types/auth';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Instantly hydrate user from localStorage to eliminate blocking authorization spinner
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('ds_auth_user');
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
+
+  // If we already have a cached user session, do not block the page with a spinner
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('ds_auth_user');
+        if (cached) return false;
+      } catch {}
+    }
+    return true;
+  });
+
   const pathname = usePathname();
   const lastRefreshTimeRef = useRef<number>(Date.now());
   const isPublicAuthPage = useMemo(
@@ -25,26 +45,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [pathname]
   );
 
+  const saveUser = useCallback((newUser: AuthUser | null) => {
+    setUser(newUser);
+    if (typeof window !== 'undefined') {
+      try {
+        if (newUser) {
+          localStorage.setItem('ds_auth_user', JSON.stringify(newUser));
+        } else {
+          localStorage.removeItem('ds_auth_user');
+        }
+      } catch {}
+    }
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4-second safety abort
+
       const res = await fetch('/api/auth/me', {
+        signal: controller.signal,
         headers: {
           'Cache-Control': 'no-cache, no-store',
         },
       });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const json = await res.json();
-        setUser(json.data?.user || null);
+        const freshUser = json.data?.user || null;
+        saveUser(freshUser);
         lastRefreshTimeRef.current = Date.now();
       } else if (res.status === 401 || res.status === 403) {
-        setUser(null);
+        saveUser(null);
       }
     } catch {
-      // Network hiccup or server restart: preserve active session
+      // Network hiccup or server timeout: preserve active session
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [saveUser]);
 
   useEffect(() => {
     if (isPublicAuthPage) {
@@ -86,10 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(json.error?.message || 'Login failed');
       }
 
-      setUser(json.data.user);
+      saveUser(json.data.user);
       return json.data.user as AuthUser;
     },
-    []
+    [saveUser]
   );
 
   const register = useCallback(
@@ -106,9 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(json.error?.message || 'Registration failed');
       }
 
-      setUser(json.data.user);
+      saveUser(json.data.user);
     },
-    []
+    [saveUser]
   );
 
   const logout = useCallback(async (reason?: 'MANUAL' | 'SYSTEM_INACTIVE') => {
@@ -119,8 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ reason: reason || 'MANUAL' }),
       });
     } catch {}
-    setUser(null);
-  }, []);
+    saveUser(null);
+  }, [saveUser]);
 
   return (
     <AuthContext.Provider

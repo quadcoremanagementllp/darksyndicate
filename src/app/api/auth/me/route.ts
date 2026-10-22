@@ -47,32 +47,6 @@ export async function GET() {
       console.warn('Sliding session cookie refresh skipped in /api/auth/me:', cookieErr);
     }
 
-    // Ensure active shift exists only for on-duty floor STAFF (not Admins or Super Admins)
-    if (user.role === 'STAFF') {
-      try {
-        const activeShift = await prisma.staffShift.findFirst({
-          where: { userId: user.id, logoutAt: null },
-          orderBy: { loginAt: 'desc' },
-        });
-
-        if (!activeShift) {
-          // Open shift from user's last login time (or right now if fresh)
-          const loginTime = user.lastLoginAt ? new Date(user.lastLoginAt) : new Date();
-          const ageMin = Math.round((Date.now() - loginTime.getTime()) / (60 * 1000));
-          const isRecent = ageMin < 120; // Within 2h
-
-          await prisma.staffShift.create({
-            data: {
-              userId: user.id,
-              loginAt: isRecent ? loginTime : new Date(),
-            },
-          });
-        }
-      } catch (shiftErr) {
-        console.error('Failed to sync active staff shift in /api/auth/me:', shiftErr);
-      }
-    }
-
     return apiSuccess({ user });
   } catch (error) {
     return handleApiError(error);
