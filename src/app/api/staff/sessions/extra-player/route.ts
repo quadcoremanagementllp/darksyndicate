@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     let newCount = action === 'ADD' ? currentCount + 1 : currentCount - 1;
     if (newCount < 1) newCount = 1;
     if (action === 'REMOVE' && currentCount <= 4 && isSnooker) {
-      throw new ValidationError('Minimum 4 players included for Snooker table');
+      throw new ValidationError('Cannot remove below 4 base players included for Snooker table');
     }
 
     // Rate calculation: +₹50 per extra person (5000 paise)

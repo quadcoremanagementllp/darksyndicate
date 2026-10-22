@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCw,
+  RotateCcw,
   Users,
   Sparkles,
   Flame,
@@ -160,7 +161,7 @@ export default function StaffStationGridPage() {
     return () => clearInterval(tick);
   }, []);
 
-  const handleAddExtraPlayer = async (station: Station) => {
+  const handleExtraPlayerAction = async (station: Station, action: 'ADD' | 'REMOVE' = 'ADD') => {
     if (!station.activeSession) return;
     try {
       const res = await fetch('/api/staff/sessions/extra-player', {
@@ -169,21 +170,24 @@ export default function StaffStationGridPage() {
         body: JSON.stringify({
           bookingId: station.activeSession.bookingId,
           sessionId: station.activeSession.id,
-          action: 'ADD',
+          action,
         }),
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(json.data?.message || 'Extra person added (+₹50)');
+        toast.success(
+          json.data?.message ||
+            (action === 'REMOVE' ? 'Extra person undone (-₹50)' : 'Extra person added (+₹50)')
+        );
         loadData();
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('ds-booking-updated'));
         }
       } else {
-        toast.error(json.error?.message || 'Failed to add extra person');
+        toast.error(json.error?.message || 'Failed to update extra players');
       }
     } catch {
-      toast.error('Network error adding extra person');
+      toast.error('Network error updating extra players');
     }
   };
 
@@ -787,18 +791,34 @@ export default function StaffStationGridPage() {
                               )}
                             </span>
                             {isOccupied && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAddExtraPlayer(station);
-                                }}
-                                className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
-                                title="Add extra person (+₹50)"
-                              >
-                                <UserPlus className="w-3 h-3 text-emerald-400" />
-                                <span>+ Person (+₹50)</span>
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {(station.activeSession?.playerCount || 4) > 4 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExtraPlayerAction(station, 'REMOVE');
+                                    }}
+                                    className="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                                    title="Undo extra person (-₹50)"
+                                  >
+                                    <RotateCcw className="w-3 h-3 text-rose-400" />
+                                    <span>Undo (-₹50)</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExtraPlayerAction(station, 'ADD');
+                                  }}
+                                  className="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
+                                  title="Add extra person (+₹50)"
+                                >
+                                  <UserPlus className="w-3 h-3 text-emerald-400" />
+                                  <span>+ Person (+₹50)</span>
+                                </button>
+                              </div>
                             )}
                           </div>
                         ) : (

@@ -29,6 +29,7 @@ import {
   Sparkles,
   ArrowRight,
   UserPlus,
+  RotateCcw,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -57,17 +58,20 @@ export default function StaffBookingsSchedulePage() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const toast = useToast();
 
-  const handleAddExtraPlayer = async (booking: any) => {
+  const handleExtraPlayerAction = async (booking: any, action: 'ADD' | 'REMOVE' = 'ADD') => {
     setUpdatingPlayerBookingId(booking.id);
     try {
       const res = await fetch('/api/staff/sessions/extra-player', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, action: 'ADD' }),
+        body: JSON.stringify({ bookingId: booking.id, action }),
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(json.data?.message || `Extra person added (+₹50)`);
+        toast.success(
+          json.data?.message ||
+            (action === 'REMOVE' ? 'Extra person undone (-₹50)' : 'Extra person added (+₹50)')
+        );
         setBookings((prev) =>
           prev.map((item) =>
             item.id === booking.id
@@ -83,10 +87,10 @@ export default function StaffBookingsSchedulePage() {
           window.dispatchEvent(new Event('ds-booking-updated'));
         }
       } else {
-        toast.error(json.error?.message || 'Failed to add extra person');
+        toast.error(json.error?.message || 'Failed to update extra players');
       }
     } catch {
-      toast.error('Network error adding extra person');
+      toast.error('Network error updating extra players');
     } finally {
       setUpdatingPlayerBookingId(null);
     }
@@ -814,23 +818,44 @@ export default function StaffBookingsSchedulePage() {
                           </div>
 
                           {isSessionActive && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddExtraPlayer(b);
-                              }}
-                              disabled={updatingPlayerBookingId === b.id}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
-                              title="Add extra person (+₹50)"
-                            >
-                              {updatingPlayerBookingId === b.id ? (
-                                <span className="animate-spin text-xs">⏳</span>
-                              ) : (
-                                <UserPlus className="w-3 h-3 text-emerald-400" />
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {currentPlayers > 4 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExtraPlayerAction(b, 'REMOVE');
+                                  }}
+                                  disabled={updatingPlayerBookingId === b.id}
+                                  className="px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                                  title="Undo extra person (-₹50)"
+                                >
+                                  {updatingPlayerBookingId === b.id ? (
+                                    <span className="animate-spin text-xs">⏳</span>
+                                  ) : (
+                                    <RotateCcw className="w-3 h-3 text-rose-400" />
+                                  )}
+                                  <span>Undo (-₹50)</span>
+                                </button>
                               )}
-                              <span>Add Extra Person (+₹50)</span>
-                            </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleExtraPlayerAction(b, 'ADD');
+                                }}
+                                disabled={updatingPlayerBookingId === b.id}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                                title="Add extra person (+₹50)"
+                              >
+                                {updatingPlayerBookingId === b.id ? (
+                                  <span className="animate-spin text-xs">⏳</span>
+                                ) : (
+                                  <UserPlus className="w-3 h-3 text-emerald-400" />
+                                )}
+                                <span>{currentPlayers > 4 ? '+ Person (+₹50)' : 'Add Extra Person (+₹50)'}</span>
+                              </button>
+                            </div>
                           )}
                         </div>
                       ) : (
@@ -1114,18 +1139,34 @@ export default function StaffBookingsSchedulePage() {
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className="text-[10px] font-mono font-bold text-cyan-300">🎱 {currentPlayers}P</span>
                               {isSessionActive && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAddExtraPlayer(b);
-                                  }}
-                                  disabled={updatingPlayerBookingId === b.id}
-                                  className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:text-white border border-emerald-400/40 cursor-pointer active:scale-95"
-                                  title="Add extra person (+₹50)"
-                                >
-                                  + Person (+₹50)
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  {currentPlayers > 4 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleExtraPlayerAction(b, 'REMOVE');
+                                      }}
+                                      disabled={updatingPlayerBookingId === b.id}
+                                      className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 hover:text-white border border-rose-400/40 cursor-pointer active:scale-95"
+                                      title="Undo extra person (-₹50)"
+                                    >
+                                      Undo (-₹50)
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExtraPlayerAction(b, 'ADD');
+                                    }}
+                                    disabled={updatingPlayerBookingId === b.id}
+                                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:text-white border border-emerald-400/40 cursor-pointer active:scale-95"
+                                    title="Add extra person (+₹50)"
+                                  >
+                                    + Person (+₹50)
+                                  </button>
+                                </div>
                               )}
                             </div>
                           ) : (
