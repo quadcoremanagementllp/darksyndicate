@@ -56,6 +56,9 @@ export const metadata: Metadata = {
     description: 'Premium gaming zone — PS5, pool tables, and more.',
     images: ['/logo-1024.png'],
   },
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -65,10 +68,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <head>
-        <meta name="theme-color" content="#0A111C" />
-        <link rel="icon" href="/favicon.ico" />
-      </head>
       <body className="antialiased" suppressHydrationWarning>
         <AuthProvider>
           <ToastProvider>

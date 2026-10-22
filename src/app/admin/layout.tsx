@@ -193,17 +193,22 @@ function SidebarNav({
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
+  const [mounted, setMounted] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   // Guard: Redirect unauthorized users or customers out of the admin console
   useEffect(() => {
-    if (!isLoading && (!user || !isAdmin)) {
+    if (mounted && !isLoading && (!user || !isAdmin)) {
       window.location.href = '/login?portal=admin';
     }
-  }, [user, isLoading, isAdmin]);
+  }, [mounted, user, isLoading, isAdmin]);
 
   // Load saved sidebar state from localStorage (default to collapsed on tablets <1024px)
   useEffect(() => {
@@ -252,7 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
-  if (!user || !isAdmin) {
+  if (!mounted || !user || !isAdmin) {
     return (
       <div className="min-h-screen bg-ds-darker flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />

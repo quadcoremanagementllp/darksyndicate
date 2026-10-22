@@ -16,27 +16,9 @@ import type { AuthUser, AuthContextType, RegisterData } from '@/types/auth';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Instantly hydrate user from localStorage to eliminate blocking authorization spinner
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('ds_auth_user');
-        if (cached) return JSON.parse(cached);
-      } catch {}
-    }
-    return null;
-  });
-
-  // If we already have a cached user session, do not block the page with a spinner
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('ds_auth_user');
-        if (cached) return false;
-      } catch {}
-    }
-    return true;
-  });
+  // Guarantee identical SSR and client initial state to prevent React error #418
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const pathname = usePathname();
   const lastRefreshTimeRef = useRef<number>(Date.now());
@@ -87,6 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [saveUser]);
 
   useEffect(() => {
+    // Restore cached session immediately on client mount
+    try {
+      const cached = localStorage.getItem('ds_auth_user');
+      if (cached) {
+        setUser(JSON.parse(cached));
+        setIsLoading(false);
+      }
+    } catch {}
+
     if (isPublicAuthPage) {
       setIsLoading(false);
       return;
