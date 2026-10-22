@@ -63,7 +63,12 @@ export async function POST(req: NextRequest) {
         const currentEnd = new Date(session.scheduledEndAt);
         const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-        const hourlyRate = session.station?.pricePerHourPaise || 15000;
+        let hourlyRate = session.station?.pricePerHourPaise || 15000;
+        const playerMatch = session.booking?.notes?.match(/\[Players:\s*(\d+)\]/);
+        const sessionPlayers = playerMatch ? parseInt(playerMatch[1], 10) : 1;
+        if (sessionPlayers > 4) {
+          hourlyRate += (sessionPlayers - 4) * 5000;
+        }
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
         const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';

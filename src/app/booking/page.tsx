@@ -1096,7 +1096,9 @@ function BookingContent() {
                               : playerCount === 2
                               ? 'Two Player (₹200/hr)'
                               : 'Multi Player 3-4P (₹250/hr)'
-                            : 'Per Frame / Max 4 Players (₹250/hr)'}
+                            : playerCount <= 4
+                            ? 'Standard Table (Max 4 Players — ₹250/hr)'
+                            : `Large Group (${playerCount} Players — ₹${250 + (playerCount - 4) * 50}/hr)`}
                         </span>
                       </div>
 
@@ -1124,27 +1126,63 @@ function BookingContent() {
                           ))}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                          {[
-                            { count: 1, label: 'Solo Practice', sub: '1 Player', rate: '₹250 / hr' },
-                            { count: 2, label: '1v1 Match', sub: '2 Players', rate: '₹250 / hr' },
-                            { count: 4, label: 'Per Frame', sub: 'Max 4 Players', rate: '₹250 / hr' },
-                          ].map((opt) => (
-                            <button
-                              key={opt.count}
-                              type="button"
-                              onClick={() => setPlayerCount(opt.count)}
-                              className={`p-2 sm:p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                                playerCount === opt.count
-                                  ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-md'
-                                  : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
-                              }`}
-                            >
-                              <div className="text-[11px] sm:text-xs font-heading font-bold">{opt.label}</div>
-                              <span className="text-[9px] sm:text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
-                              <span className="text-[9px] sm:text-[10px] text-emerald-400 font-mono font-bold block mt-1">{opt.rate}</span>
-                            </button>
-                          ))}
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            {[
+                              { count: 1, label: 'Solo Practice', sub: '1 Player', rate: '₹250 / hr' },
+                              { count: 2, label: '1v1 Match', sub: '2 Players', rate: '₹250 / hr' },
+                              { count: 4, label: 'Standard Group', sub: 'Up to 4 Players', rate: '₹250 / hr' },
+                            ].map((opt) => (
+                              <button
+                                key={opt.count}
+                                type="button"
+                                onClick={() => setPlayerCount(opt.count)}
+                                className={`p-2 sm:p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                                  playerCount === opt.count
+                                    ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-md'
+                                    : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-ds-border hover:text-white'
+                                }`}
+                              >
+                                <div className="text-[11px] sm:text-xs font-heading font-bold">{opt.label}</div>
+                                <span className="text-[9px] sm:text-[10px] text-ds-text-dim block mt-0.5">{opt.sub}</span>
+                                <span className="text-[9px] sm:text-[10px] text-emerald-400 font-mono font-bold block mt-1">{opt.rate}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Extra players: 5 to 8 */}
+                          <div className="p-2.5 rounded-xl bg-ds-surface/30 border border-ds-border space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-heading font-bold text-amber-400 uppercase tracking-wide">
+                                Extra Players (&gt; 4 Players)
+                              </span>
+                              <span className="font-mono text-[10px] text-amber-300/80">
+                                +₹50 / person per hour
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {[
+                                { count: 5, label: '5 Players', rate: '₹300/hr' },
+                                { count: 6, label: '6 Players', rate: '₹350/hr' },
+                                { count: 7, label: '7 Players', rate: '₹400/hr' },
+                                { count: 8, label: '8 Players', rate: '₹450/hr' },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.count}
+                                  type="button"
+                                  onClick={() => setPlayerCount(opt.count)}
+                                  className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                                    playerCount === opt.count
+                                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm'
+                                      : 'bg-ds-surface/50 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
+                                  }`}
+                                >
+                                  <div className="text-[10px] sm:text-xs font-heading font-bold">{opt.label}</div>
+                                  <span className="text-[9px] font-mono font-semibold text-amber-400/90 block mt-0.5">{opt.rate}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

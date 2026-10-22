@@ -93,8 +93,8 @@ export default function PricingPage() {
       popular: false,
       features: [
         'Full-size Championship Snooker Table',
-        '3-4 players included in base rate',
-        '+₹50 per extra person beyond 4',
+        '1-4 players included in base rate (₹250/hr)',
+        '+₹50 / person per hour beyond 4 players',
         'Shadowless Overhead LED Canopy',
         'Premium cues & accessories provided',
       ],
@@ -319,11 +319,13 @@ export default function PricingPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       {[
-                        { count: 4, label: '3-4 Players (₹250)' },
-                        { count: 5, label: '5 Players (₹300)' },
-                        { count: 6, label: '6 Players (₹350)' },
+                        { count: 4, label: 'Up to 4 (₹250)' },
+                        { count: 5, label: '5P (₹300)' },
+                        { count: 6, label: '6P (₹350)' },
+                        { count: 7, label: '7P (₹400)' },
+                        { count: 8, label: '8P (₹450)' },
                       ].map((p) => (
                         <button
                           key={p.count}

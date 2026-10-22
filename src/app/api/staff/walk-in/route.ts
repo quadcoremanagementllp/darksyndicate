@@ -90,15 +90,20 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 4. Rate Calculation (Accounts for multi-player tiers on PS5 & extra players on Snooker)
+      // 4. Rate Calculation (Accounts for multi-player tiers on PS5 & extra players on Snooker / Pool)
       let hourlyRate = station.pricePerHourPaise;
       const playerCount = data.playerCount || 1;
       if (station.stationType === 'PS5') {
         if (playerCount === 2) hourlyRate = 20000; // ₹200/hr for duo
-        else if (playerCount >= 3) hourlyRate = 25000; // ₹250/hr for 3-4 squad
+        else if (playerCount >= 3 && playerCount <= 4) hourlyRate = 25000; // ₹250/hr for 3-4 squad
+        else if (playerCount > 4) hourlyRate = 25000 + (playerCount - 4) * 5000; // +₹50/hr per extra person
         else hourlyRate = 15000; // ₹150/hr single
       } else if (station.stationType === 'POOL_TABLE') {
-        hourlyRate = 25000 + Math.max(0, playerCount - 4) * 5000; // ₹250/hr base (up to 4) + ₹50/extra
+        const basePoolRate = station.pricePerHourPaise || 25000;
+        hourlyRate = basePoolRate + Math.max(0, playerCount - 4) * 5000; // Base rate (up to 4) + ₹50/hr per person > 4
+      } else {
+        const baseRate = station.pricePerHourPaise;
+        hourlyRate = baseRate + Math.max(0, playerCount - 4) * 5000;
       }
       const subtotalPaise = Math.round(hourlyRate * (data.durationMinutes / 60));
 
