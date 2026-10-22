@@ -411,69 +411,6 @@ export default function StaffStationGridPage() {
             <RotateCw className="w-4 h-4" />
           </Button>
         </div>
-
-        {/* Right Search & Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-auto">
-            <Input
-              placeholder="Search station or player..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs py-1.5 pl-8 w-full sm:w-52"
-            />
-            <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
-            {[
-              { id: 'ALL', label: 'All Floor' },
-              { id: 'AVAILABLE', label: `Ready (${stats.availableCount})` },
-              { id: 'OCCUPIED', label: `Playing (${stats.occupiedCount})` },
-              { id: 'MAINTENANCE', label: `Service (${stats.maintenanceCount})` },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setStatusFilter(tab.id as any)}
-                className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all text-[11px] whitespace-nowrap ${
-                  statusFilter === tab.id
-                    ? 'bg-ds-surface text-ds-ice border border-ds-ice/30 shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Platform / Category Quick Launch Buttons */}
-          <div className="flex gap-1.5 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar max-w-full flex-nowrap shrink-0">
-            <button
-              onClick={() => {
-                const firstAvail = ps5List.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
-                setSelectedWalkInStationId(firstAvail?.id || ps5List[0]?.id);
-                setWalkInOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all text-[11px] text-ds-ice bg-ds-surface/60 hover:bg-ds-surface border border-ds-border hover:border-cyan-400/50 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>🎮</span>
-              <span>PlayStation 5</span>
-              <span className="text-[10px] font-mono text-emerald-400">({ps5Available} Ready)</span>
-            </button>
-            <button
-              onClick={() => {
-                const firstAvail = poolList.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
-                setSelectedWalkInStationId(firstAvail?.id || poolList[0]?.id);
-                setWalkInOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all text-[11px] text-ds-ice bg-ds-surface/60 hover:bg-ds-surface border border-ds-border hover:border-emerald-400/50 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>🎱</span>
-              <span>Snooker Lounge</span>
-              <span className="text-[10px] font-mono text-emerald-400">({poolAvailable} Ready)</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* 3. Live Station Matrix / Arenas View */}
