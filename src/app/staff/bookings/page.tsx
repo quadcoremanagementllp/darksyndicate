@@ -797,7 +797,7 @@ export default function StaffBookingsSchedulePage() {
                               {startMins}m {startSecs}s
                             </span>
                           ) : (
-                            <span className="text-xs font-mono font-semibold text-ds-text-muted">
+                            <span suppressHydrationWarning className="text-xs font-mono font-semibold text-ds-text-muted">
                               {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           )}
@@ -1339,7 +1339,7 @@ export default function StaffBookingsSchedulePage() {
 
                       <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
                         <span>Ref: {b.bookingRef}</span>
-                        <span>
+                        <span suppressHydrationWarning>
                           End: {new Date(scheduledEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
@@ -1352,7 +1352,7 @@ export default function StaffBookingsSchedulePage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-ds-text-dim">Time Window:</span>
-                        <span className="font-mono text-ds-text">
+                        <span suppressHydrationWarning className="font-mono text-ds-text">
                           {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>

@@ -813,7 +813,7 @@ export default function StaffStationGridPage() {
 
                           <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
                             <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
-                            <span>
+                            <span suppressHydrationWarning>
                               End: {new Date(station.activeSession.scheduledEndAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -833,7 +833,9 @@ export default function StaffStationGridPage() {
                           {station.upcomingBookings && station.upcomingBookings.length > 0 && (
                             <p className="text-[11px] text-ds-ice pt-1 font-mono">
                               Next: {station.upcomingBookings[0].customerName} at{' '}
-                              {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <span suppressHydrationWarning>
+                                {new Date(station.upcomingBookings[0].startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             </p>
                           )}
                         </div>

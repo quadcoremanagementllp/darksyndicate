@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Receipt, Sparkles, User, LogIn, Calendar } from 'lucide-react';
@@ -8,9 +9,15 @@ import { useAuth } from '@/hooks/useAuth';
 export function MobileBottomBar() {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Hide on admin or staff backends, booking flow, and authentication pages
   if (
+    !mounted ||
     pathname?.startsWith('/admin') ||
     pathname?.startsWith('/staff') ||
     pathname?.startsWith('/booking') ||
