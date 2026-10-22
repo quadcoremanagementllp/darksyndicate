@@ -18,6 +18,10 @@ import {
   CheckCircle2,
   Ban,
   AlertCircle,
+  Trash2,
+  AlertTriangle,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -47,6 +51,15 @@ export default function AdminBookingsPage() {
   const [channelFilter, setChannelFilter] = useState<'ALL' | 'ONLINE' | 'DESK'>('ALL');
   const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
   const [customDate, setCustomDate] = useState<string>('');
+
+  // Clear Data & Selection states
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearScope, setClearScope] = useState<'ALL' | 'COMPLETED_CANCELLED' | 'WALK_IN_TEST'>('ALL');
+  const [clearConfirmText, setClearConfirmText] = useState('');
+  const [clearLoading, setClearLoading] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
+
   const toast = useToast();
 
   const loadBookings = async () => {
@@ -106,6 +119,118 @@ export default function AdminBookingsPage() {
 
   const onlineCount = bookings.filter((b) => !b.isWalkIn).length;
   const deskCount = bookings.filter((b) => b.isWalkIn).length;
+  const completedOrCancelledCount = bookings.filter((b) =>
+    ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status)
+  ).length;
+  const walkInCount = bookings.filter(
+    (b) => b.isWalkIn || b.customerEmail === 'guest@darksyndicate.in'
+  ).length;
+
+  const handleDeleteSingle = async (b: any) => {
+    if (
+      !confirm(
+        `Permanently delete reservation ${b.bookingRef} (${b.customerName})? This will remove it from the ledger.`
+      )
+    ) {
+      return;
+    }
+    setDeleteLoadingId(b.id);
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || 'Reservation deleted');
+        setSelectedIds((prev) => prev.filter((id) => id !== b.id));
+        loadBookings();
+      } else {
+        toast.error(json.error?.message || 'Failed to delete reservation');
+      }
+    } catch {
+      toast.error('Network error while deleting reservation');
+    } finally {
+      setDeleteLoadingId(null);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (
+      !confirm(
+        `Permanently delete the ${selectedIds.length} selected reservation(s)? This will remove them from the ledger.`
+      )
+    ) {
+      return;
+    }
+    setClearLoading(true);
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingIds: selectedIds }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || `Deleted ${selectedIds.length} reservation(s)`);
+        setSelectedIds([]);
+        loadBookings();
+      } else {
+        toast.error(json.error?.message || 'Failed to delete selected reservations');
+      }
+    } catch {
+      toast.error('Network error while deleting reservations');
+    } finally {
+      setClearLoading(false);
+    }
+  };
+
+  const handleExecuteClearAll = async () => {
+    if (clearConfirmText.trim().toUpperCase() !== 'CLEAR') {
+      toast.error('Please type "CLEAR" into the box to confirm data purge.');
+      return;
+    }
+    setClearLoading(true);
+    try {
+      const res = await fetch('/api/admin/bookings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearAll: true, scope: clearScope }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || 'Reservations data cleared successfully');
+        setShowClearModal(false);
+        setClearConfirmText('');
+        setSelectedIds([]);
+        loadBookings();
+      } else {
+        toast.error(json.error?.message || 'Failed to clear data');
+      }
+    } catch {
+      toast.error('Network error while clearing data');
+    } finally {
+      setClearLoading(false);
+    }
+  };
+
+  const handleSelectAllVisible = () => {
+    const visibleIds = filteredBookings.map((b) => b.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const handlePresetClick = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -167,6 +292,10 @@ export default function AdminBookingsPage() {
 
     return matchesStatus && matchesChannel && matchesSearch && matchesDate;
   });
+
+  const visibleIds = filteredBookings.map((b) => b.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   const handleExportCSV = () => {
     if (filteredBookings.length === 0) {
@@ -237,6 +366,20 @@ export default function AdminBookingsPage() {
           <Button variant="outline" size="sm" onClick={loadBookings} disabled={loading}>
             <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowClearModal(true);
+              setClearConfirmText('');
+            }}
+            disabled={bookings.length === 0}
+            className="border-rose-500/40 text-rose-400 hover:bg-rose-500/15 hover:border-rose-400 hover:text-rose-300 font-heading font-bold"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5 text-rose-400" />
+            <span>Clear Data</span>
           </Button>
         </div>
       </div>
@@ -404,6 +547,40 @@ export default function AdminBookingsPage() {
         </div>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/30 shadow-lg animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-mono font-bold text-xs border border-rose-500/30">
+              {selectedIds.length} Selected
+            </span>
+            <span className="text-xs text-ds-text-muted">
+              Select records to remove from the ledger.
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              className="text-xs py-1"
+            >
+              Clear Selection
+            </Button>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={clearLoading}
+              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-heading font-bold text-xs uppercase flex items-center gap-1.5 transition-all shadow-md shadow-rose-900/40 disabled:opacity-50"
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${clearLoading ? 'animate-spin' : ''}`} />
+              <span>Delete Selected ({selectedIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table Card */}
       <Card glass className="border-ds-border overflow-hidden">
         {loading ? (
@@ -425,6 +602,20 @@ export default function AdminBookingsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-ds-dark/60 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
                 <tr>
+                  <th className="py-3 px-3 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllVisible}
+                      className="text-ds-text-dim hover:text-white transition-colors"
+                      title={allVisibleSelected ? 'Deselect all' : 'Select all visible'}
+                    >
+                      {allVisibleSelected ? (
+                        <CheckSquare className="w-4 h-4 text-rose-400" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3 px-4">Ref #</th>
                   <th className="py-3 px-4">Player Details</th>
                   <th className="py-3 px-4">Booked Via</th>
@@ -443,9 +634,28 @@ export default function AdminBookingsPage() {
                     !['CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status);
                   const canCancelOrNoShow = ['PENDING', 'CONFIRMED'].includes(b.status);
                   const isBusy = actionLoadingId === b.id;
+                  const isRowSelected = selectedIds.includes(b.id);
 
                   return (
-                    <tr key={b.id} className="hover:bg-ds-surface/40 transition-colors">
+                    <tr
+                      key={b.id}
+                      className={`hover:bg-ds-surface/40 transition-colors ${
+                        isRowSelected ? 'bg-rose-500/5' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelect(b.id)}
+                          className="text-ds-text-dim hover:text-white transition-colors"
+                        >
+                          {isRowSelected ? (
+                            <CheckSquare className="w-4 h-4 text-rose-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-ds-border hover:text-ds-text" />
+                          )}
+                        </button>
+                      </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-ds-ice">{b.bookingRef}</td>
                       <td className="py-3.5 px-4">
                         <div className="font-heading font-bold text-ds-text">{b.customerName}</div>
@@ -586,6 +796,16 @@ export default function AdminBookingsPage() {
                               <span>Pass</span>
                             </Button>
                           </Link>
+
+                          <button
+                            type="button"
+                            disabled={deleteLoadingId === b.id || isBusy}
+                            onClick={() => handleDeleteSingle(b)}
+                            className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50"
+                            title={`Delete reservation ${b.bookingRef}`}
+                          >
+                            <Trash2 className={`w-3.5 h-3.5 ${deleteLoadingId === b.id ? 'animate-spin' : ''}`} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -596,6 +816,164 @@ export default function AdminBookingsPage() {
           </div>
         )}
       </Card>
+
+      {/* Clear Data Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-ds-dark border border-rose-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowClearModal(false)}
+              className="absolute top-5 right-5 text-ds-text-dim hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Modal Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-lg text-white uppercase tracking-wide">
+                  Clear Reservations &amp; Test Data
+                </h3>
+                <p className="text-xs text-ds-text-muted mt-0.5">
+                  Permanently delete booking history, payments, and closed test sessions from the database.
+                </p>
+              </div>
+            </div>
+
+            {/* Scope Selection */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text-dim block">
+                Choose Data Purge Scope:
+              </label>
+
+              <div className="space-y-2">
+                <label
+                  onClick={() => setClearScope('ALL')}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    clearScope === 'ALL'
+                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
+                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="clearScope"
+                    checked={clearScope === 'ALL'}
+                    onChange={() => setClearScope('ALL')}
+                    className="mt-1 accent-rose-500"
+                  />
+                  <div>
+                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
+                      <span>Full Wipe: All Reservations</span>
+                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
+                        {bookings.length} Records
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ds-text-dim mt-0.5">
+                      Clears all {bookings.length} reservations, receipts, and closed sessions to reset the ledger to zero.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => setClearScope('COMPLETED_CANCELLED')}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    clearScope === 'COMPLETED_CANCELLED'
+                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
+                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="clearScope"
+                    checked={clearScope === 'COMPLETED_CANCELLED'}
+                    onChange={() => setClearScope('COMPLETED_CANCELLED')}
+                    className="mt-1 accent-rose-500"
+                  />
+                  <div>
+                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
+                      <span>Past &amp; Completed Only</span>
+                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
+                        {completedOrCancelledCount} Records
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ds-text-dim mt-0.5">
+                      Removes completed, cancelled, and no-show sessions while preserving active/upcoming bookings.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  onClick={() => setClearScope('WALK_IN_TEST')}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                    clearScope === 'WALK_IN_TEST'
+                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
+                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="clearScope"
+                    checked={clearScope === 'WALK_IN_TEST'}
+                    onChange={() => setClearScope('WALK_IN_TEST')}
+                    className="mt-1 accent-rose-500"
+                  />
+                  <div>
+                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
+                      <span>Front-Desk Walk-In Tests Only</span>
+                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
+                        {walkInCount} Records
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-ds-text-dim mt-0.5">
+                      Removes only walk-in test guest records created at the front desk.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Confirmation Input Safeguard */}
+            <div className="space-y-1.5 p-3.5 rounded-2xl bg-ds-surface/70 border border-ds-border">
+              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Type &quot;CLEAR&quot; to Confirm Data Purge:</span>
+              </label>
+              <Input
+                placeholder="CLEAR"
+                value={clearConfirmText}
+                onChange={(e) => setClearConfirmText(e.target.value)}
+                className="text-center font-mono font-bold tracking-widest uppercase text-rose-300 border-rose-500/30 bg-ds-dark"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowClearModal(false)}
+                disabled={clearLoading}
+              >
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={handleExecuteClearAll}
+                disabled={clearLoading || clearConfirmText.trim().toUpperCase() !== 'CLEAR'}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-heading font-bold text-xs uppercase flex items-center gap-2 transition-all shadow-lg shadow-rose-900/50"
+              >
+                <Trash2 className={`w-4 h-4 ${clearLoading ? 'animate-spin' : ''}`} />
+                <span>{clearLoading ? 'Purging...' : 'Permanently Clear Data'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, ConflictError, handleApiError, NotFoundError } from '@/lib/errors';
+import { apiSuccess, ConflictError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { z } from 'zod';
 
@@ -9,6 +9,13 @@ const patchBookingSchema = z.object({
   action: z.enum(['CANCEL', 'MARK_PAID', 'NO_SHOW']),
   paymentMethod: z.enum(['CASH', 'UPI']).optional().default('CASH'),
   reason: z.string().optional(),
+});
+
+const deleteBookingSchema = z.object({
+  bookingId: z.string().optional(),
+  bookingIds: z.array(z.string()).optional(),
+  clearAll: z.boolean().optional(),
+  scope: z.enum(['ALL', 'COMPLETED_CANCELLED', 'WALK_IN_TEST']).optional().default('ALL'),
 });
 
 export async function GET(req: NextRequest) {
@@ -357,6 +364,128 @@ export async function PATCH(req: NextRequest) {
     }
 
     throw new ConflictError('Unsupported action');
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await requireRole('ADMIN', 'SUPER_ADMIN');
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      // Body may be empty
+    }
+
+    const { bookingId, bookingIds, clearAll, scope } = deleteBookingSchema.parse(body);
+
+    let targetIds: string[] = [];
+
+    if (bookingId) {
+      targetIds = [bookingId];
+    } else if (bookingIds && bookingIds.length > 0) {
+      targetIds = bookingIds;
+    } else if (clearAll) {
+      let whereClause: any = {};
+      if (scope === 'COMPLETED_CANCELLED') {
+        whereClause = {
+          status: { in: ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'] },
+        };
+      } else if (scope === 'WALK_IN_TEST') {
+        whereClause = {
+          OR: [
+            { isWalkIn: true },
+            { user: { email: 'guest@darksyndicate.in' } },
+          ],
+        };
+      }
+      const matching = await prisma.booking.findMany({
+        where: whereClause,
+        select: { id: true },
+      });
+      targetIds = matching.map((b) => b.id);
+    } else {
+      throw new ValidationError('Please provide a bookingId, bookingIds array, or clearAll: true.');
+    }
+
+    if (targetIds.length === 0) {
+      return apiSuccess({ message: 'No matching reservations found to delete.', deletedCount: 0 });
+    }
+
+    const bookingsToDelete = await prisma.booking.findMany({
+      where: { id: { in: targetIds } },
+      select: { id: true, stationId: true, bookingRef: true },
+    });
+    const affectedStationIds = Array.from(
+      new Set(bookingsToDelete.map((b) => b.stationId).filter(Boolean))
+    );
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete associated coupon redemptions
+      await tx.couponRedemption.deleteMany({
+        where: { bookingId: { in: targetIds } },
+      });
+
+      // 2. Delete associated payments
+      await tx.payment.deleteMany({
+        where: { bookingId: { in: targetIds } },
+      });
+
+      // 3. Delete associated live/completed gaming sessions
+      await tx.gamingSession.deleteMany({
+        where: { bookingId: { in: targetIds } },
+      });
+
+      // 4. Delete the bookings themselves
+      await tx.booking.deleteMany({
+        where: { id: { in: targetIds } },
+      });
+
+      // 5. Safely reset affected station status if no other active floor session exists
+      for (const stId of affectedStationIds) {
+        const station = await tx.gamingStation.findUnique({
+          where: { id: stId },
+          select: { status: true },
+        });
+        if (station && station.status === 'OCCUPIED') {
+          const remainingSession = await tx.gamingSession.findFirst({
+            where: {
+              stationId: stId,
+              status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] },
+            },
+          });
+          if (!remainingSession) {
+            await tx.gamingStation.update({
+              where: { id: stId },
+              data: { status: 'AVAILABLE' },
+            });
+          }
+        }
+      }
+    });
+
+    // 6. Record audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.userId,
+        action: 'DELETE',
+        entityType: 'Booking',
+        entityId: targetIds.length === 1 ? targetIds[0] : 'BULK_CLEAR',
+        oldValue: {
+          count: targetIds.length,
+          refs: bookingsToDelete.slice(0, 10).map((b) => b.bookingRef),
+          scope: scope || 'CUSTOM',
+        },
+        newValue: { deleted: true },
+      },
+    }).catch(() => {});
+
+    return apiSuccess({
+      message: `Successfully deleted ${targetIds.length} reservation(s).`,
+      deletedCount: targetIds.length,
+    });
   } catch (error) {
     return handleApiError(error);
   }
