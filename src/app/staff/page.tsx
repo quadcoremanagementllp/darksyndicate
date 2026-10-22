@@ -176,8 +176,8 @@ export default function StaffStationGridPage() {
     }
   };
 
-  // Helper for countdown display
-  const getCountdown = (scheduledEndAt: string) => {
+  // Helper for countdown display with true proportional elapsed percentage
+  const getCountdown = (scheduledEndAt: string, startedAt?: string) => {
     const end = new Date(scheduledEndAt).getTime();
     const diffMs = end - currentTime;
 
@@ -205,13 +205,25 @@ export default function StaffStationGridPage() {
         ? `${hours}h ${mins.toString().padStart(2, '0')}m`
         : `${mins}:${secs.toString().padStart(2, '0')}`;
 
+    // True mathematical progress calculation based on actual slot/session start and end
+    let percentage = 0;
+    if (startedAt) {
+      const start = new Date(startedAt).getTime();
+      const totalDuration = Math.max(60 * 1000, end - start);
+      const elapsed = Math.max(0, currentTime - start);
+      percentage = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    } else {
+      const estimatedTotal = diffMs > 60 * 60 * 1000 ? 120 * 60 * 1000 : 60 * 60 * 1000;
+      percentage = Math.min(100, Math.max(0, 100 - (diffMs / estimatedTotal) * 100));
+    }
+
     return {
       formatted,
       overdueMins: 0,
       isOverdue: false,
       isCriticalEnding: totalSec <= 300, // <= 5 mins
       isEndingSoon: totalSec <= 900, // <= 15 mins
-      percentage: Math.min(100, Math.max(0, 100 - (diffMs / (120 * 60 * 1000)) * 100)),
+      percentage,
     };
   };
 
@@ -664,7 +676,9 @@ export default function StaffStationGridPage() {
             {filteredStations.map((station) => {
               const isOccupied = station.status === 'OCCUPIED' && station.activeSession;
               const isMaintenance = station.status === 'MAINTENANCE';
-              const countdown = isOccupied ? getCountdown(station.activeSession!.scheduledEndAt) : null;
+              const countdown = isOccupied
+                ? getCountdown(station.activeSession!.scheduledEndAt, station.activeSession?.startedAt)
+                : null;
 
               return (
                 <Card

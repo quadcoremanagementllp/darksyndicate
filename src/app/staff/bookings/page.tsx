@@ -112,8 +112,8 @@ export default function StaffBookingsSchedulePage() {
     };
   }, []);
 
-  // Countdown timer calculations
-  const getCountdown = (scheduledEndAt: string) => {
+  // Countdown timer calculations with true proportional elapsed percentage
+  const getCountdown = (scheduledEndAt: string, startedAt?: string) => {
     const end = new Date(scheduledEndAt).getTime();
     const diffMs = end - currentTime;
 
@@ -141,13 +141,25 @@ export default function StaffBookingsSchedulePage() {
         ? `${hours}h ${mins.toString().padStart(2, '0')}m`
         : `${mins}:${secs.toString().padStart(2, '0')}`;
 
+    // True mathematical progress calculation based on actual slot/session start and end
+    let percentage = 0;
+    if (startedAt) {
+      const start = new Date(startedAt).getTime();
+      const totalDuration = Math.max(60 * 1000, end - start);
+      const elapsed = Math.max(0, currentTime - start);
+      percentage = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    } else {
+      const estimatedTotal = diffMs > 60 * 60 * 1000 ? 120 * 60 * 1000 : 60 * 60 * 1000;
+      percentage = Math.min(100, Math.max(0, 100 - (diffMs / estimatedTotal) * 100));
+    }
+
     return {
       formatted,
       overdueMins: 0,
       isOverdue: false,
       isEndingSoon: totalSec <= 900, // <= 15 mins
       isCriticalEnding: totalSec <= 300, // <= 5 mins
-      percentage: Math.min(100, Math.max(0, 100 - (diffMs / (120 * 60 * 1000)) * 100)),
+      percentage,
     };
   };
 
@@ -651,7 +663,8 @@ export default function StaffBookingsSchedulePage() {
             {filteredBookings.map((b) => {
               const isSessionActive = getIsSessionActive(b);
               const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
-              const countdown = isSessionActive ? getCountdown(scheduledEnd) : null;
+              const sessionStart = b.session?.startedAt || b.startTime;
+              const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
 
               const startDiffMs = b.startTime ? new Date(b.startTime).getTime() - currentTime : null;
               const isSlotNear = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 15 * 60 * 1000 && startDiffMs >= -120 * 60 * 1000;
@@ -963,7 +976,8 @@ export default function StaffBookingsSchedulePage() {
                   {filteredBookings.map((b) => {
                     const isSessionActive = getIsSessionActive(b);
                     const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
-                    const countdown = isSessionActive ? getCountdown(scheduledEnd) : null;
+                    const sessionStart = b.session?.startedAt || b.startTime;
+                    const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
 
                     const startDiffMs = b.startTime ? new Date(b.startTime).getTime() - currentTime : null;
                     const isSlotNear = startDiffMs !== null && getIsToday(b) && b.status === 'CONFIRMED' && !isSessionActive && startDiffMs <= 15 * 60 * 1000 && startDiffMs >= -120 * 60 * 1000;
@@ -1198,7 +1212,8 @@ export default function StaffBookingsSchedulePage() {
             const b = selectedBookingForGrid;
             const isSessionActive = getIsSessionActive(b);
             const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
-            const countdown = isSessionActive ? getCountdown(scheduledEnd) : null;
+            const sessionStart = b.session?.startedAt || b.startTime;
+            const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
 
             return (
               <div className="space-y-5">
