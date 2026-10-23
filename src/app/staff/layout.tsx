@@ -9,7 +9,6 @@ import {
   Gamepad2,
   Calendar,
   Clock,
-  Sparkles,
   LogOut,
   ChevronRight,
   ArrowUpRight,
@@ -109,11 +108,11 @@ function StaffSidebarNav({
             );
           })}
 
-          <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
-            <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
-              Cross Portals
-            </span>
-            {isAdminUser && (
+          {isAdminUser && (
+            <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
+              <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
+                Cross Portals
+              </span>
               <Link
                 href="/admin"
                 onClick={isMobile ? onClose : undefined}
@@ -125,20 +124,8 @@ function StaffSidebarNav({
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
               </Link>
-            )}
-
-            <Link
-              href="/"
-              onClick={isMobile ? onClose : undefined}
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-ds-text-dim hover:text-white hover:bg-ds-surface/60 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Public Arena Website</span>
-              </div>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
-            </Link>
-          </div>
+            </div>
+          )}
         </nav>
 
         {/* User Profile Badge & Logout */}
