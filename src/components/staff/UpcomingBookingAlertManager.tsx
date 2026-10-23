@@ -28,6 +28,7 @@ import {
   playBookingDueAlarm,
   playEndingSoonAlarm,
 } from '@/lib/soundAlarm';
+import { sendMobilePushNotification } from '@/lib/pushNotifications';
 
 export interface UpcomingSlotAlert {
   id: string; // `${bookingId}-${stage}`
@@ -154,10 +155,23 @@ export function UpcomingBookingAlertManager() {
         milestones.add(stage);
         setIsMinimized(false); // Pop up to ensure visibility
         if (!isMuted) {
+          const stationLabel = b.station?.name || b.stationName || 'Gaming Station';
+          const guestLabel = b.customerName || `${b.user?.firstName || 'Gamer'} ${b.user?.lastName || ''}`.trim();
           if (stage === 'due') {
             playBookingDueAlarm();
+            sendMobilePushNotification(`🎮 RESERVATION READY: ${stationLabel}`, {
+              body: `Player: ${guestLabel} • Slot is starting now! Ready to check in.`,
+              tag: `booking-due-${b.id}`,
+              url: '/staff/bookings?tab=UPCOMING',
+            });
           } else {
             playEndingSoonAlarm();
+            const stageLabel = stage === '5m' ? '5 Mins' : '15 Mins';
+            sendMobilePushNotification(`📅 Upcoming Slot (${stageLabel}): ${stationLabel}`, {
+              body: `Player: ${guestLabel} • Arriving in ${stageLabel}.`,
+              tag: `booking-upcoming-${stage}-${b.id}`,
+              url: '/staff/bookings?tab=UPCOMING',
+            });
           }
         }
       }

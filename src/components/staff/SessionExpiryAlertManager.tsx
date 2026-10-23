@@ -27,6 +27,7 @@ import {
   playEndingSoonAlarm,
   playOverdueAlarm,
 } from '@/lib/soundAlarm';
+import { sendMobilePushNotification } from '@/lib/pushNotifications';
 
 export interface ActiveSessionData {
   stationId: string;
@@ -182,8 +183,19 @@ export function SessionExpiryAlertManager() {
                 if (stage === 'extra') {
                   lastOverdueChimeTime.current.set(session.sessionId || session.stationId, now);
                   playOverdueAlarm();
+                  sendMobilePushNotification(`🚨 STATION OVERDUE: ${session.stationName}`, {
+                    body: `Player: ${session.customerName} • Session ended! Collect payment or extend.`,
+                    tag: `overdue-${session.sessionId || session.stationId}`,
+                    url: '/staff',
+                  });
                 } else {
                   playEndingSoonAlarm();
+                  const stageLabel = stage === '5m' ? '5 Mins' : stage === '10m' ? '10 Mins' : '15 Mins';
+                  sendMobilePushNotification(`⏰ ${stageLabel} Remaining: ${session.stationName}`, {
+                    body: `Player: ${session.customerName} • Session ending soon. Ask player for extension.`,
+                    tag: `stage-${stage}-${session.sessionId || session.stationId}`,
+                    url: '/staff',
+                  });
                 }
               }
             } else if (stage === 'extra' && !isMuted) {
@@ -192,6 +204,11 @@ export function SessionExpiryAlertManager() {
               if (now - lastChime > 45000) {
                 lastOverdueChimeTime.current.set(session.sessionId || session.stationId, now);
                 playOverdueAlarm();
+                sendMobilePushNotification(`🚨 OVERDUE (+${extraMins}m): ${session.stationName}`, {
+                  body: `Player: ${session.customerName} • Still in unmetered overtime. Please checkout.`,
+                  tag: `overdue-repeat-${session.sessionId || session.stationId}`,
+                  url: '/staff',
+                });
               }
             }
 
