@@ -168,7 +168,7 @@ export function PwaInstaller() {
       {/* Floating PWA Install Banner */}
       <aside
         aria-label="App installation"
-        className="fixed bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-[120] bg-ds-dark/95 backdrop-blur-md border border-cyan-500/40 rounded-2xl p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.85)] flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="fixed top-4 sm:top-5 right-3 left-3 sm:left-auto sm:right-6 sm:w-96 z-[120] bg-ds-dark/95 backdrop-blur-md border border-cyan-500/40 rounded-2xl p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.85)] flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300"
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0 shadow-inner">
