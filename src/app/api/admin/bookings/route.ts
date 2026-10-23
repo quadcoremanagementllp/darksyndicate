@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, ConflictError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
+import { apiSuccess, ConflictError, ForbiddenError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { canDeleteReservation, reservationCreatorId } from '@/lib/staffReservations';
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { staffBookingDayRange } from '@/lib/staffBookingViews';
+import { staffBookingDayRange, staffBookingDateRange } from '@/lib/staffBookingViews';
 
 const patchBookingSchema = z.object({
   bookingId: z.string().min(1),
@@ -28,6 +29,8 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || '';
     const stationId = searchParams.get('stationId') || '';
     const day = searchParams.get('day');
+    const from = searchParams.get('from') || undefined;
+    const to = searchParams.get('to') || undefined;
     let dayFilter: Prisma.BookingWhereInput | undefined;
     if (day) {
       let range: ReturnType<typeof staffBookingDayRange>;
@@ -37,6 +40,17 @@ export async function GET(req: NextRequest) {
         throw new ValidationError('Invalid booking date');
       }
       const timestamp = { gte: range.start, lt: range.end };
+      dayFilter = status === 'COMPLETED'
+        ? { OR: [{ session: { is: { endedAt: timestamp } } }, { updatedAt: timestamp }] }
+        : { startTime: timestamp };
+    } else if (from || to) {
+      let range: ReturnType<typeof staffBookingDateRange>;
+      try {
+        range = staffBookingDateRange(from, to);
+      } catch {
+        throw new ValidationError('Invalid booking date range');
+      }
+      const timestamp = { ...(range.start ? { gte: range.start } : {}), ...(range.end ? { lt: range.end } : {}) };
       dayFilter = status === 'COMPLETED'
         ? { OR: [{ session: { is: { endedAt: timestamp } } }, { updatedAt: timestamp }] }
         : { startTime: timestamp };
@@ -80,7 +94,7 @@ export async function GET(req: NextRequest) {
         },
         include: bookingInclude,
         orderBy: { createdAt: 'desc' },
-        take: status === 'COMPLETED' ? undefined : 500,
+        take: status === 'COMPLETED' || dayFilter ? undefined : 500,
       }),
       !status && !dayFilter
         ? prisma.booking.findMany({
@@ -262,6 +276,18 @@ export async function PATCH(req: NextRequest) {
 
     if (!booking) {
       throw new NotFoundError('Booking not found');
+    }
+
+    if (session.role === 'STAFF' && booking.notes?.includes('[Front Desk Pre-Booking]') && (action === 'CANCEL' || action === 'NO_SHOW')) {
+      const creatorLog = await prisma.staffActivityLog.findFirst({
+        where: { entityType: 'booking', entityId: bookingId, action: 'CREATE_RESERVATION' },
+        orderBy: { createdAt: 'asc' },
+        select: { userId: true },
+      });
+      const creatorId = reservationCreatorId({ payments: booking.payments }, creatorLog?.userId || null);
+      if (!canDeleteReservation(session.role, session.userId, creatorId)) {
+        throw new ForbiddenError('Only the staff member who created this reservation or an administrator can cancel it.');
+      }
     }
 
     const now = new Date();

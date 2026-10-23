@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   History,
+  BookMarked,
   LogOut,
   ChevronRight,
   ArrowUpRight,
@@ -26,6 +27,7 @@ import { UpcomingBookingAlertManager } from '@/components/staff/UpcomingBookingA
 
 const sessionLinks = [
   { name: 'In Session', href: '/staff/bookings/in-session', icon: Clock },
+  { name: 'Reservation', href: '/staff/bookings/reservations', icon: BookMarked },
   { name: 'Online Booking', href: '/staff/bookings/online', icon: Calendar },
   { name: 'History', href: '/staff/bookings/history', icon: History },
 ];

@@ -16,6 +16,7 @@ import {
   Gamepad2,
   UserPlus,
   RotateCcw,
+  X,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -36,6 +37,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
   const [loading, setLoading] = useState(true);
   const [dateScope, setDateScope] = useState<StaffDateFilter['kind']>('ALL');
   const [selectedDate, setSelectedDate] = useState('');
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
   const requestId = useRef(0);
 
   // Modal states
@@ -50,6 +53,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
   const notifyError = toast.error;
   const todayIST = new Date(currentTime).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const requestedDay = dateScope === 'TODAY' ? todayIST : dateScope === 'DATE' ? selectedDate : '';
+  const requestedFrom = dateScope === 'RANGE' ? rangeFrom : '';
+  const requestedTo = dateScope === 'RANGE' ? rangeTo : '';
 
   const handleExtraPlayerAction = async (booking: any, action: 'ADD' | 'REMOVE' = 'ADD') => {
     setUpdatingPlayerBookingId(booking.id);
@@ -102,6 +107,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       const params = new URLSearchParams();
       if (view !== 'ACTIVE') params.set('status', view === 'UPCOMING' ? 'CONFIRMED' : 'COMPLETED');
       if (requestedDay) params.set('day', requestedDay);
+      if (requestedFrom) params.set('from', requestedFrom);
+      if (requestedTo) params.set('to', requestedTo);
       const query = params.toString();
       const res = await fetch(`/api/admin/bookings${query ? `?${query}` : ''}`);
       const json = await res.json();
@@ -118,7 +125,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
-  }, [view, requestedDay, notifyError]);
+  }, [view, requestedDay, requestedFrom, requestedTo, notifyError]);
 
   useEffect(() => {
     const firstLoad = setTimeout(() => { void loadBookings(false); }, 0);
@@ -257,7 +264,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
 
   const getIsToday = (booking: any) => staffBookingDateInIST(booking, 'UPCOMING') === todayIST;
   const getIsSessionActive = isActiveStaffBooking;
-  const filteredBookings = filterStaffBookings(bookings, view, { kind: dateScope, date: selectedDate, today: todayIST });
+  const filteredBookings = filterStaffBookings(bookings, view, { kind: dateScope, date: selectedDate, from: rangeFrom, to: rangeTo, today: todayIST });
   const nearUpcomingBookings = filterStaffBookings(bookings, 'UPCOMING', { kind: 'TODAY', today: todayIST }).filter((b) => {
     if (!b.startTime) return false;
     const diffMs = new Date(b.startTime).getTime() - currentTime;
@@ -406,6 +413,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             type="button"
             onClick={() => {
               setSelectedDate('');
+              setRangeFrom('');
+              setRangeTo('');
               setDateScope(dateScope === 'TODAY' ? 'ALL' : 'TODAY');
             }}
             aria-pressed={dateScope === 'TODAY'}
@@ -425,12 +434,59 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
               value={dateScope === 'DATE' ? selectedDate : ''}
               onChange={(event) => {
                 setSelectedDate(event.target.value);
+                setRangeFrom('');
+                setRangeTo('');
                 setDateScope(event.target.value ? 'DATE' : 'ALL');
               }}
               className="rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
             />
           </label>
+          <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
+            From
+            <input
+              type="date"
+              aria-label="From date"
+              value={dateScope === 'RANGE' ? rangeFrom : ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedDate('');
+                setRangeFrom(value);
+                if (value && rangeTo && value > rangeTo) setRangeTo('');
+                setDateScope(value || rangeTo ? 'RANGE' : 'ALL');
+              }}
+              className="rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
+            To
+            <input
+              type="date"
+              aria-label="To date"
+              value={dateScope === 'RANGE' ? rangeTo : ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedDate('');
+                setRangeTo(value);
+                if (value && rangeFrom && value < rangeFrom) setRangeFrom('');
+                setDateScope(value || rangeFrom ? 'RANGE' : 'ALL');
+              }}
+              className="rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
+            />
+          </label>
           {dateScope === 'ALL' && <span className="text-xs text-ds-text-dim">All dates</span>}
+          <button
+            type="button"
+            disabled={dateScope === 'ALL'}
+            onClick={() => {
+              setSelectedDate('');
+              setRangeFrom('');
+              setRangeTo('');
+              setDateScope('ALL');
+            }}
+            aria-label="Clear date filters"
+            title="Clear date filters"
+            className="ml-auto inline-flex items-center gap-1 rounded-lg border border-ds-border px-2 py-2 text-xs text-ds-text-muted hover:text-white hover:border-ds-accent disabled:opacity-40 disabled:cursor-not-allowed"
+          ><X className="h-3.5 w-3.5" /> Clear</button>
         </div>
       )}
 
@@ -447,6 +503,39 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             <p className="text-xs text-ds-text-muted">
               {view === 'ACTIVE' ? 'Active sessions will appear here as soon as players check in.' : 'Try another date or turn off Today Only.'}
             </p>
+          </div>
+        ) : view === 'COMPLETED' ? (
+          <div className="space-y-3">
+            {filteredBookings.map((b) => (
+              <div key={b.id} className="rounded-2xl border border-ds-border bg-ds-surface/40 p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5">
+                <div className="min-w-0 lg:w-1/4">
+                  <p className="font-heading font-bold text-white truncate">{b.stationName}</p>
+                  <p className="font-mono text-xs text-ds-accent">{b.bookingRef}</p>
+                  <p className="text-xs text-ds-text-muted">{b.facilityName}</p>
+                </div>
+                <div className="min-w-0 lg:w-1/5">
+                  <p className="text-sm font-bold text-white">{b.customerName}</p>
+                  <p className="text-xs text-ds-text-muted">{b.customerPhone || b.customerEmail || 'No contact'}</p>
+                </div>
+                <div className="min-w-0 lg:flex-1 text-xs font-mono text-ds-text-muted">
+                  <p className="text-ds-ice">{new Date(b.startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                  <p>{b.durationMinutes} min · Completed {new Date(b.session?.endedAt || b.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                  {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && <p>Booked by staff: {b.staffName || 'Unassigned'}</p>}
+                </div>
+                <div className="lg:text-right shrink-0">
+                  <p className="font-mono font-bold text-white">₹{(b.totalPricePaise / 100).toFixed(0)}</p>
+                  <p className="text-[10px] font-mono uppercase text-ds-text-muted">{b.paymentMethod || 'OTHER'} · Completed</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank" aria-label={`Receipt for ${b.bookingRef}`} className="p-2.5 rounded-xl border border-ds-border text-ds-ice hover:border-ds-accent">
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                  <button type="button" onClick={() => setSelectedBookingForGrid(b)} aria-label={`Details for ${b.bookingRef}`} className="p-2.5 rounded-xl border border-ds-border text-ds-ice hover:border-ds-accent">
+                    <Info className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
@@ -537,10 +626,6 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           {b.bookingRef}
                         </span>
                       </div>
-                      {view === 'COMPLETED' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-                        <p className="mt-1 text-xs text-ds-text-muted">Booked by staff: <span className="font-semibold text-ds-ice">{b.staffName || 'Unassigned'}</span></p>
-                      )}
-
                       {isSnooker ? (
                         <div className="mt-2.5 p-2.5 rounded-xl bg-ds-dark/70 border border-ds-border/70 space-y-2">
                           {/* Top Row: Capacity & Extra Breakdown */}

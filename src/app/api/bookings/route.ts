@@ -10,6 +10,7 @@ import {
   NotFoundError,
   ConflictError,
   AuthError,
+  ForbiddenError,
 } from '@/lib/errors';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -89,6 +90,9 @@ export async function POST(req: NextRequest) {
       // 1. Resolve User
       let userId: string;
       const isStaffOrAdmin = session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'STAFF';
+      if (data.notes?.includes('[Front Desk Pre-Booking]') && !isStaffOrAdmin) {
+        throw new ForbiddenError('Staff reservations require a staff account.');
+      }
       const isBookingForOther = isStaffOrAdmin && Boolean(data.customerEmail && data.customerEmail.toLowerCase() !== session?.email?.toLowerCase());
 
       if (session?.userId && !isBookingForOther) {
@@ -419,6 +423,18 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        if (isStaffOrAdmin && session && data.payAtCounter && data.notes?.includes('[Front Desk Pre-Booking]')) {
+          await tx.staffActivityLog.create({
+            data: {
+              userId: session.userId,
+              action: 'CREATE_RESERVATION',
+              entityType: 'booking',
+              entityId: booking.id,
+              details: { bookingRef },
+            },
+          });
+        }
+
         // If paying at counter, create a payment record
         if (data.payAtCounter) {
           const isImmediateSettlement =
@@ -496,7 +512,7 @@ export async function POST(req: NextRequest) {
 
       return apiSuccess(result, 201);
     } catch (err: any) {
-      if (err instanceof ConflictError || err instanceof ValidationError || err instanceof NotFoundError) {
+      if (err instanceof ConflictError || err instanceof ValidationError || err instanceof NotFoundError || err instanceof ForbiddenError) {
         throw err;
       }
 

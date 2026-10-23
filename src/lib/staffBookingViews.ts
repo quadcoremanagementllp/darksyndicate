@@ -1,9 +1,11 @@
 export type StaffBookingView = 'ACTIVE' | 'UPCOMING' | 'COMPLETED';
 
 export type StaffDateFilter = {
-  kind: 'ALL' | 'TODAY' | 'DATE';
+  kind: 'ALL' | 'TODAY' | 'DATE' | 'RANGE';
   today: string;
   date?: string;
+  from?: string;
+  to?: string;
 };
 
 type StaffBooking = {
@@ -11,6 +13,7 @@ type StaffBooking = {
   isWalkIn?: boolean;
   channel?: string;
   bookingRef?: string | null;
+  notes?: string | null;
   startTime?: string | null;
   date?: string | null;
   updatedAt?: string | null;
@@ -26,7 +29,11 @@ export function isActiveStaffBooking(booking: StaffBooking): boolean {
 }
 
 export function isOnlineStaffBooking(booking: StaffBooking): boolean {
-  return !booking.isWalkIn && booking.channel !== 'DESK' && !booking.bookingRef?.startsWith('DS-WALK');
+  return !booking.isWalkIn && booking.channel !== 'DESK' && !booking.bookingRef?.startsWith('DS-WALK') && !isStaffReservation(booking);
+}
+
+export function isStaffReservation(booking: StaffBooking): boolean {
+  return Boolean(booking.notes?.includes('[Front Desk Pre-Booking]'));
 }
 
 export function staffBookingDateInIST(booking: StaffBooking, view: StaffBookingView): string {
@@ -47,6 +54,13 @@ export function staffBookingDayRange(day: string): { start: Date; end: Date } {
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
+export function staffBookingDateRange(from?: string, to?: string): { start?: Date; end?: Date } {
+  const start = from ? staffBookingDayRange(from).start : undefined;
+  const end = to ? staffBookingDayRange(to).end : undefined;
+  if (start && end && start >= end) throw new Error('Invalid date range');
+  return { start, end };
+}
+
 export function filterStaffBookings<T extends StaffBooking>(
   bookings: T[],
   view: StaffBookingView,
@@ -58,6 +72,8 @@ export function filterStaffBookings<T extends StaffBooking>(
     if (view === 'UPCOMING' && (active || booking.status !== 'CONFIRMED' || !isOnlineStaffBooking(booking))) return false;
     if (view === 'COMPLETED' && (active || booking.status !== 'COMPLETED')) return false;
     if (dateFilter.kind === 'ALL') return true;
-    return staffBookingDateInIST(booking, view) === (dateFilter.kind === 'TODAY' ? dateFilter.today : dateFilter.date);
+    const day = staffBookingDateInIST(booking, view);
+    if (dateFilter.kind === 'RANGE') return Boolean(day) && (!dateFilter.from || day >= dateFilter.from) && (!dateFilter.to || day <= dateFilter.to);
+    return day === (dateFilter.kind === 'TODAY' ? dateFilter.today : dateFilter.date);
   });
 }

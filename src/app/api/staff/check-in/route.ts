@@ -69,11 +69,17 @@ export async function POST(req: NextRequest) {
         }
 
         // Update booking status
-        const updatedBooking = await tx.booking.update({
-          where: { id: booking.id },
+        const claimedBooking = await tx.booking.updateMany({
+          where: { id: booking.id, status: booking.status },
           data: {
             status: autoStartSession ? 'IN_PROGRESS' : 'CHECKED_IN',
           },
+        });
+        if (claimedBooking.count !== 1) {
+          throw new ValidationError('This reservation has changed. Please refresh and try again.');
+        }
+        const updatedBooking = await tx.booking.findUniqueOrThrow({
+          where: { id: booking.id },
           include: {
             station: true,
             user: true,

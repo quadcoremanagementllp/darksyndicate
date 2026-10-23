@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { filterStaffBookings, staffBookingDayRange } from '../src/lib/staffBookingViews';
+import { filterStaffBookings, isStaffReservation, staffBookingDayRange, staffBookingDateRange } from '../src/lib/staffBookingViews';
 
 const bookings = [
   {
@@ -27,6 +27,13 @@ const bookings = [
     status: 'CONFIRMED',
     isWalkIn: true,
     startTime: '2026-10-23T19:00:00+05:30',
+  },
+  {
+    id: 'advance-reservation',
+    status: 'CONFIRMED',
+    notes: '[Front Desk Pre-Booking] [Players: 2]',
+    isWalkIn: false,
+    startTime: '2026-10-24T20:00:00+05:30',
   },
   {
     id: 'completed-yesterday',
@@ -59,6 +66,26 @@ test('Online Booking includes confirmed website reservations and excludes desk w
   assert.deepEqual(ids(filterStaffBookings(bookings, 'UPCOMING', { kind: 'TODAY', today })), [
     'online-today',
   ]);
+});
+
+test('staff advance reservations have their own view and stay out of Online Booking', () => {
+  assert.equal(isStaffReservation(bookings.find((booking) => booking.id === 'advance-reservation')!), true);
+  assert.deepEqual(ids(filterStaffBookings(bookings, 'UPCOMING', { kind: 'ALL', today })), [
+    'online-today', 'online-tomorrow',
+  ]);
+});
+
+test('online and completed date ranges use inclusive India calendar dates', () => {
+  assert.deepEqual(ids(filterStaffBookings(bookings, 'UPCOMING', { kind: 'RANGE', from: '2026-10-23', to: '2026-10-24', today })), [
+    'online-today', 'online-tomorrow',
+  ]);
+  assert.deepEqual(ids(filterStaffBookings(bookings, 'COMPLETED', { kind: 'RANGE', from: '2026-10-22', to: '2026-10-22', today })), [
+    'completed-yesterday',
+  ]);
+  const range = staffBookingDateRange('2026-10-22', '2026-10-24');
+  assert.equal(range.start?.toISOString(), '2026-10-21T18:30:00.000Z');
+  assert.equal(range.end?.toISOString(), '2026-10-24T18:30:00.000Z');
+  assert.throws(() => staffBookingDateRange('2026-10-24', '2026-10-22'), /Invalid date range/);
 });
 
 test('History date filter uses completion date in India, including midnight crossings', () => {
