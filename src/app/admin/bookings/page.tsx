@@ -764,7 +764,7 @@ export default function AdminBookingsPage() {
                               <span>Online</span>
                             </div>
                             <div className="text-[10px] text-ds-text-dim mt-1 font-mono">
-                              Customer Portal
+                              {b.staffName ? `Staff: ${b.staffName}` : 'Customer Portal'}
                             </div>
                           </div>
                         )}
@@ -1023,7 +1023,7 @@ export default function AdminBookingsPage() {
                     </span>
                   </div>
 
-                  {b.isWalkIn && b.staffName && (
+                  {b.staffName && (
                     <div className="text-[10px] text-ds-text-dim font-mono pt-0.5">
                       Staff: <span className="text-ds-ice font-semibold">{b.staffName}</span>
                     </div>

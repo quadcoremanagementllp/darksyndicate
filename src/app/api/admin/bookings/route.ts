@@ -22,7 +22,7 @@ const deleteBookingSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    await requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF');
+    const viewer = await requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF');
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
@@ -58,7 +58,15 @@ export async function GET(req: NextRequest) {
         where: {
           ...(status ? { status: status as any } : {}),
           ...(stationId ? { stationId } : {}),
-          ...(dayFilter ? { AND: [dayFilter] } : {}),
+          AND: [
+            ...(dayFilter ? [dayFilter] : []),
+            ...(viewer.role === 'STAFF' && !status
+              ? [{ OR: [{ status: { not: 'COMPLETED' as const } }, { session: { is: { staffId: viewer.userId } } }] }]
+              : []),
+            ...(viewer.role === 'STAFF' && status === 'COMPLETED'
+              ? [{ session: { is: { staffId: viewer.userId } } }]
+              : []),
+          ],
           ...(search
             ? {
                 OR: [
@@ -72,7 +80,7 @@ export async function GET(req: NextRequest) {
         },
         include: bookingInclude,
         orderBy: { createdAt: 'desc' },
-        take: 500,
+        take: status === 'COMPLETED' ? undefined : 500,
       }),
       !status && !dayFilter
         ? prisma.booking.findMany({
@@ -118,10 +126,10 @@ export async function GET(req: NextRequest) {
       const isWalkIn = Boolean(booking.isWalkIn);
       let staffName: string | null = null;
 
-      if (isWalkIn) {
-        if (booking.session?.staff) {
-          staffName = `${booking.session.staff.firstName} ${booking.session.staff.lastName}`.trim();
-        } else if (staffMap.has(booking.id)) {
+      if (booking.session?.staff) {
+        staffName = `${booking.session.staff.firstName} ${booking.session.staff.lastName}`.trim();
+      } else if (isWalkIn) {
+        if (staffMap.has(booking.id)) {
           staffName = staffMap.get(booking.id)!;
         } else if (booking.notes && /by\s+([A-Za-z0-9\s]+)/i.test(booking.notes)) {
           const match = booking.notes.match(/by\s+([A-Za-z0-9\s]+)/i);
@@ -184,7 +192,8 @@ export async function GET(req: NextRequest) {
         isWalkIn,
         channel: isWalkIn ? 'DESK' : 'ONLINE',
         bookedVia: isWalkIn ? 'Front Desk Walk-in' : 'Online Website',
-        staffName: isWalkIn ? staffName : null,
+        staffName,
+        staffId: booking.session?.staffId || null,
         paymentId: booking.payments[0]?.id || null,
         paymentStatus: booking.payments[0]?.status || 'UNPAID',
         paymentMethod: booking.payments[0]?.method || null,

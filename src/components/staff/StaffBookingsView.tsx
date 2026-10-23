@@ -20,6 +20,8 @@ import {
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/hooks/useAuth';
+import { canManageStaffSession, sessionHourlyRatePaise } from '@/lib/staffSessionRules';
 import {
   filterStaffBookings,
   isActiveStaffBooking,
@@ -29,6 +31,7 @@ import {
 } from '@/lib/staffBookingViews';
 
 export function StaffBookingsView({ view }: { view: StaffBookingView }) {
+  const { user } = useAuth();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateScope, setDateScope] = useState<StaffDateFilter['kind']>('ALL');
@@ -223,7 +226,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       customerName: booking.customerName,
       bookingRef: booking.bookingRef,
       scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
-      pricePerHourPaise: booking.pricePerHourPaise || 15000,
+      pricePerHourPaise: sessionHourlyRatePaise(booking.stationType, booking.pricePerHourPaise || 15000, booking.playerCount || 1),
       gameTitle: booking.gameTitle || booking.session?.gameTitle || null,
       paymentStatus: booking.paymentStatus,
       paymentMethod: booking.paymentMethod,
@@ -235,7 +238,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
     setExtendStation({
       id: booking.stationId,
       name: booking.stationName,
-      pricePerHourPaise: booking.pricePerHourPaise || 15000,
+      pricePerHourPaise: sessionHourlyRatePaise(booking.stationType, booking.pricePerHourPaise || 15000, booking.playerCount || 1),
       activeSession: {
         id: booking.session?.id || `active-${booking.id}`,
         bookingId: booking.id,
@@ -449,6 +452,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredBookings.map((b) => {
               const isSessionActive = getIsSessionActive(b);
+              const canManage = canManageStaffSession(user?.role, user?.id, b.staffId);
               const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
               const sessionStart = b.session?.startedAt || b.startTime;
               const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
@@ -533,6 +537,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           {b.bookingRef}
                         </span>
                       </div>
+                      {view === 'COMPLETED' && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                        <p className="mt-1 text-xs text-ds-text-muted">Booked by staff: <span className="font-semibold text-ds-ice">{b.staffName || 'Unassigned'}</span></p>
+                      )}
 
                       {isSnooker ? (
                         <div className="mt-2.5 p-2.5 rounded-xl bg-ds-dark/70 border border-ds-border/70 space-y-2">
@@ -562,7 +569,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           </div>
 
                           {/* Bottom Actions Row (Active Session Only) */}
-                          {isSessionActive && (
+                          {isSessionActive && canManage && (
                             <div className={`pt-1.5 border-t border-ds-border/40 ${currentPlayers > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
                               {currentPlayers > 4 && (
                                 <button
@@ -695,7 +702,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
 
                   {/* Bottom Action Controls */}
                   <div className="pt-3.5 mt-3.5 border-t border-ds-border/60 flex items-center justify-between gap-2">
-                    {isSessionActive ? (
+                    {isSessionActive && canManage ? (
                       <>
                         <Button
                           variant="secondary"
@@ -717,6 +724,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           <span>End Session</span>
                         </Button>
                       </>
+                    ) : isSessionActive ? (
+                      <span className="text-xs text-ds-text-muted">Managed by {b.staffName || 'another staff member'}</span>
                     ) : b.status === 'CONFIRMED' ? (
                       <Button
                         variant={isSlotNear || isSlotDue ? 'accent' : 'outline'}
@@ -778,6 +787,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
           {(() => {
             const b = selectedBookingForGrid;
             const isSessionActive = getIsSessionActive(b);
+            const canManage = canManageStaffSession(user?.role, user?.id, b.staffId);
             const isSnooker = b.isSnooker ?? (b.stationType === 'POOL_TABLE' || b.stationName?.toUpperCase().includes('SNOOKER') || b.stationName?.toUpperCase().includes('POOL'));
             const currentPlayers = b.playerCount || (isSnooker ? 4 : 1);
             const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
@@ -927,7 +937,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                   )}
 
                   {/* Primary Operational Actions (Matching Image 1) */}
-                  {isSessionActive && (
+                  {isSessionActive && canManage && (
                     <div className="mt-5 pt-4 border-t border-ds-border/60 flex items-center justify-between gap-3">
                       <Button
                         variant="secondary"
@@ -973,7 +983,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                   </div>
                   {b.staffName && (
                     <div className="flex justify-between items-center">
-                      <span className="text-ds-text-dim">Desk Staff Collected:</span>
+                      <span className="text-ds-text-dim">Booked by staff:</span>
                       <span className="font-semibold text-emerald-400">{b.staffName}</span>
                     </div>
                   )}

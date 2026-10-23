@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
+import { apiSuccess, ForbiddenError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
 import { z } from 'zod';
 
 const extendSessionSchema = z.object({
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (session) {
+        if (!canManageStaffSession(staffSession.role, staffSession.userId, session.staffId)) {
+          throw new ForbiddenError('Only the staff member who started this session or an administrator can extend it.');
+        }
         if (session.status === 'COMPLETED') {
           throw new ValidationError('This session has already ended. Please allocate a new walk-in session.');
         }
@@ -63,16 +67,12 @@ export async function POST(req: NextRequest) {
         const currentEnd = new Date(session.scheduledEndAt);
         const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-        let hourlyRate = session.station?.pricePerHourPaise || 15000;
-        const playerMatch = session.booking?.notes?.match(/\[Players:\s*(\d+)\]/);
-        const sessionPlayers = playerMatch ? parseInt(playerMatch[1], 10) : 1;
-        const isSnooker =
-          session.station?.stationType === 'POOL_TABLE' ||
-          session.station?.name?.toUpperCase().includes('SNOOKER') ||
-          session.station?.name?.toUpperCase().includes('POOL');
-        if (isSnooker && sessionPlayers > 4) {
-          hourlyRate += (sessionPlayers - 4) * 5000;
-        }
+        const stationType = session.station?.stationType;
+        const hourlyRate = sessionHourlyRatePaise(
+          stationType,
+          session.station?.pricePerHourPaise || 15000,
+          sessionPlayerCount(session.booking?.notes, stationType)
+        );
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
         const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
@@ -211,6 +211,9 @@ export async function POST(req: NextRequest) {
 
       // If no session row, fallback to bookingId directly
       if (data.bookingId) {
+        if (staffSession.role === 'STAFF') {
+          throw new ForbiddenError('Session ownership cannot be verified. Ask an administrator to extend this booking.');
+        }
         const booking = await prisma.booking.findUnique({
           where: { id: data.bookingId },
           include: { station: true },
@@ -219,7 +222,11 @@ export async function POST(req: NextRequest) {
         if (booking) {
           const currentEnd = new Date(booking.endTime);
           const newEnd = new Date(currentEnd.getTime() + data.additionalMinutes * 60 * 1000);
-          const hourlyRate = booking.station?.pricePerHourPaise || 15000;
+          const hourlyRate = sessionHourlyRatePaise(
+            booking.station?.stationType,
+            booking.station?.pricePerHourPaise || 15000,
+            sessionPlayerCount(booking.notes, booking.station?.stationType)
+          );
           const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
           const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
           const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';

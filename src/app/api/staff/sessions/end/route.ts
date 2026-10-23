@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, handleApiError, NotFoundError } from '@/lib/errors';
+import { apiSuccess, ForbiddenError, handleApiError, NotFoundError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
 import { z } from 'zod';
 
 const endSessionSchema = z.object({
@@ -53,8 +54,15 @@ export async function POST(req: NextRequest) {
     }
 
     if (session) {
+      if (!canManageStaffSession(staffSession.role, staffSession.userId, session.staffId)) {
+        throw new ForbiddenError('Only the staff member who started this session or an administrator can end it.');
+      }
       const overtimeMinutes = extraMinutes && extraMinutes > 0 ? Math.floor(extraMinutes) : 0;
-      const hourlyRatePaise = session.station?.pricePerHourPaise || 15000;
+      const hourlyRatePaise = sessionHourlyRatePaise(
+        session.station?.stationType,
+        session.station?.pricePerHourPaise || 15000,
+        sessionPlayerCount(session.booking?.notes, session.station?.stationType)
+      );
       const overtimePaise = overtimeMinutes > 0 ? Math.round(hourlyRatePaise * (overtimeMinutes / 60)) : 0;
 
       await prisma.$transaction(async (tx) => {
@@ -237,6 +245,9 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Fallback: If no GamingSession row was found, update Booking & GamingStation directly
+      if (staffSession.role === 'STAFF') {
+        throw new ForbiddenError('Session ownership cannot be verified. Ask an administrator to end this booking.');
+      }
       await prisma.$transaction(async (tx) => {
         if (bookingId) {
           await tx.booking.update({

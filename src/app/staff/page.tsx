@@ -37,6 +37,8 @@ import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
 import { StaffPreBookingModal } from '@/components/staff/StaffPreBookingModal';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/hooks/useAuth';
+import { canManageStaffSession, sessionHourlyRatePaise } from '@/lib/staffSessionRules';
 
 interface StationGame {
   id: string;
@@ -61,6 +63,7 @@ interface Station {
   games?: StationGame[];
   activeSession?: {
     id: string;
+    staffId?: string | null;
     bookingId: string;
     customerName: string;
     customerPhone?: string;
@@ -110,6 +113,7 @@ interface OpenGuestTab {
 }
 
 export default function StaffStationGridPage() {
+  const { user } = useAuth();
   const [stations, setStations] = useState<Station[]>([]);
   const [openGuestTabs, setOpenGuestTabs] = useState<OpenGuestTab[]>([]);
   const [stats, setStats] = useState({
@@ -234,7 +238,7 @@ export default function StaffStationGridPage() {
       customerPhone: station.activeSession.customerPhone,
       bookingRef: station.activeSession.bookingRef,
       scheduledEndAt: station.activeSession.scheduledEndAt,
-      pricePerHourPaise: station.pricePerHourPaise,
+      pricePerHourPaise: sessionHourlyRatePaise(station.stationType, station.pricePerHourPaise, station.activeSession.playerCount || 1),
       gameTitle: station.activeSession.gameTitle || null,
       paymentStatus: station.activeSession.paymentStatus,
       paymentMethod: station.activeSession.paymentMethod,
@@ -742,6 +746,7 @@ export default function StaffStationGridPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStations.map((station) => {
               const isOccupied = station.status === 'OCCUPIED' && station.activeSession;
+              const canManage = canManageStaffSession(user?.role, user?.id, station.activeSession?.staffId);
               const isMaintenance = station.status === 'MAINTENANCE';
               const countdown = isOccupied
                 ? getCountdown(station.activeSession!.scheduledEndAt, station.activeSession?.startedAt)
@@ -927,7 +932,7 @@ export default function StaffStationGridPage() {
                               </div>
 
                               {/* Bottom Actions Row */}
-                              <div className={`pt-1.5 border-t border-ds-border/40 ${(station.activeSession?.playerCount || 4) > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
+                              {canManage && <div className={`pt-1.5 border-t border-ds-border/40 ${(station.activeSession?.playerCount || 4) > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
                                 {(station.activeSession?.playerCount || 4) > 4 && (
                                   <button
                                     type="button"
@@ -954,7 +959,7 @@ export default function StaffStationGridPage() {
                                   <UserPlus className="w-3 h-3 text-emerald-400" />
                                   <span>+ Person (+₹50)</span>
                                 </button>
-                              </div>
+                              </div>}
                             </div>
                           )}
                         </div>
@@ -1025,12 +1030,12 @@ export default function StaffStationGridPage() {
 
                     {/* Bottom Actions Strip */}
                     <div className="pt-4 mt-2 border-t border-ds-border/60 flex items-center justify-between gap-2">
-                      {isOccupied ? (
+                      {isOccupied && canManage ? (
                         <>
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => setExtendModalStation(station)}
+                            onClick={() => setExtendModalStation({ ...station, pricePerHourPaise: sessionHourlyRatePaise(station.stationType, station.pricePerHourPaise, station.activeSession?.playerCount || 1) })}
                             className="flex-1 justify-center text-xs px-2"
                           >
                             <PlusCircle className="w-3.5 h-3.5 mr-1 shrink-0" />
@@ -1047,6 +1052,8 @@ export default function StaffStationGridPage() {
                             <span className="truncate">End Session</span>
                           </Button>
                         </>
+                      ) : isOccupied ? (
+                        <span className="text-xs text-ds-text-muted">Managed by another staff member</span>
                       ) : isMaintenance ? (
                         <Button
                           variant="outline"

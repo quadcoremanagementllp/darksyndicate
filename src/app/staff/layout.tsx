@@ -9,6 +9,7 @@ import {
   Gamepad2,
   Calendar,
   Clock,
+  History,
   LogOut,
   ChevronRight,
   ArrowUpRight,
@@ -24,9 +25,9 @@ import { SessionExpiryAlertManager } from '@/components/staff/SessionExpiryAlert
 import { UpcomingBookingAlertManager } from '@/components/staff/UpcomingBookingAlertManager';
 
 const sessionLinks = [
-  { name: 'In Session', href: '/staff/bookings/in-session' },
-  { name: 'Online Booking', href: '/staff/bookings/online' },
-  { name: 'History', href: '/staff/bookings/history' },
+  { name: 'In Session', href: '/staff/bookings/in-session', icon: Clock },
+  { name: 'Online Booking', href: '/staff/bookings/online', icon: Calendar },
+  { name: 'History', href: '/staff/bookings/history', icon: History },
 ];
 
 function StaffSidebarNav({
@@ -35,12 +36,14 @@ function StaffSidebarNav({
   onClose,
   onLogout,
   isMobile = false,
+  collapsed = false,
 }: {
   pathname: string;
   user: any;
   onClose?: () => void;
   onLogout: () => void;
   isMobile?: boolean;
+  collapsed?: boolean;
 }) {
   const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const [sessionsExpanded, setSessionsExpanded] = useState<boolean | null>(null);
@@ -50,19 +53,19 @@ function StaffSidebarNav({
     <div className="flex flex-col h-full justify-between">
       <div className="flex flex-col flex-1 overflow-y-auto">
         {/* Brand Header */}
-        <div className="p-5 border-b border-ds-border flex items-center justify-between">
-          <Link href="/staff" onClick={isMobile ? onClose : undefined} className="flex items-center gap-3 group min-w-0">
+        <div className={`${collapsed ? 'p-3 justify-center' : 'p-5 justify-between'} border-b border-ds-border flex items-center`}>
+          <Link href="/staff" onClick={isMobile ? onClose : undefined} title={collapsed ? 'Dark Syndicate Booking' : undefined} className="flex items-center gap-3 group min-w-0">
             <div className="w-9 h-9 rounded-xl bg-ds-surface flex items-center justify-center border border-ds-accent/40 shadow-inner shrink-0">
               <Image src="/logo.svg" alt="Dark Syndicate" width={26} height={26} className="object-contain" />
             </div>
-            <div className="truncate">
+            {!collapsed && <div className="truncate">
               <span className="font-heading font-black text-sm uppercase tracking-wider text-ds-text group-hover:text-ds-ice transition-colors block truncate">
                 DARK SYNDICATE
               </span>
               <span className="text-[9px] font-mono tracking-widest text-ds-accent uppercase block font-bold truncate">
                 STAFF PORTAL
               </span>
-            </div>
+            </div>}
           </Link>
           {isMobile && onClose && (
             <button
@@ -78,7 +81,7 @@ function StaffSidebarNav({
         </div>
 
         {/* Navigation Links */}
-        <nav className="p-4 space-y-1.5 flex-1">
+        <nav className={`${collapsed ? 'p-2' : 'p-4'} space-y-1.5 flex-1`}>
           <Link
             href="/staff"
             onClick={() => {
@@ -86,7 +89,9 @@ function StaffSidebarNav({
               if (isMobile) onClose?.();
             }}
             aria-current={pathname === '/staff' ? 'page' : undefined}
-            className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+            title={collapsed ? 'Booking' : undefined}
+            aria-label="Booking"
+            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
               pathname === '/staff'
                 ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
                 : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
@@ -94,9 +99,9 @@ function StaffSidebarNav({
           >
             <span className="flex items-center gap-3 truncate">
               <Gamepad2 className="w-4 h-4 shrink-0" />
-              <span className="truncate">Booking</span>
+              {!collapsed && <span className="truncate">Booking</span>}
             </span>
-            {pathname === '/staff' && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+            {!collapsed && pathname === '/staff' && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
           </Link>
 
           <button
@@ -104,7 +109,9 @@ function StaffSidebarNav({
             onClick={() => setSessionsExpanded(!sessionsOpen)}
             aria-expanded={sessionsOpen}
             aria-controls={`staff-sessions-nav-${isMobile ? 'mobile' : 'desktop'}`}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+            title={collapsed ? 'Sessions' : undefined}
+            aria-label="Sessions"
+            className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
               pathname.startsWith('/staff/bookings')
                 ? 'bg-ds-surface text-ds-ice'
                 : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
@@ -112,15 +119,15 @@ function StaffSidebarNav({
           >
             <span className="flex items-center gap-3">
               <Calendar className="w-4 h-4 shrink-0" />
-              <span>Sessions</span>
+              {!collapsed && <span>Sessions</span>}
             </span>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${sessionsOpen ? 'rotate-90' : ''}`} />
+            {!collapsed && <ChevronRight className={`w-3.5 h-3.5 transition-transform ${sessionsOpen ? 'rotate-90' : ''}`} />}
           </button>
 
           <div
             id={`staff-sessions-nav-${isMobile ? 'mobile' : 'desktop'}`}
             hidden={!sessionsOpen}
-            className="ml-5 pl-3 border-l border-ds-border space-y-1"
+            className={`${collapsed ? 'ml-0 pl-0' : 'ml-5 pl-3 border-l border-ds-border'} space-y-1`}
           >
             {sessionLinks.map((item) => (
               <Link
@@ -128,55 +135,59 @@ function StaffSidebarNav({
                 href={item.href}
                 onClick={isMobile ? onClose : undefined}
                 aria-current={pathname === item.href ? 'page' : undefined}
-                className={`block px-3 py-2 rounded-lg text-xs font-heading font-bold transition-all ${
+                title={collapsed ? item.name : undefined}
+                aria-label={item.name}
+                className={`${collapsed ? 'flex justify-center px-2' : 'block px-3'} py-2 rounded-lg text-xs font-heading font-bold transition-all ${
                   pathname === item.href
                     ? 'bg-ds-accent text-white shadow-sm shadow-ds-accent/20'
                     : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
                 }`}
               >
-                {item.name}
+                {collapsed ? <item.icon className="w-4 h-4" /> : item.name}
               </Link>
             ))}
           </div>
 
           {isAdminUser && (
             <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
-              <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
+              {!collapsed && <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
                 Cross Portals
-              </span>
+              </span>}
               <Link
                 href="/admin"
                 onClick={isMobile ? onClose : undefined}
-                className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-amber-400 hover:bg-ds-surface/60 transition-colors"
+                title={collapsed ? 'Admin Command Center' : undefined}
+                aria-label="Admin Command Center"
+                className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 rounded-xl text-xs text-amber-400 hover:bg-ds-surface/60 transition-colors`}
               >
                 <div className="flex items-center gap-2.5">
                   <ShieldCheck className="w-4 h-4 shrink-0" />
-                  <span className="font-heading font-bold uppercase">Admin Command Center</span>
+                  {!collapsed && <span className="font-heading font-bold uppercase">Admin Command Center</span>}
                 </div>
-                <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                {!collapsed && <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />}
               </Link>
             </div>
           )}
         </nav>
 
         {/* User Profile Badge & Logout */}
-        <div className="p-4 border-t border-ds-border bg-ds-surface/30">
-          <div className="flex items-center justify-between">
+        <div className={`${collapsed ? 'p-3' : 'p-4'} border-t border-ds-border bg-ds-surface/30`}>
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-ds-accent/20 border border-ds-accent/40 text-ds-ice flex items-center justify-center font-heading font-bold text-xs shrink-0">
                 {user?.firstName?.[0] || 'S'}
               </div>
-              <div className="text-left text-xs truncate">
+              {!collapsed && <div className="text-left text-xs truncate">
                 <p className="font-heading font-bold text-ds-text leading-tight truncate">
                   {user?.firstName || 'Staff'} {user?.lastName || 'Operator'}
                 </p>
                 <span className="text-[10px] text-emerald-400 font-mono font-semibold uppercase">
                   {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role === 'ADMIN' ? 'Admin' : 'Shift Operator'}
                 </span>
-              </div>
+              </div>}
             </div>
 
-            <button
+            {!collapsed && <button
               type="button"
               onClick={onLogout}
               className="p-1.5 rounded-lg text-ds-text-dim hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 ml-1"
@@ -184,7 +195,7 @@ function StaffSidebarNav({
               aria-label="Sign Out"
             >
               <LogOut className="w-4 h-4" />
-            </button>
+            </button>}
           </div>
         </div>
       </div>
@@ -373,18 +384,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       {/* Desktop Collapsible Sidebar (visible on lg screens >= 1024px) */}
       <aside
         className={`bg-ds-dark/95 border-r border-ds-border flex flex-col justify-between shrink-0 hidden lg:flex sticky top-0 h-screen transition-all duration-300 ease-in-out ${
-          isSidebarOpen
-            ? 'w-64 opacity-100'
-            : 'w-0 opacity-0 pointer-events-none overflow-hidden border-r-0'
+          isSidebarOpen ? 'w-64' : 'w-20'
         }`}
       >
-        <div className="w-64 h-full flex flex-col">
+        <div className="w-full h-full flex flex-col">
           <StaffSidebarNav
             pathname={pathname}
             user={user}
             onClose={toggleSidebar}
             onLogout={handleLogout}
             isMobile={false}
+            collapsed={!isSidebarOpen}
           />
         </div>
       </aside>
@@ -432,11 +442,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </span>
             </div>
 
-            {/* Live Arena Pulse */}
-            <div className="hidden sm:flex items-center gap-2 pl-2 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-mono text-ds-text-dim">ARENA ACTIVE</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">

@@ -43,6 +43,7 @@ const navigation: NavItem[] = [
   { name: 'Station Inventory', href: '/admin/stations', icon: Gamepad2 },
   { name: 'Games Library', href: '/admin/games', icon: Disc3 },
   { name: 'All Bookings', href: '/admin/bookings', icon: Calendar },
+  { name: 'Session History', href: '/admin/sessions', icon: Calendar },
   { name: 'Customer Directory', href: '/admin/customers', icon: Users },
   { name: 'Syndicate Passes', href: '/admin/memberships', icon: Sparkles },
   { name: 'Promo Coupons', href: '/admin/coupons', icon: Tag },

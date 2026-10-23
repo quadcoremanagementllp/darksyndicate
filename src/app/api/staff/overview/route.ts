@@ -250,6 +250,7 @@ export async function GET(req: NextRequest) {
           const resolvedSession = activeSession
             ? {
                 id: activeSession.id,
+                staffId: activeSession.staffId,
                 bookingId: activeSession.bookingId,
                 status: activeSession.status,
                 customerName:
@@ -284,6 +285,7 @@ export async function GET(req: NextRequest) {
             : currentBooking
             ? {
                 id: `bk_${currentBooking.id}`,
+                staffId: null,
                 bookingId: currentBooking.id,
                 status: 'ACTIVE',
                 customerName:

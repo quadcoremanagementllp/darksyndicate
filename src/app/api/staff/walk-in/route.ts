@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { sessionHourlyRatePaise } from '@/lib/staffSessionRules';
 import { getActiveUserMembership } from '@/lib/memberships';
 import { hashPassword } from '@/lib/auth';
 import { z } from 'zod';
@@ -91,23 +92,16 @@ export async function POST(req: NextRequest) {
       }
 
       // 4. Rate Calculation (Accounts for multi-player tiers on PS5 & extra players on Snooker / Pool)
-      let hourlyRate = station.pricePerHourPaise;
       const playerCount = data.playerCount || 1;
       const isPool =
         station.stationType === 'POOL_TABLE' ||
         station.name.toUpperCase().includes('SNOOKER') ||
         station.name.toUpperCase().includes('POOL');
-
-      if (station.stationType === 'PS5') {
-        if (playerCount === 2) hourlyRate = 20000; // ₹200/hr for duo
-        else if (playerCount >= 3) hourlyRate = 25000; // ₹250/hr for 3-4 squad (max 4 players)
-        else hourlyRate = 15000; // ₹150/hr single
-      } else if (isPool) {
-        const basePoolRate = station.pricePerHourPaise || 25000;
-        hourlyRate = basePoolRate + Math.max(0, playerCount - 4) * 5000; // Snooker only: Base rate (up to 4) + ₹50/hr per person > 4
-      } else {
-        hourlyRate = station.pricePerHourPaise;
-      }
+      const hourlyRate = sessionHourlyRatePaise(
+        isPool ? 'POOL_TABLE' : station.stationType,
+        station.pricePerHourPaise || (isPool ? 25000 : 15000),
+        playerCount
+      );
       const subtotalPaise = Math.round(hourlyRate * (data.durationMinutes / 60));
 
       // 5. Customer Resolution

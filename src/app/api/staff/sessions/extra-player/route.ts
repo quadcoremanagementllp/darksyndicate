@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
+import { apiSuccess, ForbiddenError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { canManageStaffSession } from '@/lib/staffSessionRules';
 import { z } from 'zod';
 
 const extraPlayerSchema = z.object({
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
 
     if (!booking) {
       throw new NotFoundError('Booking or active session not found');
+    }
+    if (!canManageStaffSession(staffSession.role, staffSession.userId, booking.session?.staffId)) {
+      throw new ForbiddenError('Only the staff member who started this session or an administrator can change its players.');
     }
 
     const isSnooker =
