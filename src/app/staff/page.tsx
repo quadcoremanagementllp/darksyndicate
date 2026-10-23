@@ -367,14 +367,10 @@ export default function StaffStationGridPage() {
 
   const ps5List = stations.filter((s) => s.stationType === 'PS5');
   const ps5Available = ps5List.filter((s) => s.status === 'AVAILABLE' && !s.activeSession).length;
-  const ps5Occupied = ps5List.filter((s) => s.status === 'OCCUPIED' || Boolean(s.activeSession)).length;
-  const ps5Maint = ps5List.filter((s) => s.status === 'MAINTENANCE').length;
   const ps5Total = ps5List.length || 3;
 
   const poolList = stations.filter((s) => s.stationType === 'POOL_TABLE');
   const poolAvailable = poolList.filter((s) => s.status === 'AVAILABLE' && !s.activeSession).length;
-  const poolOccupied = poolList.filter((s) => s.status === 'OCCUPIED' || Boolean(s.activeSession)).length;
-  const poolMaint = poolList.filter((s) => s.status === 'MAINTENANCE').length;
   const poolTotal = poolList.length || 3;
 
   const isZoneView = !searchQuery;
@@ -468,7 +464,7 @@ export default function StaffStationGridPage() {
           </Link>
         </div>
 
-        {/* Right Side: Primary Desk Actions */}
+        {/* Right Side: Primary Desk Action */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 justify-start sm:justify-end">
           <Button
             variant="accent"
@@ -477,18 +473,6 @@ export default function StaffStationGridPage() {
           >
             <QrCode className="w-4 h-4" />
             <span>Scan QR Pass</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSelectedWalkInStationId(undefined);
-              setWalkInOpen(true);
-            }}
-            className="flex items-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Desk Walk-in</span>
           </Button>
         </div>
       </div>
@@ -592,7 +576,7 @@ export default function StaffStationGridPage() {
               onClick={() => {
                 setModeModalZone('PS5');
               }}
-              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-ds-accent transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-ds-accent/20 bg-ds-dark flex flex-col justify-between"
+              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-ds-accent transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-ds-accent/20 bg-ds-dark"
             >
               <div className="relative w-full h-60 sm:h-72 overflow-hidden">
                 <Image
@@ -632,42 +616,6 @@ export default function StaffStationGridPage() {
                   </p>
                 </div>
               </div>
-
-              <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-ds-border/50 bg-ds-surface/40">
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold">
-                    {ps5Available} Ready
-                  </span>
-                  {ps5Occupied > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-ds-accent/15 border border-ds-accent/30 text-ds-ice font-bold">
-                      {ps5Occupied} In-Session
-                    </span>
-                  )}
-                  {ps5Maint > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold">
-                      {ps5Maint} Service
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-ds-ice font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
-                    From ₹150/hr
-                  </span>
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setModeModalZone('PS5');
-                    }}
-                    className="text-xs flex items-center gap-1.5 shadow-lg shadow-ds-accent/20"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    <span>Book Session →</span>
-                  </Button>
-                </div>
-              </div>
             </div>
 
             {/* 2. Snooker Lounge Card */}
@@ -675,7 +623,7 @@ export default function StaffStationGridPage() {
               onClick={() => {
                 setModeModalZone('POOL_TABLE');
               }}
-              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-emerald-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-emerald-500/20 bg-ds-dark flex flex-col justify-between"
+              className="group relative rounded-2xl overflow-hidden border-2 border-ds-border hover:border-emerald-500 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-emerald-500/20 bg-ds-dark"
             >
               <div className="relative w-full h-60 sm:h-72 overflow-hidden">
                 <Image
@@ -713,42 +661,6 @@ export default function StaffStationGridPage() {
                   <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-1">
                     {poolTotal} Championship Tables • Slate Bed • Aramith Balls
                   </p>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 border-t border-ds-border/50 bg-ds-surface/40">
-                <div className="flex items-center gap-2 text-xs font-mono">
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold">
-                    {poolAvailable} Ready
-                  </span>
-                  {poolOccupied > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-ds-accent/15 border border-ds-accent/30 text-ds-ice font-bold">
-                      {poolOccupied} In-Session
-                    </span>
-                  )}
-                  {poolMaint > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold">
-                      {poolMaint} Service
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-400 font-mono font-bold text-xs bg-ds-surface px-3 py-1.5 rounded-lg border border-ds-border">
-                    ₹250/hr
-                  </span>
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setModeModalZone('POOL_TABLE');
-                    }}
-                    className="text-xs flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 border-emerald-400 text-black font-bold shadow-lg shadow-emerald-500/20"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                    <span>Book Session →</span>
-                  </Button>
                 </div>
               </div>
             </div>
