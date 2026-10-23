@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
       const targetDate = new Date(`${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00.000Z`);
       const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
 
-      // Fetch all active stations and games concurrently
-      const [stations, allGames] = await Promise.all([
+      // Fetch all active stations, games, and today's pending payments concurrently
+      const [stations, allGames, todayPendingPayments] = await Promise.all([
         prisma.gamingStation.findMany({
           where: { status: { not: 'DEACTIVATED' } },
           include: {
@@ -76,6 +76,27 @@ export async function GET(req: NextRequest) {
           where: { isActive: true },
           orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
         }).catch(() => []),
+        prisma.payment.findMany({
+          where: {
+            status: 'PENDING',
+            booking: {
+              OR: [
+                { date: targetDate },
+                { startTime: { gte: startOfDay, lte: endOfDay } },
+                { createdAt: { gte: startOfDay, lte: endOfDay } },
+              ],
+            },
+          },
+          include: {
+            booking: {
+              include: {
+                station: { select: { id: true, name: true, stationType: true } },
+                user: { select: { id: true, firstName: true, lastName: true, phone: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }).catch(() => []),
       ]);
 
       if (stations.length > 0) {
@@ -83,6 +104,51 @@ export async function GET(req: NextRequest) {
         let occupiedCount = 0;
         let maintenanceCount = 0;
         let availableCount = 0;
+
+        // Group today's pending payments by bookingId
+        interface PendingBookingSummary {
+          bookingId: string;
+          bookingRef: string;
+          stationId: string;
+          stationName: string;
+          stationType: string;
+          gameTitle: string | null;
+          customerName: string;
+          customerPhone: string | null;
+          userId: string;
+          amountPaise: number;
+          createdAt: Date;
+        }
+
+        const pendingByBooking = new Map<string, PendingBookingSummary>();
+        for (const p of todayPendingPayments) {
+          if (!p.bookingId || !p.booking) continue;
+          const existing = pendingByBooking.get(p.bookingId);
+          const custName =
+            p.booking.customerName ||
+            `${p.booking.user?.firstName || 'Gamer'} ${p.booking.user?.lastName || ''}`.trim();
+          const custPhone = p.booking.customerPhone || p.booking.user?.phone || null;
+
+          if (existing) {
+            existing.amountPaise += p.amountPaise;
+          } else {
+            pendingByBooking.set(p.bookingId, {
+              bookingId: p.bookingId,
+              bookingRef: p.booking.bookingRef,
+              stationId: p.booking.stationId,
+              stationName: p.booking.station?.name || 'Previous Console',
+              stationType: p.booking.station?.stationType || 'PS5',
+              gameTitle: p.booking.gameTitle || null,
+              customerName: custName,
+              customerPhone: custPhone,
+              userId: p.booking.userId,
+              amountPaise: p.amountPaise,
+              createdAt: p.booking.createdAt,
+            });
+          }
+        }
+
+        const linkedBookingIds = new Set<string>();
 
         const formattedStations = stations.map((st) => {
           const activeSession = st.sessions[0];
@@ -205,6 +271,15 @@ export async function GET(req: NextRequest) {
                 gameTitle: isPool ? null : activeGameTitle,
                 playerCount: currentPlayers,
                 isPool,
+                priorPendingTabs: [] as Array<{
+                  bookingId: string;
+                  bookingRef: string;
+                  stationName: string;
+                  stationType: string;
+                  gameTitle: string | null;
+                  amountPaise: number;
+                }>,
+                priorUnpaidPaise: 0,
               }
             : currentBooking
             ? {
@@ -230,8 +305,72 @@ export async function GET(req: NextRequest) {
                 gameTitle: isPool ? null : currentGameTitle,
                 playerCount: currentPlayers,
                 isPool,
+                priorPendingTabs: [] as Array<{
+                  bookingId: string;
+                  bookingRef: string;
+                  stationName: string;
+                  stationType: string;
+                  gameTitle: string | null;
+                  amountPaise: number;
+                }>,
+                priorUnpaidPaise: 0,
               }
             : null;
+
+          // Connect multi-game carried-over tabs (e.g. PS5 unpaid tab carried over to Snooker)
+          if (resolvedSession) {
+            linkedBookingIds.add(resolvedSession.bookingId);
+            const sessionBooking = activeSession?.booking || currentBooking;
+            const currentUserId = sessionBooking?.userId;
+            const currentPhoneRaw = sessionBooking?.customerPhone || (sessionBooking as any)?.user?.phone || '';
+            const currentPhoneDigits = currentPhoneRaw.replace(/\D/g, '').slice(-10);
+            const currentNameRaw = (
+              sessionBooking?.customerName ||
+              `${(sessionBooking as any)?.user?.firstName || ''} ${(sessionBooking as any)?.user?.lastName || ''}`
+            ).trim().toLowerCase();
+
+            const priorTabs: Array<{
+              bookingId: string;
+              bookingRef: string;
+              stationName: string;
+              stationType: string;
+              gameTitle: string | null;
+              amountPaise: number;
+            }> = [];
+
+            for (const [bId, pb] of pendingByBooking.entries()) {
+              if (bId === resolvedSession.bookingId) continue;
+
+              const pbPhoneDigits = (pb.customerPhone || '').replace(/\D/g, '').slice(-10);
+              const pbName = (pb.customerName || '').trim().toLowerCase();
+
+              const isMatch =
+                (currentPhoneDigits.length === 10 && pbPhoneDigits === currentPhoneDigits) ||
+                (currentUserId && pb.userId === currentUserId && currentUserId !== 'guest') ||
+                (currentNameRaw.length >= 2 && pbName === currentNameRaw);
+
+              if (isMatch) {
+                priorTabs.push({
+                  bookingId: pb.bookingId,
+                  bookingRef: pb.bookingRef,
+                  stationName: pb.stationName,
+                  stationType: pb.stationType,
+                  gameTitle: pb.gameTitle,
+                  amountPaise: pb.amountPaise,
+                });
+                linkedBookingIds.add(bId);
+              }
+            }
+
+            const priorUnpaid = priorTabs.reduce((sum, tab) => sum + tab.amountPaise, 0);
+            resolvedSession.priorPendingTabs = priorTabs;
+            resolvedSession.priorUnpaidPaise = priorUnpaid;
+            if (priorUnpaid > 0) {
+              resolvedSession.isPayOnExit = true;
+              resolvedSession.paymentStatus = 'PENDING';
+              resolvedSession.unpaidPaise = (resolvedSession.unpaidPaise || 0) + priorUnpaid;
+            }
+          }
 
           return {
             id: st.id,
@@ -277,6 +416,22 @@ export async function GET(req: NextRequest) {
 
         const todayRevenuePaise = todayPayments.reduce((sum, p) => sum + p.amountPaise, 0);
 
+        // All guest tabs with unpaid balances that are currently between games (not on an active station)
+        const openGuestTabs = Array.from(pendingByBooking.values())
+          .filter((pb) => !linkedBookingIds.has(pb.bookingId))
+          .map((pb) => ({
+            bookingId: pb.bookingId,
+            bookingRef: pb.bookingRef,
+            stationId: pb.stationId,
+            stationName: pb.stationName,
+            stationType: pb.stationType,
+            gameTitle: pb.gameTitle,
+            customerName: pb.customerName,
+            customerPhone: pb.customerPhone,
+            amountPaise: pb.amountPaise,
+            createdAt: pb.createdAt.toISOString(),
+          }));
+
         return apiSuccess({
           stats: {
             totalStations: stations.length,
@@ -286,6 +441,7 @@ export async function GET(req: NextRequest) {
             todayRevenuePaise,
           },
           stations: formattedStations,
+          openGuestTabs,
         });
       }
     } catch (error) {
@@ -293,7 +449,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (process.env.NODE_ENV === 'production') {
-      return apiSuccess({ stats: { totalStations: 0, availableCount: 0, occupiedCount: 0, maintenanceCount: 0, todayRevenuePaise: 0 }, stations: [] });
+      return apiSuccess({ stats: { totalStations: 0, availableCount: 0, occupiedCount: 0, maintenanceCount: 0, todayRevenuePaise: 0 }, stations: [], openGuestTabs: [] });
     }
     return apiSuccess(getDemoStaffOverview());
   } catch (error) {
@@ -441,5 +597,6 @@ function getDemoStaffOverview() {
         upcomingBookings: [],
       },
     ],
+    openGuestTabs: [],
   };
 }

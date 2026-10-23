@@ -10,6 +10,8 @@ const endSessionSchema = z.object({
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
   settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD']).optional(),
+  transferTab: z.boolean().optional(),
+  settleAdditionalBookingIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod } = endSessionSchema.parse(body);
+    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, transferTab, settleAdditionalBookingIds } = endSessionSchema.parse(body);
     const chosenMethod: 'CASH' | 'UPI' | 'OTHER' =
       settlePaymentMethod === 'UPI' ? 'UPI' : settlePaymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
@@ -80,63 +82,119 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Settle any pending payments for this booking (e.g. Pay-on-Exit walk-ins)
-          const pendingPayments = await tx.payment.findMany({
-            where: {
-              bookingId: session.bookingId,
-              status: 'PENDING',
-            },
-            select: { id: true, amountPaise: true, userId: true },
-          });
-
-          if (pendingPayments.length > 0) {
-            await tx.payment.updateMany({
+          if (transferTab) {
+            // TRANSFER TAB FLOW:
+            // Keep pending payments as PENDING so they can be settled at final game checkout!
+            // If overtime occurred, record it as an additional PENDING payment on this booking
+            if (overtimePaise > 0 && session.booking) {
+              await tx.payment.create({
+                data: {
+                  bookingId: session.bookingId,
+                  userId: session.booking.userId,
+                  amountPaise: overtimePaise,
+                  method: 'OTHER',
+                  status: 'PENDING',
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Overtime (+${overtimeMinutes} mins) added to open tab transferred to next game by ${staffName}`,
+                },
+              });
+            }
+          } else {
+            // FINAL SETTLEMENT FLOW:
+            // Settle pending payments for current booking (e.g. Pay-on-Exit walk-ins)
+            const pendingPayments = await tx.payment.findMany({
               where: {
                 bookingId: session.bookingId,
                 status: 'PENDING',
               },
-              data: {
-                status: 'COMPLETED',
-                method: chosenMethod,
-                paidAt: new Date(),
-                recordedByStaffId: staffSession.userId,
-                notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
-              },
+              select: { id: true, amountPaise: true, userId: true },
             });
 
-            for (const pp of pendingPayments) {
-              if (pp.amountPaise > 0) {
-                await tx.customerProfile.updateMany({
-                  where: { userId: pp.userId },
-                  data: { totalSpent: { increment: pp.amountPaise } },
+            if (pendingPayments.length > 0) {
+              await tx.payment.updateMany({
+                where: {
+                  bookingId: session.bookingId,
+                  status: 'PENDING',
+                },
+                data: {
+                  status: 'COMPLETED',
+                  method: chosenMethod,
+                  paidAt: new Date(),
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
+                },
+              });
+
+              for (const pp of pendingPayments) {
+                if (pp.amountPaise > 0) {
+                  await tx.customerProfile.updateMany({
+                    where: { userId: pp.userId },
+                    data: { totalSpent: { increment: pp.amountPaise } },
+                  });
+                }
+              }
+            }
+
+            // Create overtime desk payment record if charged
+            if (overtimePaise > 0 && session.booking) {
+              await tx.payment.create({
+                data: {
+                  bookingId: session.bookingId,
+                  userId: session.booking.userId,
+                  amountPaise: overtimePaise,
+                  method: chosenMethod,
+                  status: 'COMPLETED',
+                  paidAt: new Date(),
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Overtime payment (+${overtimeMinutes} mins) collected on checkout via ${chosenMethod} by ${staffName}`,
+                },
+              });
+
+              await tx.customerProfile.updateMany({
+                where: { userId: session.booking.userId },
+                data: { totalSpent: { increment: overtimePaise } },
+              });
+            }
+
+            // Also settle any linked prior bookings (e.g. PS5 open tab carried over to Snooker)
+            if (settleAdditionalBookingIds && settleAdditionalBookingIds.length > 0) {
+              const priorPending = await tx.payment.findMany({
+                where: {
+                  bookingId: { in: settleAdditionalBookingIds },
+                  status: 'PENDING',
+                },
+                select: { id: true, amountPaise: true, userId: true },
+              });
+
+              if (priorPending.length > 0) {
+                await tx.payment.updateMany({
+                  where: {
+                    bookingId: { in: settleAdditionalBookingIds },
+                    status: 'PENDING',
+                  },
+                  data: {
+                    status: 'COMPLETED',
+                    method: chosenMethod,
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Desk tab settled (${chosenMethod}) in combined multi-game bill by ${staffName}`,
+                  },
                 });
+
+                for (const pp of priorPending) {
+                  if (pp.amountPaise > 0) {
+                    await tx.customerProfile.updateMany({
+                      where: { userId: pp.userId },
+                      data: { totalSpent: { increment: pp.amountPaise } },
+                    });
+                  }
+                }
               }
             }
           }
-
-          // Create overtime desk payment record
-          if (overtimePaise > 0 && session.booking) {
-            await tx.payment.create({
-              data: {
-                bookingId: session.bookingId,
-                userId: session.booking.userId,
-                amountPaise: overtimePaise,
-                method: chosenMethod,
-                status: 'COMPLETED',
-                paidAt: new Date(),
-                recordedByStaffId: staffSession.userId,
-                notes: `Overtime payment (+${overtimeMinutes} mins) collected on checkout via ${chosenMethod} by ${staffName}`,
-              },
-            });
-
-            await tx.customerProfile.updateMany({
-              where: { userId: session.booking.userId },
-              data: { totalSpent: { increment: overtimePaise } },
-            });
-          }
         }
 
-        // Free up station
+        // Free up station immediately so new players can use it
         if (session.stationId) {
           await tx.gamingStation.update({
             where: { id: session.stationId },
@@ -148,7 +206,7 @@ export async function POST(req: NextRequest) {
         await tx.staffActivityLog.create({
           data: {
             userId: staffSession.userId,
-            action: 'END_SESSION',
+            action: transferTab ? 'TRANSFER_TAB' : 'END_SESSION',
             entityType: 'session',
             entityId: session.id,
             details: {
@@ -156,17 +214,26 @@ export async function POST(req: NextRequest) {
               overtimeMinutes,
               overtimePaise,
               staffName,
+              transferTab: Boolean(transferTab),
+              settledAdditional: settleAdditionalBookingIds || [],
             },
           },
         }).catch(() => {});
       });
 
       return apiSuccess({
-        message: overtimeMinutes > 0
+        transferred: Boolean(transferTab),
+        message: transferTab
+          ? `Session on ${session.station?.name || 'station'} ended and station is now Available! Open tab preserved for next game.`
+          : overtimeMinutes > 0
           ? `Session on ${session.station?.name || 'station'} ended (+${overtimeMinutes}m extra time recorded: ₹${(overtimePaise / 100).toFixed(0)}). Station is now Available.`
           : `Session on ${session.station?.name || 'station'} ended successfully. Station is now Available.`,
         extraMinutes: overtimeMinutes,
         overtimePaise,
+        bookingId: session.bookingId,
+        bookingRef: session.booking?.bookingRef,
+        customerName: session.booking?.customerName,
+        customerPhone: session.booking?.customerPhone,
       });
     } else {
       // Fallback: If no GamingSession row was found, update Booking & GamingStation directly
@@ -177,19 +244,37 @@ export async function POST(req: NextRequest) {
             data: { status: 'COMPLETED' },
           });
 
-          await tx.payment.updateMany({
-            where: {
-              bookingId,
-              status: 'PENDING',
-            },
-            data: {
-              status: 'COMPLETED',
-              method: chosenMethod,
-              paidAt: new Date(),
-              recordedByStaffId: staffSession.userId,
-              notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
-            },
-          });
+          if (!transferTab) {
+            await tx.payment.updateMany({
+              where: {
+                bookingId,
+                status: 'PENDING',
+              },
+              data: {
+                status: 'COMPLETED',
+                method: chosenMethod,
+                paidAt: new Date(),
+                recordedByStaffId: staffSession.userId,
+                notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
+              },
+            });
+
+            if (settleAdditionalBookingIds && settleAdditionalBookingIds.length > 0) {
+              await tx.payment.updateMany({
+                where: {
+                  bookingId: { in: settleAdditionalBookingIds },
+                  status: 'PENDING',
+                },
+                data: {
+                  status: 'COMPLETED',
+                  method: chosenMethod,
+                  paidAt: new Date(),
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Desk tab settled (${chosenMethod}) in combined multi-game bill by ${staffName}`,
+                },
+              });
+            }
+          }
         }
         if (stationId) {
           await tx.gamingStation.update({
@@ -200,7 +285,10 @@ export async function POST(req: NextRequest) {
       });
 
       return apiSuccess({
-        message: extraMinutes && extraMinutes > 0
+        transferred: Boolean(transferTab),
+        message: transferTab
+          ? 'Station is now Available! Open tab preserved for next game.'
+          : extraMinutes && extraMinutes > 0
           ? `Session ended (${Math.floor(extraMinutes)}m extra time recorded). Station is now Available.`
           : 'Session ended successfully! Station marked as Available.',
         extraMinutes: extraMinutes ? Math.floor(extraMinutes) : 0,

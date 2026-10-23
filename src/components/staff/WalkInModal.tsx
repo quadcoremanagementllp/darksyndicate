@@ -44,6 +44,14 @@ interface WalkInModalProps {
   onClose: () => void;
   stations: Station[];
   preselectedStationId?: string;
+  initialCustomerName?: string;
+  initialCustomerPhone?: string;
+  initialCategory?: string;
+  linkedPriorTab?: {
+    bookingId: string;
+    stationName: string;
+    amountPaise: number;
+  } | null;
   onSuccess: () => void;
 }
 
@@ -140,6 +148,10 @@ export function WalkInModal({
   onClose,
   stations,
   preselectedStationId,
+  initialCustomerName,
+  initialCustomerPhone,
+  initialCategory,
+  linkedPriorTab,
   onSuccess,
 }: WalkInModalProps) {
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
@@ -160,15 +172,36 @@ export function WalkInModal({
     );
   });
 
-  const [activeCategory, setActiveCategory] = useState<string>(initialStation?.stationType || 'PS5');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || initialStation?.stationType || 'PS5');
   const [selectedStationId, setSelectedStationId] = useState<string>(initialStation?.id || '');
   const [selectedGameTitle, setSelectedGameTitle] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
-  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>(initialCustomerName || '');
+  const [customerPhone, setCustomerPhone] = useState<string>(initialCustomerPhone || '');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialCustomerName) {
+        setCustomerName(initialCustomerName);
+      }
+      if (initialCustomerPhone) {
+        setCustomerPhone(initialCustomerPhone);
+      }
+      if (initialCategory) {
+        setActiveCategory(initialCategory);
+        const firstAvail =
+          stations.find(
+            (s) => s.stationType === initialCategory && getStationAvailabilityState(s, durationMinutes).isAvailable
+          ) || stations.find((s) => s.stationType === initialCategory);
+        if (firstAvail) {
+          setSelectedStationId(firstAvail.id);
+        }
+      }
+    }
+  }, [isOpen, initialCustomerName, initialCustomerPhone, initialCategory, stations, durationMinutes]);
 
   // Customer Autocomplete & Active Membership State
   const [searchResults, setSearchResults] = useState<Array<{
@@ -500,6 +533,9 @@ export function WalkInModal({
           customerEmail: customerEmail.trim() || undefined,
           paymentMethod: resolvedPaymentMethod,
           gameTitle: selectedGameTitle.trim() || undefined,
+          notes: linkedPriorTab
+            ? `[Multi-Game Tab: Linked to ${linkedPriorTab.stationName} (₹${(linkedPriorTab.amountPaise / 100).toFixed(0)})]`
+            : undefined,
         }),
       });
 
@@ -545,7 +581,11 @@ export function WalkInModal({
 
             <div className="pl-2.5 sm:pl-3 border-l border-ds-border shrink-0 text-right sm:text-left">
               <span className="text-[9px] uppercase font-mono text-cyan-400 font-bold block leading-tight">
-                {activeMembership && discountPaise > 0 ? (
+                {linkedPriorTab ? (
+                  <span className="text-cyan-300 font-bold">
+                    Combined on Exit (+₹{(linkedPriorTab.amountPaise / 100).toFixed(0)} from {linkedPriorTab.stationName})
+                  </span>
+                ) : activeMembership && discountPaise > 0 ? (
                   <span className="text-amber-400 font-bold">{activeMembership.planName} (Save ₹{(discountPaise / 100).toFixed(0)})</span>
                 ) : (
                   'To Collect on Exit (Open Tab)'
@@ -558,8 +598,13 @@ export function WalkInModal({
                   </span>
                 )}
                 <span className="text-base sm:text-xl font-heading font-black text-ds-ice leading-tight">
-                  ₹{(totalFeePaise / 100).toFixed(0)}
+                  ₹{((totalFeePaise + (linkedPriorTab ? linkedPriorTab.amountPaise : 0)) / 100).toFixed(0)}
                 </span>
+                {linkedPriorTab && (
+                  <span className="text-[10px] font-mono text-cyan-300 hidden sm:inline">
+                    (₹{(totalFeePaise / 100).toFixed(0)} Snooker + ₹{(linkedPriorTab.amountPaise / 100).toFixed(0)} {linkedPriorTab.stationName})
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -597,6 +642,33 @@ export function WalkInModal({
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col justify-between" noValidate>
+        {/* Linked Multi-Game Open Tab Banner */}
+        {linkedPriorTab && (
+          <div className="mb-4 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-cyan-950/80 via-ds-surface to-emerald-950/80 border-2 border-cyan-400/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-xl shrink-0">
+                🔗
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-black text-xs sm:text-sm text-white">
+                    Multi-Game Open Tab Linked from {linkedPriorTab.stationName}
+                  </h4>
+                  <Badge variant="accent" size="sm" className="font-mono text-[10px]">
+                    Carried: ₹{(linkedPriorTab.amountPaise / 100).toFixed(0)}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-cyan-200/90 mt-0.5">
+                  Gamer <strong className="text-white">{customerName || 'Customer'}</strong> will pay both games together upon exiting the arena.
+                </p>
+              </div>
+            </div>
+            <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 rounded-lg shrink-0">
+              1 Combined Bill at Checkout
+            </span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-4">
           {/* ─── LEFT COLUMN: CATEGORY, STATION & GAME (7 COLS) ─── */}
           <div className="lg:col-span-7 space-y-4">

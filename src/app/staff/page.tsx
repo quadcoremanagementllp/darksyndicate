@@ -78,6 +78,15 @@ interface Station {
     isPayOnExit?: boolean;
     playerCount?: number;
     isPool?: boolean;
+    priorPendingTabs?: Array<{
+      bookingId: string;
+      bookingRef: string;
+      stationName: string;
+      stationType: string;
+      gameTitle?: string | null;
+      amountPaise: number;
+    }>;
+    priorUnpaidPaise?: number;
   } | null;
   upcomingBookings?: Array<{
     id: string;
@@ -88,8 +97,22 @@ interface Station {
   }>;
 }
 
+interface OpenGuestTab {
+  bookingId: string;
+  bookingRef: string;
+  stationId: string;
+  stationName: string;
+  stationType: string;
+  gameTitle: string | null;
+  customerName: string;
+  customerPhone: string | null;
+  amountPaise: number;
+  createdAt: string;
+}
+
 export default function StaffStationGridPage() {
   const [stations, setStations] = useState<Station[]>([]);
+  const [openGuestTabs, setOpenGuestTabs] = useState<OpenGuestTab[]>([]);
   const [stats, setStats] = useState({
     totalStations: 2,
     availableCount: 2,
@@ -106,6 +129,14 @@ export default function StaffStationGridPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [selectedWalkInStationId, setSelectedWalkInStationId] = useState<string | undefined>(undefined);
+  const [walkInInitialCustomerName, setWalkInInitialCustomerName] = useState<string | undefined>(undefined);
+  const [walkInInitialCustomerPhone, setWalkInInitialCustomerPhone] = useState<string | undefined>(undefined);
+  const [walkInInitialCategory, setWalkInInitialCategory] = useState<string | undefined>(undefined);
+  const [walkInLinkedPriorTab, setWalkInLinkedPriorTab] = useState<{
+    bookingId: string;
+    stationName: string;
+    amountPaise: number;
+  } | null>(null);
   const [extendModalStation, setExtendModalStation] = useState<Station | null>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
 
@@ -132,6 +163,7 @@ export default function StaffStationGridPage() {
       if (json.success && json.data) {
         setStations(json.data.stations || []);
         if (json.data.stats) setStats(json.data.stats);
+        if (json.data.openGuestTabs) setOpenGuestTabs(json.data.openGuestTabs);
       }
     } catch (err) {
       console.error('Failed to load staff overview:', err);
@@ -197,8 +229,10 @@ export default function StaffStationGridPage() {
       sessionId: station.activeSession.id,
       stationId: station.id,
       stationName: station.name,
+      stationType: station.stationType,
       bookingId: station.activeSession.bookingId,
       customerName: station.activeSession.customerName,
+      customerPhone: station.activeSession.customerPhone,
       bookingRef: station.activeSession.bookingRef,
       scheduledEndAt: station.activeSession.scheduledEndAt,
       pricePerHourPaise: station.pricePerHourPaise,
@@ -208,6 +242,37 @@ export default function StaffStationGridPage() {
       totalPricePaise: station.activeSession.totalPricePaise,
       unpaidPaise: station.activeSession.unpaidPaise,
       isPayOnExit: station.activeSession.isPayOnExit,
+      priorPendingTabs: station.activeSession.priorPendingTabs,
+      priorUnpaidPaise: station.activeSession.priorUnpaidPaise,
+    });
+  };
+
+  const handleOpenGuestTabToSnooker = (tab: OpenGuestTab) => {
+    setWalkInInitialCustomerName(tab.customerName);
+    setWalkInInitialCustomerPhone(tab.customerPhone || undefined);
+    setWalkInInitialCategory('POOL_TABLE');
+    setWalkInLinkedPriorTab({
+      bookingId: tab.bookingId,
+      stationName: tab.stationName,
+      amountPaise: tab.amountPaise,
+    });
+    setSelectedWalkInStationId(undefined);
+    setWalkInOpen(true);
+  };
+
+  const handleSettleOpenGuestTab = (tab: OpenGuestTab) => {
+    setEndSessionTarget({
+      stationName: tab.stationName,
+      stationType: tab.stationType,
+      bookingId: tab.bookingId,
+      customerName: tab.customerName,
+      customerPhone: tab.customerPhone || undefined,
+      bookingRef: tab.bookingRef,
+      pricePerHourPaise: 15000,
+      paymentStatus: 'PENDING',
+      isPayOnExit: true,
+      totalPricePaise: tab.amountPaise,
+      unpaidPaise: tab.amountPaise,
     });
   };
 
@@ -412,6 +477,82 @@ export default function StaffStationGridPage() {
           </Button>
         </div>
       </div>
+
+      {/* ─── ACTIVE GUEST TABS BAR (Unsettled tabs / Moving to next game) ─── */}
+      {openGuestTabs.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-cyan-950/40 to-ds-surface border-2 border-amber-500/40 space-y-3 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 shrink-0">
+                ⏳
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-sm text-white flex items-center gap-2">
+                  <span>Guests with Open Tabs (Awaiting Snooker / Exit Checkout)</span>
+                  <span className="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-amber-500 text-black">
+                    {openGuestTabs.length} Unsettled
+                  </span>
+                </h3>
+                <p className="text-[11px] text-ds-text-dim">
+                  These players finished their previous console session with an open tab and can be allocated to Snooker or settled at the desk.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-1">
+            {openGuestTabs.map((tab) => (
+              <div
+                key={tab.bookingId}
+                className="p-3 rounded-xl bg-ds-dark/90 border border-amber-500/30 hover:border-cyan-400 transition-all flex flex-col justify-between gap-2.5 shadow-md"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-heading font-black text-sm text-white flex items-center gap-1.5 truncate">
+                      <span>{tab.customerName}</span>
+                      {tab.customerPhone && (
+                        <span className="text-[10px] font-mono text-ds-text-dim truncate">
+                          ({tab.customerPhone})
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-cyan-300 font-mono flex items-center gap-1 mt-0.5">
+                      <span>{tab.stationType === 'POOL_TABLE' ? '🎱' : '🎮'}</span>
+                      <span className="truncate">{tab.stationName} (Ref: {tab.bookingRef})</span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[9px] uppercase font-mono text-amber-300 block">Open Tab</span>
+                    <span className="text-base font-mono font-black text-amber-400">
+                      ₹{(tab.amountPaise / 100).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => handleOpenGuestTabToSnooker(tab)}
+                    className="flex-1 justify-center text-xs py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-heading font-bold flex items-center gap-1.5"
+                  >
+                    <span>🎱</span>
+                    <span>Start Snooker Table</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSettleOpenGuestTab(tab)}
+                    className="justify-center text-xs py-1.5 border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 font-heading font-semibold"
+                  >
+                    <span>💳 Settle</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 3. Live Station Matrix / Arenas View */}
       {loading ? (
@@ -820,11 +961,16 @@ export default function StaffStationGridPage() {
                           </div>
 
                           <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span>Ref: {station.activeSession.bookingRef || 'Walk-in'}</span>
                               {station.activeSession.isPayOnExit && (
                                 <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/30">
                                   TAB (PAY ON EXIT)
+                                </span>
+                              )}
+                              {station.activeSession.priorPendingTabs && station.activeSession.priorPendingTabs.length > 0 && (
+                                <span className="px-1.5 py-0.5 rounded font-mono font-bold text-[9px] bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 flex items-center gap-1 shadow-sm">
+                                  <span>🔗 Multi-Game Tab: +₹{((station.activeSession.priorUnpaidPaise || 0) / 100).toFixed(0)} ({station.activeSession.priorPendingTabs[0].stationName})</span>
                                 </span>
                               )}
                             </div>
@@ -1035,9 +1181,19 @@ export default function StaffStationGridPage() {
 
       <WalkInModal
         isOpen={walkInOpen}
-        onClose={() => setWalkInOpen(false)}
+        onClose={() => {
+          setWalkInOpen(false);
+          setWalkInInitialCustomerName(undefined);
+          setWalkInInitialCustomerPhone(undefined);
+          setWalkInInitialCategory(undefined);
+          setWalkInLinkedPriorTab(null);
+        }}
         stations={stations}
         preselectedStationId={selectedWalkInStationId}
+        initialCustomerName={walkInInitialCustomerName}
+        initialCustomerPhone={walkInInitialCustomerPhone}
+        initialCategory={walkInInitialCategory}
+        linkedPriorTab={walkInLinkedPriorTab}
         onSuccess={loadData}
       />
 
@@ -1290,6 +1446,18 @@ export default function StaffStationGridPage() {
         onClose={() => setEndSessionTarget(null)}
         target={endSessionTarget}
         onSuccess={loadData}
+        onTransferTab={(transferData) => {
+          setWalkInInitialCustomerName(transferData.customerName);
+          setWalkInInitialCustomerPhone(transferData.customerPhone);
+          setWalkInInitialCategory('POOL_TABLE');
+          setWalkInLinkedPriorTab({
+            bookingId: transferData.priorBookingId,
+            stationName: transferData.stationName,
+            amountPaise: transferData.carriedOverPaise,
+          });
+          setSelectedWalkInStationId(undefined);
+          setWalkInOpen(true);
+        }}
       />
 
       {/* Station Games Inspection Modal */}

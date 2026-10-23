@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard, Maximize2 } from 'lucide-react';
+import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard, Maximize2, ArrowRight, Layers } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
 
@@ -12,8 +12,10 @@ export interface EndSessionTarget {
   sessionId?: string;
   stationId?: string;
   stationName: string;
+  stationType?: string;
   bookingId?: string;
   customerName: string;
+  customerPhone?: string;
   bookingRef?: string;
   scheduledEndAt?: string;
   pricePerHourPaise?: number;
@@ -23,6 +25,15 @@ export interface EndSessionTarget {
   totalPricePaise?: number;
   unpaidPaise?: number;
   isPayOnExit?: boolean;
+  priorPendingTabs?: Array<{
+    bookingId: string;
+    bookingRef: string;
+    stationName: string;
+    stationType: string;
+    gameTitle?: string | null;
+    amountPaise: number;
+  }>;
+  priorUnpaidPaise?: number;
 }
 
 interface EndSessionModalProps {
@@ -30,6 +41,13 @@ interface EndSessionModalProps {
   onClose: () => void;
   target: EndSessionTarget | null;
   onSuccess: () => void;
+  onTransferTab?: (data: {
+    customerName: string;
+    customerPhone?: string;
+    priorBookingId: string;
+    carriedOverPaise: number;
+    stationName: string;
+  }) => void;
 }
 
 export function EndSessionModal({
@@ -37,8 +55,10 @@ export function EndSessionModal({
   onClose,
   target,
   onSuccess,
+  onTransferTab,
 }: EndSessionModalProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [transferring, setTransferring] = useState<boolean>(false);
   const [chargeOvertime, setChargeOvertime] = useState<boolean>(true);
   const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI'>('CASH');
   const [cashTendered, setCashTendered] = useState<string>('');
@@ -61,14 +81,26 @@ export function EndSessionModal({
   const isStalePreviousSession = extraMinutes > 180;
 
   const isPostPaidPending = target?.paymentStatus === 'PENDING' || target?.isPayOnExit;
-  const baseBookingPaise =
-    target?.unpaidPaise !== undefined
+  const priorTabs = target?.priorPendingTabs || [];
+  const priorTabsPaise =
+    target?.priorUnpaidPaise !== undefined
+      ? target.priorUnpaidPaise
+      : priorTabs.reduce((sum, t) => sum + t.amountPaise, 0);
+
+  // Current session unpaid base (excluding prior tabs)
+  const currentSessionBasePaise = Math.max(
+    0,
+    (target?.unpaidPaise !== undefined
       ? target.unpaidPaise
       : isPostPaidPending
       ? target?.totalPricePaise || 0
-      : 0;
+      : 0) - priorTabsPaise
+  );
   const overtimePaise = chargeOvertime && overtimeCharge ? overtimeCharge * 100 : 0;
-  const totalCollectPaise = baseBookingPaise + overtimePaise;
+  const currentSessionTotalPaise = currentSessionBasePaise + overtimePaise;
+  const currentSessionTotalRupees = Math.round(currentSessionTotalPaise / 100);
+
+  const totalCollectPaise = currentSessionBasePaise + overtimePaise + priorTabsPaise;
   const totalCollectRupees = Math.round(totalCollectPaise / 100);
 
   const cashTenderedNum = parseFloat(cashTendered) || 0;
@@ -81,6 +113,7 @@ export function EndSessionModal({
       setCashTendered('');
       setSettleMethod('CASH');
       setShowQrPopup(false);
+      setTransferring(false);
     }
   }, [isOpen, target?.sessionId, target?.bookingId, target?.stationId]);
 
@@ -89,6 +122,7 @@ export function EndSessionModal({
   const handleConfirmEnd = async () => {
     setSubmitting(true);
     try {
+      const additionalBookingIds = priorTabs.map((t) => t.bookingId).filter(Boolean);
       const res = await fetch('/api/staff/sessions/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,6 +132,7 @@ export function EndSessionModal({
           bookingId: target.bookingId,
           extraMinutes: chargeOvertime ? extraMinutes : 0,
           settlePaymentMethod: totalCollectPaise > 0 ? settleMethod : undefined,
+          settleAdditionalBookingIds: additionalBookingIds.length > 0 ? additionalBookingIds : undefined,
         }),
       });
 
@@ -116,6 +151,51 @@ export function EndSessionModal({
       toast.error('Error ending session. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleTransferTab = async () => {
+    setTransferring(true);
+    try {
+      const res = await fetch('/api/staff/sessions/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: target.sessionId,
+          stationId: target.stationId,
+          bookingId: target.bookingId,
+          extraMinutes: chargeOvertime ? extraMinutes : 0,
+          transferTab: true,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        toast.success(
+          json.data?.message ||
+            `${target.stationName} is now Available! Carried over open tab to next game.`
+        );
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('ds-booking-updated'));
+        }
+        onSuccess();
+        onClose();
+        if (onTransferTab) {
+          onTransferTab({
+            customerName: target.customerName,
+            customerPhone: target.customerPhone,
+            priorBookingId: target.bookingId || '',
+            carriedOverPaise: currentSessionTotalPaise + priorTabsPaise,
+            stationName: target.stationName,
+          });
+        }
+      } else {
+        toast.error(json.error?.message || 'Failed to transfer tab');
+      }
+    } catch {
+      toast.error('Error transferring tab to next game');
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -326,10 +406,44 @@ export function EndSessionModal({
             </div>
 
             <div className="space-y-1.5 text-xs text-ds-text-dim">
-              {isPostPaidPending && (
+              {priorTabs.length > 0 && (
+                <div className="p-2.5 rounded-lg bg-cyan-950/40 border border-cyan-500/30 mb-2 space-y-1.5 text-cyan-200">
+                  <div className="flex items-center justify-between text-[11px] font-heading font-bold text-cyan-300 pb-1 border-b border-cyan-500/20">
+                    <span className="flex items-center gap-1">
+                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Itemized Multi-Game Open Tab:</span>
+                    </span>
+                    <Badge variant="accent" size="sm" className="font-mono text-[10px]">
+                      {priorTabs.length + 1} Games Combined
+                    </Badge>
+                  </div>
+                  {priorTabs.map((pt, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-0.5 text-[11px]">
+                      <span className="text-cyan-100 truncate flex items-center gap-1.5">
+                        <span>{pt.stationType === 'POOL_TABLE' ? '🎱' : '🎮'}</span>
+                        <span className="truncate">{pt.stationName} (Prior Open Tab)</span>
+                      </span>
+                      <span className="font-mono font-bold text-white shrink-0">
+                        ₹{(pt.amountPaise / 100).toFixed(0)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between py-0.5 text-[11px]">
+                    <span className="text-emerald-300 truncate flex items-center gap-1.5">
+                      <span>{target.stationType === 'POOL_TABLE' ? '🎱' : '🎮'}</span>
+                      <span className="truncate">{target.stationName} (Current Game)</span>
+                    </span>
+                    <span className="font-mono font-bold text-white shrink-0">
+                      ₹{(currentSessionBasePaise / 100).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {priorTabs.length === 0 && isPostPaidPending && (
                 <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
                   <span>Base Gaming Session:</span>
-                  <span className="font-mono font-bold text-white">₹{(baseBookingPaise / 100).toFixed(0)}</span>
+                  <span className="font-mono font-bold text-white">₹{(currentSessionBasePaise / 100).toFixed(0)}</span>
                 </div>
               )}
               {overtimePaise > 0 && (
@@ -339,7 +453,7 @@ export function EndSessionModal({
                 </div>
               )}
               <div className="flex items-center justify-between pt-1 text-sm font-heading font-black text-amber-300">
-                <span>Total Desk Collection:</span>
+                <span>{priorTabs.length > 0 ? 'Combined Multi-Game Bill:' : 'Total Desk Collection:'}</span>
                 <span className="text-base font-mono text-white">₹{totalCollectRupees}</span>
               </div>
             </div>
@@ -464,39 +578,70 @@ export function EndSessionModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 sm:gap-3 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 font-heading font-semibold"
-          >
-            Cancel
-          </Button>
+        <div className="space-y-2.5 pt-2 border-t border-ds-border/60">
+          {/* Transfer Tab Option (e.g. customer finishes PS5 and wants to play Snooker) */}
+          {onTransferTab && (
+            <button
+              type="button"
+              onClick={handleTransferTab}
+              disabled={submitting || transferring}
+              className="w-full group p-2.5 rounded-xl bg-gradient-to-r from-cyan-950/70 via-ds-surface to-emerald-950/70 hover:from-cyan-900/80 hover:to-emerald-900/80 border border-cyan-500/40 hover:border-cyan-400 text-left transition-all cursor-pointer flex items-center justify-between gap-3 shadow-md"
+              title="Free this console immediately and carry over unpaid tab to Snooker"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-base shrink-0">
+                  🎱
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-heading font-black text-white flex items-center gap-1.5">
+                    <span>Transfer Tab to Snooker Game</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                  <p className="text-[10px] text-cyan-200/80 truncate">
+                    Frees <strong className="text-white">{target.stationName}</strong> for next player & carries ₹{currentSessionTotalRupees + (priorTabsPaise > 0 ? Math.round(priorTabsPaise / 100) : 0)} tab
+                  </p>
+                </div>
+              </div>
+              <span className="font-mono text-[11px] font-bold text-cyan-300 bg-cyan-500/20 px-2.5 py-1 rounded-lg border border-cyan-400/40 shrink-0">
+                {transferring ? 'Transferring...' : 'Play Snooker →'}
+              </span>
+            </button>
+          )}
 
-          <Button
-            variant={totalCollectPaise > 0 ? 'accent' : 'danger'}
-            size="sm"
-            type="button"
-            onClick={handleConfirmEnd}
-            disabled={submitting}
-            className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
-              totalCollectPaise > 0
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                : 'bg-rose-600 hover:bg-rose-500 text-white'
-            }`}
-          >
-            <Square className="w-3.5 h-3.5" />
-            <span>
-              {submitting
-                ? 'Processing...'
-                : totalCollectPaise > 0
-                ? `Collect ₹${totalCollectRupees} & End Session`
-                : 'Confirm & End Session'}
-            </span>
-          </Button>
+          <div className="flex items-center justify-end gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={onClose}
+              disabled={submitting || transferring}
+              className="text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 font-heading font-semibold"
+            >
+              Cancel
+            </Button>
+
+            <Button
+              variant={totalCollectPaise > 0 ? 'accent' : 'danger'}
+              size="sm"
+              type="button"
+              onClick={handleConfirmEnd}
+              disabled={submitting || transferring}
+              className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
+                totalCollectPaise > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                  : 'bg-rose-600 hover:bg-rose-500 text-white'
+              }`}
+            >
+              <Square className="w-3.5 h-3.5" />
+              <span>
+                {submitting
+                  ? 'Processing...'
+                  : totalCollectPaise > 0
+                  ? `Collect ₹${totalCollectRupees} & End Session`
+                  : 'Confirm & End Session'}
+              </span>
+            </Button>
+          </div>
         </div>
       </div>
 
