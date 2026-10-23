@@ -341,9 +341,6 @@ export default function AdminBookingsPage() {
             <span className="text-2xl">📋</span>
             <span>All Reservations Ledger</span>
           </h1>
-          <p className="text-xs text-ds-text-muted mt-1">
-            Audit trail of online bookings, front-desk walk-ins, payment settlement, and session completions.
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
