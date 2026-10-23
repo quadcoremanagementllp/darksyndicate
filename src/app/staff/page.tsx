@@ -382,45 +382,65 @@ export default function StaffStationGridPage() {
   return (
     <div className="space-y-8">
       {/* 1. Metric KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card glass className="p-4 border-ds-border">
-          <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Available Consoles</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-heading font-black text-emerald-400">{stats.availableCount}</span>
-            <span className="text-xs text-ds-text-dim">/ {stats.totalStations} Ready</span>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+        {/* Card 1: Available Stations */}
+        <Card glass className="p-4 sm:p-5 border-ds-border hover:border-emerald-500/40 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-mono text-ds-text-dim tracking-wider">
+              Available Stations
+            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          </div>
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className="text-2xl sm:text-3xl font-heading font-black text-emerald-400">
+              {stats.availableCount}
+            </span>
+            <span className="text-xs text-ds-text-dim font-mono">
+              / {stats.totalStations} Ready
+            </span>
           </div>
         </Card>
 
+        {/* Card 2: Active In-Session */}
         <Link href="/staff/bookings?tab=ACTIVE" className="block group">
-          <Card glass className="p-4 border-ds-border hover:border-ds-ice/60 hover:bg-ds-surface/70 transition-all cursor-pointer">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Active In-Session</span>
-              <span className="text-[9px] font-mono text-ds-ice group-hover:underline flex items-center gap-1">
-                View Schedule →
+          <Card glass className="p-4 sm:p-5 border-ds-border hover:border-ds-ice/60 hover:bg-ds-surface/70 transition-all cursor-pointer">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase font-mono text-ds-text-dim tracking-wider whitespace-nowrap">
+                Active In-Session
+              </span>
+              <span className="text-[10px] font-mono font-semibold text-ds-ice group-hover:underline flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <span>View Schedule</span>
+                <ArrowRight className="w-3 h-3 text-ds-accent" />
               </span>
             </div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-heading font-black text-ds-ice">{stats.occupiedCount}</span>
-              <span className="text-xs text-ds-text-dim">Playing Now</span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-2xl sm:text-3xl font-heading font-black text-ds-ice">
+                {stats.occupiedCount}
+              </span>
+              <span className="text-xs text-ds-text-dim font-mono">
+                Playing Now
+              </span>
             </div>
           </Card>
         </Link>
 
-        <Card glass className="p-4 border-ds-border">
-          <span className="text-[10px] uppercase font-mono text-ds-text-dim block">In Maintenance</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-heading font-black text-amber-400">{stats.maintenanceCount}</span>
-            <span className="text-xs text-ds-text-dim">Servicing</span>
+        {/* Card 3: Revenue Collected Today */}
+        <Card glass className="p-4 sm:p-5 border-ds-border hover:border-ds-border/80 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-mono text-ds-text-dim tracking-wider">
+              Revenue Collected Today
+            </span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              LIVE
+            </span>
           </div>
-        </Card>
-
-        <Card glass className="p-4 border-ds-border">
-          <span className="text-[10px] uppercase font-mono text-ds-text-dim block">Revenue Collected Today</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-heading font-black text-ds-text">
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className="text-2xl sm:text-3xl font-heading font-black text-white">
               ₹{(stats.todayRevenuePaise / 100).toFixed(0)}
             </span>
-            <span className="text-xs text-emerald-400 font-semibold">Live</span>
+            <span className="text-xs text-ds-text-dim font-mono">
+              Total Today
+            </span>
           </div>
         </Card>
       </div>
@@ -1263,9 +1283,6 @@ export default function StaffStationGridPage() {
                   <h4 className="font-heading font-black text-base text-white uppercase group-hover:text-cyan-300 transition-colors">
                     Start Live Session
                   </h4>
-                  <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
-                    Customer is at the desk and ready to play. Immediately assigns an available station and starts the live floor timer.
-                  </p>
                 </div>
               </div>
 
@@ -1300,9 +1317,6 @@ export default function StaffStationGridPage() {
                   <h4 className="font-heading font-black text-base text-white uppercase group-hover:text-amber-300 transition-colors">
                     Book Upcoming Slot
                   </h4>
-                  <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
-                    Customer wants to reserve later today or a future date. Check slot availability, pick a time, and confirm ahead even if current stations are full.
-                  </p>
                 </div>
               </div>
 
@@ -1311,17 +1325,6 @@ export default function StaffStationGridPage() {
                 <span className="group-hover:translate-x-1 transition-transform">→</span>
               </div>
             </div>
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setModeModalZone(null)}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
           </div>
         </div>
       </Modal>
