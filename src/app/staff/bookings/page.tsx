@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   ExternalLink,
   Play,
-  RotateCw,
   QrCode,
   Tag,
   Info,
@@ -399,8 +398,8 @@ export default function StaffBookingsSchedulePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4">
+      {/* Header (Clean Tablet & Mobile Responsive View) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight">
@@ -427,23 +426,9 @@ export default function StaffBookingsSchedulePage() {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-ds-text-muted mt-1">
-            Monitor player check-ins, active play sessions, time remaining, and equipment assignments in real-time.
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => loadBookings(false)}
-            disabled={refreshing}
-            title="Refresh schedule"
-            className="whitespace-nowrap shrink-0 text-xs font-heading font-semibold"
-          >
-            <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin text-ds-accent' : ''}`} />
-            <span>{refreshing ? 'Syncing...' : 'Refresh'}</span>
-          </Button>
           <Link href="/staff" className="shrink-0">
             <Button
               variant="accent"
@@ -631,8 +616,8 @@ export default function StaffBookingsSchedulePage() {
           </div>
         </div>
 
-        {/* Tier 2: Refinement Filters & Search Bar */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3 pt-2.5 border-t border-ds-border/40">
+        {/* Tier 2: Refinement Filters & Search Bar (Tablet & Desktop Aligned) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 pt-2.5 border-t border-ds-border/40">
           {/* Sub-Filters: Date Scope + Staff Scope */}
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {/* Date Scope Filter */}
@@ -692,7 +677,7 @@ export default function StaffBookingsSchedulePage() {
           </div>
 
           {/* Search Bar */}
-          <div className="relative w-full lg:w-72 xl:w-80 shrink-0">
+          <div className="relative w-full md:w-64 lg:w-72 xl:w-80 shrink-0">
             <Input
               placeholder="Search ref, player, station..."
               value={searchQuery}
