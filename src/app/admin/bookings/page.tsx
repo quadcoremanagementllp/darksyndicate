@@ -22,6 +22,11 @@ import {
   AlertTriangle,
   CheckSquare,
   Square,
+  List,
+  LayoutGrid,
+  Clock,
+  Gamepad2,
+  ArrowRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -51,6 +56,7 @@ export default function AdminBookingsPage() {
   const [channelFilter, setChannelFilter] = useState<'ALL' | 'ONLINE' | 'DESK'>('ALL');
   const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
   const [customDate, setCustomDate] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // Clear Data & Selection states
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -400,46 +406,78 @@ export default function AdminBookingsPage() {
 
       {/* Filter Bar (3 Clean Balanced Tiers) */}
       <div className="space-y-3 bg-ds-surface/50 p-3.5 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
-        {/* Tier 1: Source Channels & Search */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Source Tabs */}
-          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
-            <button
-              onClick={() => setChannelFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap cursor-pointer ${
-                channelFilter === 'ALL'
-                  ? 'bg-ds-surface text-white shadow-sm border border-ds-border'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-            >
-              All Sources
-            </button>
-            <button
-              onClick={() => setChannelFilter('ONLINE')}
-              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                channelFilter === 'ONLINE'
-                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5 text-sky-400" />
-              <span>Online ({onlineCount})</span>
-            </button>
-            <button
-              onClick={() => setChannelFilter('DESK')}
-              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                channelFilter === 'DESK'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>Desk ({deskCount})</span>
-            </button>
+        {/* Tier 1: Source Channels, View Mode & Search */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Source Tabs */}
+            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
+              <button
+                onClick={() => setChannelFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap cursor-pointer ${
+                  channelFilter === 'ALL'
+                    ? 'bg-ds-surface text-white shadow-sm border border-ds-border'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+              >
+                All Sources
+              </button>
+              <button
+                onClick={() => setChannelFilter('ONLINE')}
+                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  channelFilter === 'ONLINE'
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span>Online ({onlineCount})</span>
+              </button>
+              <button
+                onClick={() => setChannelFilter('DESK')}
+                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  channelFilter === 'DESK'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Desk ({deskCount})</span>
+              </button>
+            </div>
+
+            {/* View Mode Switcher: Table vs Cards (Touch-friendly for Tablet) */}
+            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
+                  viewMode === 'table'
+                    ? 'bg-ds-surface text-ds-ice border border-ds-border shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Ledger Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
+                  viewMode === 'cards'
+                    ? 'bg-ds-surface text-cyan-300 border border-cyan-500/30 shadow-sm'
+                    : 'text-ds-text-dim hover:text-white'
+                }`}
+                title="Touch Cards View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Cards</span>
+              </button>
+            </div>
           </div>
 
           {/* Search Bar - Responsive without overflowing card on tablet */}
-          <div className="relative flex-1 min-w-0 max-w-full sm:max-w-xs md:max-w-sm">
+          <div className="relative flex-1 min-w-0 max-w-full md:max-w-xs lg:max-w-sm">
             <Input
               placeholder="Search ref, player, staff, station..."
               value={search}
@@ -603,32 +641,48 @@ export default function AdminBookingsPage() {
         </div>
       )}
 
-      {/* Table Card */}
-      <Card glass className="border-ds-border overflow-hidden">
-        {loading ? (
-          <div className="p-16 text-center text-xs text-ds-text-dim flex flex-col items-center gap-2">
-            <RotateCw className="w-5 h-5 animate-spin text-ds-accent" />
-            <span>Loading reservations...</span>
+      {/* Ledger Content (Table View & Cards View) */}
+      {loading ? (
+        <Card glass className="border-ds-border p-16 text-center text-xs text-ds-text-dim flex flex-col items-center gap-2">
+          <RotateCw className="w-5 h-5 animate-spin text-ds-accent" />
+          <span>Loading reservations...</span>
+        </Card>
+      ) : filteredBookings.length === 0 ? (
+        <Card glass className="border-ds-border p-16 text-center text-xs text-ds-text-dim space-y-2">
+          <p>No reservations found matching your filters.</p>
+          {isAnyFilterActive && (
+            <Button variant="outline" size="sm" onClick={handleResetFilters} className="cursor-pointer">
+              Clear All Filters
+            </Button>
+          )}
+        </Card>
+      ) : viewMode === 'table' ? (
+        <Card glass className="border-ds-border overflow-hidden shadow-lg">
+          {/* Tablet/Mobile Swipe Hint Banner */}
+          <div className="xl:hidden flex items-center justify-between px-4 py-2.5 bg-ds-dark/95 border-b border-ds-border text-[11px] font-mono text-ds-text-dim">
+            <span className="flex items-center gap-1.5">
+              <ArrowRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span>Swipe horizontally for full ledger table</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 hover:underline ml-2 shrink-0 cursor-pointer"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Cards View (Recommended) →</span>
+            </button>
           </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="p-16 text-center text-xs text-ds-text-dim space-y-2">
-            <p>No reservations found matching your filters.</p>
-            {isAnyFilterActive && (
-              <Button variant="outline" size="sm" onClick={handleResetFilters}>
-                Clear All Filters
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-ds-dark/60 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
+
+          <div className="overflow-x-auto relative">
+            <table className="w-full text-left text-xs min-w-[1080px]">
+              <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
                 <tr>
                   <th className="py-3 px-3 w-10 text-center">
                     <button
                       type="button"
                       onClick={handleSelectAllVisible}
-                      className="text-ds-text-dim hover:text-white transition-colors"
+                      className="text-ds-text-dim hover:text-white transition-colors cursor-pointer"
                       title={allVisibleSelected ? 'Deselect all' : 'Select all visible'}
                     >
                       {allVisibleSelected ? (
@@ -638,15 +692,17 @@ export default function AdminBookingsPage() {
                       )}
                     </button>
                   </th>
-                  <th className="py-3 px-4">Ref #</th>
-                  <th className="py-3 px-4">Player Details</th>
-                  <th className="py-3 px-4">Booked Via</th>
-                  <th className="py-3 px-4">Station</th>
-                  <th className="py-3 px-4">Time Window</th>
-                  <th className="py-3 px-4">Amount</th>
-                  <th className="py-3 px-4">Payment</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions & Pass</th>
+                  <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Ref #</th>
+                  <th className="py-3 px-4 min-w-[160px] whitespace-nowrap">Player Details</th>
+                  <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Booked Via</th>
+                  <th className="py-3 px-4 min-w-[160px] whitespace-nowrap">Station</th>
+                  <th className="py-3 px-4 min-w-[170px] whitespace-nowrap">Time Window</th>
+                  <th className="py-3 px-4 min-w-[90px] whitespace-nowrap">Amount</th>
+                  <th className="py-3 px-4 min-w-[110px] whitespace-nowrap">Payment</th>
+                  <th className="py-3 px-4 min-w-[110px] whitespace-nowrap">Status</th>
+                  <th className="py-3 px-4 text-right min-w-[200px] whitespace-nowrap sticky right-0 bg-ds-dark/95 backdrop-blur-md z-20 shadow-[-10px_0_15px_rgba(0,0,0,0.5)]">
+                    Actions & Pass
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ds-border/40">
@@ -669,7 +725,7 @@ export default function AdminBookingsPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleSelect(b.id)}
-                          className="text-ds-text-dim hover:text-white transition-colors"
+                          className="text-ds-text-dim hover:text-white transition-colors cursor-pointer"
                         >
                           {isRowSelected ? (
                             <CheckSquare className="w-4 h-4 text-rose-400" />
@@ -678,12 +734,16 @@ export default function AdminBookingsPage() {
                           )}
                         </button>
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-ds-ice">{b.bookingRef}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-heading font-bold text-ds-text">{b.customerName}</div>
-                        <div className="text-[11px] text-ds-text-dim">{b.customerEmail || b.customerPhone}</div>
-                      </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="font-mono font-bold text-xs text-ds-ice bg-ds-dark/80 border border-ds-border/80 px-2.5 py-1 rounded-lg select-all tracking-tight shadow-sm inline-block whitespace-nowrap">
+                          {b.bookingRef}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 min-w-[160px]">
+                        <div className="font-heading font-bold text-ds-text whitespace-nowrap">{b.customerName}</div>
+                        <div className="text-[11px] text-ds-text-dim truncate max-w-[180px]">{b.customerEmail || b.customerPhone || '—'}</div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">
                         {b.isWalkIn ? (
                           <div>
                             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-heading font-bold text-[10px] uppercase tracking-wider">
@@ -709,32 +769,32 @@ export default function AdminBookingsPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-ds-text">{b.stationName}</div>
-                        <div className="text-[10px] text-ds-accent">{b.facilityName}</div>
+                      <td className="py-3.5 px-4 min-w-[160px]">
+                        <div className="font-semibold text-ds-text whitespace-nowrap">{b.stationName}</div>
+                        <div className="text-[10px] text-ds-accent whitespace-nowrap">{b.facilityName}</div>
                         {b.gameTitle && (
-                          <div className="inline-flex items-center gap-1 text-[11px] text-ds-cyan font-mono mt-0.5">
+                          <div className="inline-flex items-center gap-1 text-[11px] text-ds-cyan font-mono mt-0.5 whitespace-nowrap">
                             <span>🎮</span>
-                            <span className="truncate max-w-[130px] font-medium">{b.gameTitle}</span>
+                            <span className="truncate max-w-[140px] font-medium">{b.gameTitle}</span>
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-ds-text">
-                        <div>
+                      <td className="py-3.5 px-4 whitespace-nowrap font-mono text-ds-text min-w-[170px]">
+                        <div className="font-bold text-ds-ice whitespace-nowrap">
                           {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                        <span className="text-[10px] text-ds-text-dim">
+                        <span className="text-[10px] text-ds-text-dim block whitespace-nowrap mt-0.5">
                           {new Date(b.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-heading font-extrabold text-ds-text">
+                      <td className="py-3.5 px-4 whitespace-nowrap font-heading font-extrabold text-ds-text text-sm min-w-[90px]">
                         ₹{(b.totalPricePaise / 100).toFixed(0)}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-[11px] font-mono block text-ds-text">{b.paymentMethod || '—'}</span>
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
+                        <span className="text-[11px] font-mono block text-ds-text whitespace-nowrap">{b.paymentMethod || '—'}</span>
                         <span
-                          className={`text-[10px] font-semibold ${
+                          className={`text-[10px] font-semibold whitespace-nowrap ${
                             b.paymentStatus === 'COMPLETED'
                               ? 'text-emerald-400'
                               : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
@@ -745,7 +805,7 @@ export default function AdminBookingsPage() {
                           {b.paymentStatus}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
                         <Badge
                           variant={
                             b.status === 'CONFIRMED'
@@ -759,20 +819,20 @@ export default function AdminBookingsPage() {
                               : 'warning'
                           }
                           size="sm"
-                          className="font-mono text-[10px]"
+                          className="font-mono text-[10px] whitespace-nowrap"
                         >
                           {b.status}
                         </Badge>
                       </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-ds-dark/95 backdrop-blur-md z-10 shadow-[-10px_0_15px_rgba(0,0,0,0.5)]">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           {canMarkPaid && (
                             <>
                               <button
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => handleBookingAction(b, 'MARK_PAID', 'CASH')}
-                                className="px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1"
+                                className="px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Settle Pending Payment via Cash"
                               >
                                 <CheckCircle2 className="w-3 h-3" />
@@ -782,7 +842,7 @@ export default function AdminBookingsPage() {
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => handleBookingAction(b, 'MARK_PAID', 'UPI')}
-                                className="px-2 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1"
+                                className="px-2 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
                                 title="Settle Pending Payment via UPI"
                               >
                                 <CheckCircle2 className="w-3 h-3" />
@@ -796,7 +856,7 @@ export default function AdminBookingsPage() {
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => handleBookingAction(b, 'NO_SHOW')}
-                                className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-[10px] font-heading font-bold uppercase transition-colors"
+                                className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
                                 title="Mark as No-Show"
                               >
                                 No-Show
@@ -805,7 +865,7 @@ export default function AdminBookingsPage() {
                                 type="button"
                                 disabled={isBusy}
                                 onClick={() => handleBookingAction(b, 'CANCEL')}
-                                className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[10px] font-heading font-bold uppercase transition-colors"
+                                className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
                                 title="Cancel Reservation"
                               >
                                 Cancel
@@ -813,7 +873,7 @@ export default function AdminBookingsPage() {
                             </>
                           )}
                           <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank">
-                            <Button variant="outline" size="sm" className="text-[11px] py-1 px-2.5">
+                            <Button variant="outline" size="sm" className="text-[11px] py-1 px-2.5 cursor-pointer">
                               <ExternalLink className="w-3.5 h-3.5 mr-1" />
                               <span>Pass</span>
                             </Button>
@@ -823,7 +883,7 @@ export default function AdminBookingsPage() {
                             type="button"
                             disabled={deleteLoadingId === b.id || isBusy}
                             onClick={() => handleDeleteSingle(b)}
-                            className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50"
+                            className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50 cursor-pointer"
                             title={`Delete reservation ${b.bookingRef}`}
                           >
                             <Trash2 className={`w-3.5 h-3.5 ${deleteLoadingId === b.id ? 'animate-spin' : ''}`} />
@@ -836,8 +896,210 @@ export default function AdminBookingsPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        /* ─── GRID CARDS VIEW (Tablet & Mobile Optimized Touch Cards) ─── */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredBookings.map((b) => {
+            const canMarkPaid =
+              b.paymentStatus !== 'COMPLETED' &&
+              !['CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status);
+            const canCancelOrNoShow = ['PENDING', 'CONFIRMED'].includes(b.status);
+            const isBusy = actionLoadingId === b.id;
+            const isRowSelected = selectedIds.includes(b.id);
+
+            return (
+              <Card
+                key={b.id}
+                glass
+                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                  isRowSelected ? 'border-rose-500/50 bg-rose-500/5' : 'border-ds-border hover:border-ds-border-bright'
+                }`}
+              >
+                {/* Card Top: Checkbox, Ref, Badges, Price */}
+                <div className="flex items-start justify-between gap-2 pb-3 border-b border-ds-border/50">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelect(b.id)}
+                      className="text-ds-text-dim hover:text-white transition-colors cursor-pointer"
+                    >
+                      {isRowSelected ? (
+                        <CheckSquare className="w-4 h-4 text-rose-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-ds-border hover:text-ds-text" />
+                      )}
+                    </button>
+                    <span className="font-mono font-bold text-xs text-ds-ice bg-ds-dark/80 border border-ds-border px-2 py-0.5 rounded-lg select-all whitespace-nowrap">
+                      {b.bookingRef}
+                    </span>
+                    {b.isWalkIn ? (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold uppercase tracking-wider whitespace-nowrap">
+                        DESK
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                        ONLINE
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-heading font-black text-ds-text">
+                      ₹{(b.totalPricePaise / 100).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Body: Player, Station, Time, Payment */}
+                <div className="space-y-2.5 text-xs flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-heading font-bold text-ds-text text-sm">{b.customerName}</div>
+                      <div className="text-[11px] text-ds-text-dim">{b.customerEmail || b.customerPhone || '—'}</div>
+                    </div>
+                    <Badge
+                      variant={
+                        b.status === 'CONFIRMED'
+                          ? 'success'
+                          : b.status === 'IN_PROGRESS' || b.status === 'CHECKED_IN'
+                          ? 'accent'
+                          : b.status === 'COMPLETED'
+                          ? 'default'
+                          : b.status === 'CANCELLED' || b.status === 'NO_SHOW'
+                          ? 'danger'
+                          : 'warning'
+                      }
+                      size="sm"
+                      className="font-mono text-[10px] whitespace-nowrap shrink-0"
+                    >
+                      {b.status}
+                    </Badge>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-ds-dark/70 border border-ds-border/60 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-ds-ice flex items-center gap-1.5">
+                        <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+                        <span className="truncate max-w-[150px]">{b.stationName}</span>
+                      </span>
+                      <span className="text-[10px] text-ds-accent uppercase font-mono">{b.facilityName}</span>
+                    </div>
+                    {b.gameTitle && (
+                      <div className="text-[11px] text-ds-cyan font-mono flex items-center gap-1">
+                        <span>🎮</span>
+                        <span className="truncate">{b.gameTitle}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-mono pt-0.5">
+                    <span className="flex items-center gap-1.5 text-ds-text">
+                      <Clock className="w-3.5 h-3.5 text-ds-accent shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                        {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </span>
+                    <span className="text-ds-text-dim whitespace-nowrap">
+                      {new Date(b.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-mono pt-0.5 text-ds-text-dim">
+                    <span>
+                      Payment: <strong className="text-ds-text">{b.paymentMethod || '—'}</strong>
+                    </span>
+                    <span
+                      className={`font-semibold ${
+                        b.paymentStatus === 'COMPLETED'
+                          ? 'text-emerald-400'
+                          : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      {b.paymentStatus}
+                    </span>
+                  </div>
+
+                  {b.isWalkIn && b.staffName && (
+                    <div className="text-[10px] text-ds-text-dim font-mono pt-0.5">
+                      Staff: <span className="text-ds-ice font-semibold">{b.staffName}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Actions Footer */}
+                <div className="pt-3 border-t border-ds-border/50 flex items-center justify-end gap-1.5 flex-wrap">
+                  {canMarkPaid && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleBookingAction(b, 'MARK_PAID', 'CASH')}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Settle Pending Payment via Cash"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Cash</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleBookingAction(b, 'MARK_PAID', 'UPI')}
+                        className="px-2.5 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Settle Pending Payment via UPI"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>UPI</span>
+                      </button>
+                    </>
+                  )}
+                  {canCancelOrNoShow && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleBookingAction(b, 'NO_SHOW')}
+                        className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
+                        title="Mark as No-Show"
+                      >
+                        No-Show
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleBookingAction(b, 'CANCEL')}
+                        className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
+                        title="Cancel Reservation"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                  <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank">
+                    <Button variant="outline" size="sm" className="text-[11px] py-1 px-2.5 cursor-pointer">
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      <span>Pass</span>
+                    </Button>
+                  </Link>
+
+                  <button
+                    type="button"
+                    disabled={deleteLoadingId === b.id || isBusy}
+                    onClick={() => handleDeleteSingle(b)}
+                    className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50 cursor-pointer"
+                    title={`Delete reservation ${b.bookingRef}`}
+                  >
+                    <Trash2 className={`w-3.5 h-3.5 ${deleteLoadingId === b.id ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Clear Data Modal */}
       {showClearModal && (
