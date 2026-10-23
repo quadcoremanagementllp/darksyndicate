@@ -20,7 +20,6 @@ import {
   Search,
   CheckCircle2,
   AlertTriangle,
-  RotateCw,
   RotateCcw,
   Users,
   Sparkles,
@@ -426,10 +425,31 @@ export default function StaffStationGridPage() {
         </Card>
       </div>
 
-      {/* 2. Operations Action & Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-ds-surface/50 p-4 rounded-2xl border border-ds-border">
-        {/* Left Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* 2. Operations Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-ds-surface/60 backdrop-blur-sm p-3 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
+        {/* Left Side: Highlighted In-Session Button */}
+        <div className="flex items-center">
+          <Link href="/staff/bookings?tab=ACTIVE">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-ds-accent/20 via-ds-surface to-ds-surface border border-ds-accent/50 hover:border-ds-accent text-ds-ice hover:text-white font-heading font-black tracking-wider text-xs sm:text-sm uppercase shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_22px_rgba(6,182,212,0.45)] transition-all duration-200 group cursor-pointer"
+              title="View all active in-session consoles in Schedule"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              </span>
+              <Gamepad2 className="w-4 h-4 text-ds-accent group-hover:scale-110 transition-transform" />
+              <span>In-Session</span>
+              <span className="px-2 py-0.5 rounded-full font-mono text-xs font-black bg-ds-accent/20 border border-ds-accent/40 text-cyan-200 shadow-inner">
+                {stats.occupiedCount}
+              </span>
+            </button>
+          </Link>
+        </div>
+
+        {/* Right Side: Primary Desk Actions */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 justify-start sm:justify-end">
           <Button
             variant="accent"
             onClick={() => setScannerOpen(true)}
@@ -449,31 +469,6 @@ export default function StaffStationGridPage() {
           >
             <UserPlus className="w-4 h-4" />
             <span>Desk Walk-in</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => setPreBookingPickerOpen(true)}
-            className="flex items-center gap-1.5 text-xs text-amber-300 border-amber-500/40 hover:bg-amber-500/10 font-heading font-bold uppercase"
-          >
-            <Calendar className="w-3.5 h-3.5 text-amber-400" />
-            <span>Pre-Book Slot</span>
-          </Button>
-
-          <Link href="/staff/bookings?tab=ACTIVE">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1.5 text-xs text-ds-ice border-ds-ice/30 hover:border-ds-ice hover:bg-ds-ice/10"
-              title="View all active in-session consoles in Schedule"
-            >
-              <Gamepad2 className="w-3.5 h-3.5" />
-              <span>In-Session ({stats.occupiedCount})</span>
-            </Button>
-          </Link>
-
-          <Button variant="outline" size="sm" onClick={loadData} title="Refresh Live State">
-            <RotateCw className="w-4 h-4" />
           </Button>
         </div>
       </div>
