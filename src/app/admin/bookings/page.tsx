@@ -438,13 +438,13 @@ export default function AdminBookingsPage() {
             </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-80 md:w-96 shrink-0">
+          {/* Search Bar - Responsive without overflowing card on tablet */}
+          <div className="relative flex-1 min-w-0 max-w-full sm:max-w-xs md:max-w-sm">
             <Input
               placeholder="Search ref, player, staff, station..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="text-xs py-1.5 pl-8 pr-7 w-full bg-ds-dark/90"
+              className="text-xs py-1.5 pl-8 pr-7 w-full bg-ds-dark/90 focus:border-ds-accent"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
             {search && (
@@ -460,8 +460,8 @@ export default function AdminBookingsPage() {
           </div>
         </div>
 
-        {/* Tier 2: Reservation Status Tabs */}
-        <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar">
+        {/* Tier 2: Reservation Status Tabs - Clean wrapping so no tabs get cut off */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-ds-dark/60 p-1.5 rounded-xl border border-ds-border text-xs">
           {[
             { id: 'ALL', label: 'All Statuses' },
             { id: 'CONFIRMED', label: 'Confirmed' },
@@ -475,10 +475,10 @@ export default function AdminBookingsPage() {
             <button
               key={st.id}
               onClick={() => setStatusFilter(st.id)}
-              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs shrink-0 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs cursor-pointer ${
                 statusFilter === st.id
                   ? 'bg-ds-accent text-white shadow-sm'
-                  : 'text-ds-text-dim hover:text-white'
+                  : 'text-ds-text-dim hover:text-white hover:bg-ds-surface/50'
               }`}
             >
               {st.label}
@@ -486,8 +486,9 @@ export default function AdminBookingsPage() {
           ))}
         </div>
 
-        {/* Tier 3: Date Filtering Bar (Preset Tabs & Custom Calendar Picker) */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-ds-border/50 text-xs">
+        {/* Tier 3: Date Filtering Bar (Preset Tabs & Custom Calendar Picker & Record Count) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-ds-border/50 text-xs">
+          {/* Date Controls (Presets & Date Picker stay together on one line) */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-mono uppercase text-ds-text-dim flex items-center gap-1.5 font-bold shrink-0">
               <Calendar className="w-3.5 h-3.5 text-ds-accent" />
@@ -545,8 +546,10 @@ export default function AdminBookingsPage() {
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Reset All Filters Button */}
+          {/* Sub-bar on tablet / right aligned on desktop: Filter Reset & Count */}
+          <div className="flex items-center justify-between lg:justify-end gap-3 text-[11px] font-mono shrink-0">
             {isAnyFilterActive && (
               <button
                 type="button"
@@ -557,11 +560,11 @@ export default function AdminBookingsPage() {
                 <span>Reset Filters</span>
               </button>
             )}
-          </div>
 
-          <div className="text-[11px] text-ds-text-dim font-mono">
-            Showing <strong className="text-ds-text">{filteredBookings.length}</strong> of{' '}
-            <strong className="text-ds-text">{bookings.length}</strong> bookings
+            <div className="text-ds-text-dim">
+              Showing <strong className="text-ds-text">{filteredBookings.length}</strong> of{' '}
+              <strong className="text-ds-text">{bookings.length}</strong> bookings
+            </div>
           </div>
         </div>
       </div>
