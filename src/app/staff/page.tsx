@@ -1,4 +1,5 @@
 'use client';
+// Dark Syndicate Staff Portal - v1.2.0 (Clean 3-KPI Overview without Maintenance)
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
