@@ -35,107 +35,80 @@ export async function GET(req: NextRequest) {
       return apiSuccess([]);
     }
 
-    // Determine phone candidates
-    const targetPhone = phoneParam || (query.replace(/\D/g, '').length >= 4 ? query : '');
+    // Determine search targets
+    const cleanQ = query.trim();
+    const targetPhone = phoneParam || (cleanQ.replace(/\D/g, '').length >= 4 ? cleanQ : '');
     const phoneDigits = targetPhone.replace(/\D/g, '').slice(-10);
-    const phoneCandidates =
-      phoneDigits.length === 10
-        ? [phoneDigits, `+91${phoneDigits}`, `91${phoneDigits}`, `0${phoneDigits}`, `+91 ${phoneDigits}`]
-        : phoneDigits.length >= 4
-        ? [phoneDigits, `+91${phoneDigits}`, `91${phoneDigits}`]
-        : [];
+    const searchTerm = cleanQ ? `%${cleanQ}%` : '%';
+    const phoneTerm = phoneDigits.length >= 4 ? `%${phoneDigits}%` : searchTerm;
+    const emailSearch = emailParam || (cleanQ.includes('@') ? cleanQ.toLowerCase() : '');
 
-    // Build conditions for User table search
-    const userOrConditions: any[] = [];
-    if (phoneCandidates.length > 0) {
-      userOrConditions.push({ phone: { in: phoneCandidates } });
-    }
-    if (emailParam) {
-      userOrConditions.push({ email: emailParam });
-    } else if (query.includes('@')) {
-      userOrConditions.push({ email: query.toLowerCase() });
-    }
-    if (query && !query.includes('@')) {
-      userOrConditions.push({ firstName: { contains: query } });
-      userOrConditions.push({ lastName: { contains: query } });
-    }
+    // 1. Matched Users via Raw Query (Bypasses MariaDB collation 1267 error)
+    const matchedUsers = await prisma.$queryRaw<Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      phone: string | null;
+      total_bookings: number | null;
+    }>>`
+      SELECT 
+        u.id, 
+        u.first_name, 
+        u.last_name, 
+        u.email, 
+        u.phone,
+        cp.total_bookings
+      FROM users u
+      LEFT JOIN customer_profiles cp ON u.id = cp.user_id
+      WHERE u.role = 'CUSTOMER'
+        AND u.email != 'guest@darksyndicate.in'
+        AND (
+          (${cleanQ !== ''} AND (u.first_name LIKE ${searchTerm} OR u.last_name LIKE ${searchTerm}))
+          OR (${phoneDigits.length >= 4} AND u.phone LIKE ${phoneTerm})
+          OR (${emailSearch !== ''} AND u.email = ${emailSearch})
+        )
+      LIMIT 8
+    `.catch(() => []);
 
-    // Build conditions for Booking table search (to find walk-in players who played previously)
-    const bookingOrConditions: any[] = [];
-    if (query && !query.includes('@')) {
-      bookingOrConditions.push({ customerName: { contains: query } });
-    }
-    if (phoneCandidates.length > 0) {
-      bookingOrConditions.push({ customerPhone: { in: phoneCandidates } });
-    }
-
-    // Execute User and Booking queries concurrently
-    const [matchedUsers, matchedBookings] = await Promise.all([
-      userOrConditions.length > 0
-        ? prisma.user.findMany({
-            where: {
-              role: 'CUSTOMER',
-              email: { not: 'guest@darksyndicate.in' },
-              OR: userOrConditions,
-            },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              customerProfile: { select: { totalBookings: true } },
-              bookings: {
-                where: { status: { in: ['COMPLETED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] } },
-                select: {
-                  id: true,
-                  gameTitle: true,
-                  createdAt: true,
-                  station: { select: { name: true, stationType: true } },
-                },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              },
-            },
-            take: 8,
-          }).catch(() => [])
-        : Promise.resolve([]),
-      bookingOrConditions.length > 0
-        ? prisma.booking.findMany({
-            where: {
-              status: { in: ['COMPLETED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS'] },
-              AND: [
-                {
-                  customerName: {
-                    not: null,
-                    notIn: ['Walk-in Guest', 'Guest', 'Gamer', 'Guest Player', ''],
-                  },
-                },
-                { OR: bookingOrConditions },
-              ],
-            },
-            select: {
-              id: true,
-              customerName: true,
-              customerPhone: true,
-              gameTitle: true,
-              createdAt: true,
-              station: { select: { name: true, stationType: true } },
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  phone: true,
-                },
-              },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 15,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
+    // 2. Matched Bookings via Raw Query (Past walk-in and phone bookings)
+    const matchedBookings = await prisma.$queryRaw<Array<{
+      id: string;
+      user_id: string;
+      customer_name: string | null;
+      customer_phone: string | null;
+      game_title: string | null;
+      station_name: string | null;
+      created_at: Date;
+      u_first_name: string | null;
+      u_last_name: string | null;
+      u_email: string | null;
+      u_phone: string | null;
+    }>>`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.customer_name,
+        b.customer_phone,
+        b.game_title,
+        s.name AS station_name,
+        b.created_at,
+        u.first_name AS u_first_name,
+        u.last_name AS u_last_name,
+        u.email AS u_email,
+        u.phone AS u_phone
+      FROM bookings b
+      LEFT JOIN gaming_stations s ON b.station_id = s.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.status IN ('COMPLETED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS')
+        AND (
+          (${cleanQ !== ''} AND b.customer_name IS NOT NULL AND b.customer_name NOT IN ('Walk-in Guest', 'Guest', 'Gamer', 'Guest Player', '') AND b.customer_name LIKE ${searchTerm})
+          OR (${phoneDigits.length >= 4} AND b.customer_phone IS NOT NULL AND b.customer_phone LIKE ${phoneTerm})
+          OR (${cleanQ !== ''} AND u.first_name IS NOT NULL AND u.first_name LIKE ${searchTerm})
+        )
+      ORDER BY b.created_at DESC
+      LIMIT 15
+    `.catch(() => []);
 
     interface SearchResultItem {
       id: string;
@@ -161,23 +134,38 @@ export async function GET(req: NextRequest) {
 
     // 1. Process registered matched users
     for (const u of matchedUsers) {
-      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Gamer';
+      const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Gamer';
       const cleanPhone = cleanPhoneDigits(u.phone);
       const key = cleanPhone || `name_${fullName.toLowerCase()}`;
 
-      const lastBooking = u.bookings?.[0];
+      // Get recent booking for this user
+      const recentBookings = await prisma.$queryRaw<Array<{
+        game_title: string | null;
+        station_name: string | null;
+        created_at: Date;
+      }>>`
+        SELECT b.game_title, s.name AS station_name, b.created_at
+        FROM bookings b
+        LEFT JOIN gaming_stations s ON b.station_id = s.id
+        WHERE b.user_id = ${u.id}
+          AND b.status IN ('COMPLETED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS')
+        ORDER BY b.created_at DESC
+        LIMIT 1
+      `.catch(() => []);
+      const lastBooking = recentBookings[0];
+
       const activeMem = await getActiveUserMembership(u.id).catch(() => null);
 
       resultMap.set(key, {
         id: u.id,
         name: fullName,
-        firstName: u.firstName,
-        lastName: u.lastName,
+        firstName: u.first_name,
+        lastName: u.last_name,
         email: u.email && !u.email.includes('@darksyndicate.in') ? u.email : '',
         phone: u.phone,
-        totalBookings: Math.max(u.customerProfile?.totalBookings || 0, u.bookings?.length || 0),
-        lastPlayed: lastBooking ? (lastBooking.gameTitle || lastBooking.station?.name || null) : null,
-        lastPlayedDate: lastBooking ? formatPlayedDate(lastBooking.createdAt) : null,
+        totalBookings: Math.max(u.total_bookings || 0, recentBookings.length ? 1 : 0),
+        lastPlayed: lastBooking ? (lastBooking.game_title || lastBooking.station_name || null) : null,
+        lastPlayedDate: lastBooking ? formatPlayedDate(new Date(lastBooking.created_at)) : null,
         membership: activeMem
           ? {
               id: activeMem.id,
@@ -193,10 +181,10 @@ export async function GET(req: NextRequest) {
 
     // 2. Process matched bookings from past games (walk-ins / phone bookings)
     for (const b of matchedBookings) {
-      const rawName = (b.customerName || `${b.user?.firstName || ''} ${b.user?.lastName || ''}`).trim();
+      const rawName = (b.customer_name || `${b.u_first_name || ''} ${b.u_last_name || ''}`).trim();
       if (!rawName || rawName.toLowerCase() === 'walk-in guest') continue;
 
-      const rawPhone = b.customerPhone || b.user?.phone || null;
+      const rawPhone = b.customer_phone || b.u_phone || null;
       const cleanPhone = cleanPhoneDigits(rawPhone);
       const key = cleanPhone || `name_${rawName.toLowerCase()}`;
 
@@ -204,21 +192,21 @@ export async function GET(req: NextRequest) {
       if (existing) {
         existing.totalBookings = (existing.totalBookings || 1) + 1;
         if (!existing.lastPlayed) {
-          existing.lastPlayed = b.gameTitle || b.station?.name || null;
-          existing.lastPlayedDate = formatPlayedDate(b.createdAt);
+          existing.lastPlayed = b.game_title || b.station_name || null;
+          existing.lastPlayedDate = formatPlayedDate(new Date(b.created_at));
         }
       } else {
-        const activeMem = b.user?.id ? await getActiveUserMembership(b.user.id).catch(() => null) : null;
+        const activeMem = b.user_id ? await getActiveUserMembership(b.user_id).catch(() => null) : null;
         resultMap.set(key, {
-          id: b.user?.id || `bk_${b.id}`,
+          id: b.user_id || `bk_${b.id}`,
           name: rawName,
           firstName: rawName.split(' ')[0] || null,
           lastName: rawName.split(' ').slice(1).join(' ') || null,
-          email: b.user?.email && !b.user.email.includes('@darksyndicate.in') ? b.user.email : '',
+          email: b.u_email && !b.u_email.includes('@darksyndicate.in') ? b.u_email : '',
           phone: rawPhone,
           totalBookings: 1,
-          lastPlayed: b.gameTitle || b.station?.name || null,
-          lastPlayedDate: formatPlayedDate(b.createdAt),
+          lastPlayed: b.game_title || b.station_name || null,
+          lastPlayedDate: formatPlayedDate(new Date(b.created_at)),
           membership: activeMem
             ? {
                 id: activeMem.id,

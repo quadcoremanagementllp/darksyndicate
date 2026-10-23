@@ -1020,7 +1020,7 @@ export function StaffPreBookingModal({
 
                   {/* Autocomplete Search Dropdown */}
                   {showSearchDropdown && searchResults.length > 0 && (
-                    <div className="absolute left-0 right-0 sm:right-auto sm:w-[380px] top-[42px] z-50 bg-[#08121e] border border-cyan-500/50 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.9)] p-1.5 space-y-1 backdrop-blur-md max-h-56 overflow-y-auto">
+                    <div className="absolute left-0 right-0 sm:right-auto sm:w-[380px] top-full mt-1.5 z-[100] bg-[#08121e] border border-cyan-500/50 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.9)] p-1.5 space-y-1 backdrop-blur-md max-h-56 overflow-y-auto">
                       <div className="text-[10px] font-mono text-cyan-400 font-bold px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-cyan-900/50">
                         <span className="flex items-center gap-1">
                           <span>🎮 Returning Players</span>
