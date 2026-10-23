@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   RotateCcw,
   Users,
-  Sparkles,
   Flame,
   ArrowLeft,
   ArrowRight,
@@ -581,16 +580,9 @@ export default function StaffStationGridPage() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-ds-border pb-3">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-ds-accent/15 border border-ds-accent/30 text-ds-ice mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-ds-accent" />
-                <span>Floor Operations: Choose Arena Zone</span>
-              </div>
               <h2 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text">
                 Dark Syndicate Gaming Arenas
               </h2>
-              <p className="text-xs text-ds-text-muted mt-0.5">
-                Select an arena below to view individual consoles, inspect active timers, or allocate walk-in players.
-              </p>
             </div>
           </div>
 
