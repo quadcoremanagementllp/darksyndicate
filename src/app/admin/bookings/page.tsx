@@ -335,130 +335,126 @@ export default function AdminBookingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
-            All Reservations Ledger
+          <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight flex items-center gap-2.5">
+            <span className="text-2xl">📋</span>
+            <span>All Reservations Ledger</span>
           </h1>
-          <p className="text-xs text-ds-text-muted mt-0.5">
+          <p className="text-xs text-ds-text-muted mt-1">
             Audit trail of online bookings, front-desk walk-ins, payment settlement, and session completions.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 font-mono text-xs mr-1">
-            <span className="px-2.5 py-1 rounded-lg bg-ds-surface border border-ds-border text-ds-text-muted">
-              Total: <strong className="text-ds-text font-bold">{bookings.length}</strong>
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {/* Quick Metrics Badge Group */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-ds-dark border border-ds-border text-xs font-mono shrink-0">
+            <span className="px-2.5 py-1 rounded-lg text-ds-text-dim whitespace-nowrap">
+              Total: <strong className="text-white font-bold">{bookings.length}</strong>
             </span>
-            <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
+            <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 whitespace-nowrap">
               Online: <strong className="text-white font-bold">{onlineCount}</strong>
             </span>
-            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 whitespace-nowrap">
               Desk: <strong className="text-white font-bold">{deskCount}</strong>
             </span>
           </div>
 
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredBookings.length === 0}>
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>CSV</span>
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={filteredBookings.length === 0}
+              className="text-xs font-heading font-bold whitespace-nowrap h-8"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              <span>CSV</span>
+            </Button>
 
-          <Button variant="outline" size="sm" onClick={loadBookings} disabled={loading}>
-            <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadBookings}
+              disabled={loading}
+              className="text-xs font-heading font-bold whitespace-nowrap h-8"
+            >
+              <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setShowClearModal(true);
-              setClearConfirmText('');
-            }}
-            disabled={bookings.length === 0}
-            className="border-rose-500/40 text-rose-400 hover:bg-rose-500/15 hover:border-rose-400 hover:text-rose-300 font-heading font-bold"
-          >
-            <Trash2 className="w-3.5 h-3.5 mr-1.5 text-rose-400" />
-            <span>Clear Data</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowClearModal(true);
+                setClearConfirmText('');
+              }}
+              disabled={bookings.length === 0}
+              className="border-rose-500/40 text-rose-400 hover:bg-rose-500/15 hover:border-rose-400 hover:text-rose-300 text-xs font-heading font-bold whitespace-nowrap h-8"
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5 text-rose-400" />
+              <span>Clear Data</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="space-y-3 bg-ds-surface/50 p-4 rounded-2xl border border-ds-border">
-        {/* Row 1: Source / Channel Filter & Status Filters & Search */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Source Tabs */}
-            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
-              <button
-                onClick={() => setChannelFilter('ALL')}
-                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all ${
-                  channelFilter === 'ALL'
-                    ? 'bg-ds-surface-3 text-white shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-              >
-                All Sources
-              </button>
-              <button
-                onClick={() => setChannelFilter('ONLINE')}
-                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 ${
-                  channelFilter === 'ONLINE'
-                    ? 'bg-sky-500/25 text-sky-300 border border-sky-500/40 shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-              >
-                <Globe className="w-3 h-3 text-sky-400" />
-                <span>Online ({onlineCount})</span>
-              </button>
-              <button
-                onClick={() => setChannelFilter('DESK')}
-                className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 ${
-                  channelFilter === 'DESK'
-                    ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-              >
-                <UserCheck className="w-3 h-3 text-amber-400" />
-                <span>Desk ({deskCount})</span>
-              </button>
-            </div>
-
-            <span className="hidden sm:inline-block w-px h-6 bg-ds-border" />
-
-            {/* Status Filters */}
-            <div className="flex flex-wrap gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
-              {['ALL', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'PENDING', 'CANCELLED', 'NO_SHOW'].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase transition-all ${
-                    statusFilter === st
-                      ? 'bg-ds-accent text-white shadow-sm'
-                      : 'text-ds-text-dim hover:text-white'
-                  }`}
-                >
-                  {st.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
+      {/* Filter Bar (3 Clean Balanced Tiers) */}
+      <div className="space-y-3 bg-ds-surface/50 p-3.5 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
+        {/* Tier 1: Source Channels & Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Source Tabs */}
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
+            <button
+              onClick={() => setChannelFilter('ALL')}
+              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap cursor-pointer ${
+                channelFilter === 'ALL'
+                  ? 'bg-ds-surface text-white shadow-sm border border-ds-border'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              All Sources
+            </button>
+            <button
+              onClick={() => setChannelFilter('ONLINE')}
+              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                channelFilter === 'ONLINE'
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              <span>Online ({onlineCount})</span>
+            </button>
+            <button
+              onClick={() => setChannelFilter('DESK')}
+              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                channelFilter === 'DESK'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Desk ({deskCount})</span>
+            </button>
           </div>
 
-          {/* Search */}
-          <div className="relative">
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-80 md:w-96 shrink-0">
             <Input
               placeholder="Search ref, player, staff, station..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="text-xs py-1.5 pl-8 pr-7 w-full sm:w-72"
+              className="text-xs py-1.5 pl-8 pr-7 w-full bg-ds-dark/90"
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2 top-2 text-ds-text-dim hover:text-white"
+                className="absolute right-2.5 top-2 text-ds-text-dim hover:text-white cursor-pointer"
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -467,16 +463,42 @@ export default function AdminBookingsPage() {
           </div>
         </div>
 
-        {/* Row 2: Date Filtering Bar (Preset Tabs & Custom Calendar Picker) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-ds-border/60 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-mono uppercase text-ds-text-dim flex items-center gap-1.5 mr-1 font-bold">
+        {/* Tier 2: Reservation Status Tabs */}
+        <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto no-scrollbar">
+          {[
+            { id: 'ALL', label: 'All Statuses' },
+            { id: 'CONFIRMED', label: 'Confirmed' },
+            { id: 'CHECKED_IN', label: 'Checked In' },
+            { id: 'IN_PROGRESS', label: 'In Progress' },
+            { id: 'COMPLETED', label: 'Completed' },
+            { id: 'PENDING', label: 'Pending' },
+            { id: 'CANCELLED', label: 'Cancelled' },
+            { id: 'NO_SHOW', label: 'No Show' },
+          ].map((st) => (
+            <button
+              key={st.id}
+              onClick={() => setStatusFilter(st.id)}
+              className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all whitespace-nowrap text-[11px] sm:text-xs shrink-0 cursor-pointer ${
+                statusFilter === st.id
+                  ? 'bg-ds-accent text-white shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tier 3: Date Filtering Bar (Preset Tabs & Custom Calendar Picker) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-ds-border/50 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-mono uppercase text-ds-text-dim flex items-center gap-1.5 font-bold shrink-0">
               <Calendar className="w-3.5 h-3.5 text-ds-accent" />
               <span>Date:</span>
             </span>
 
             {/* Date Preset Tabs */}
-            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-[11px] font-heading font-bold">
+            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-[11px] font-heading font-bold shrink-0">
               {(
                 [
                   { id: 'ALL', label: 'All Dates' },
@@ -489,7 +511,7 @@ export default function AdminBookingsPage() {
                 <button
                   key={preset.id}
                   onClick={() => handlePresetClick(preset.id)}
-                  className={`px-2.5 py-1 rounded-lg uppercase transition-all ${
+                  className={`px-2.5 py-1 rounded-lg uppercase transition-all whitespace-nowrap cursor-pointer ${
                     datePreset === preset.id && !customDate
                       ? 'bg-ds-accent text-white shadow-sm'
                       : 'text-ds-text-dim hover:text-white'
@@ -501,7 +523,7 @@ export default function AdminBookingsPage() {
             </div>
 
             {/* Custom Date Input */}
-            <div className="flex items-center gap-1.5 bg-ds-dark px-2.5 py-1 rounded-xl border border-ds-border">
+            <div className="flex items-center gap-1.5 bg-ds-dark px-2.5 py-1 rounded-xl border border-ds-border shrink-0">
               <input
                 type="date"
                 value={customDate}
@@ -519,7 +541,7 @@ export default function AdminBookingsPage() {
                     setCustomDate('');
                     setDatePreset('ALL');
                   }}
-                  className="text-ds-text-dim hover:text-white ml-1"
+                  className="text-ds-text-dim hover:text-white cursor-pointer ml-0.5"
                   title="Clear custom date"
                 >
                   <X className="w-3 h-3" />
@@ -532,10 +554,10 @@ export default function AdminBookingsPage() {
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-heading font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-colors flex items-center gap-1 shrink-0 ml-1"
+                className="px-2.5 py-1 rounded-xl text-[11px] font-heading font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>Reset All Filters</span>
+                <span>Reset Filters</span>
               </button>
             )}
           </div>
