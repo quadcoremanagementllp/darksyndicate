@@ -123,6 +123,66 @@ export function StaffPreBookingModal({
   const [notes, setNotes] = useState<string>('');
   const [paymentMode, setPaymentMode] = useState<'PAY_ON_ARRIVAL' | 'CASH_NOW' | 'UPI_NOW'>('PAY_ON_ARRIVAL');
 
+  // Customer Autocomplete / Search History state
+  const [searchResults, setSearchResults] = useState<Array<{
+    id: string;
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    totalBookings?: number;
+    lastPlayed?: string | null;
+    lastPlayedDate?: string | null;
+    membership: {
+      id: string;
+      tier: string;
+      planName: string;
+      discountPercent: number;
+      badgeColor: string | null;
+      expiresAt: string;
+    } | null;
+  }>>([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState<boolean>(false);
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const searchCustomers = (query: string) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    const cleanQuery = query.trim();
+    if (cleanQuery.length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/staff/customers/search?q=${encodeURIComponent(cleanQuery)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setSearchResults(json.data);
+          setShowSearchDropdown(true);
+        } else {
+          setSearchResults([]);
+          setShowSearchDropdown(false);
+        }
+      } catch {
+        setSearchResults([]);
+      }
+    }, 250);
+  };
+
+  const handleSelectCustomer = (cust: typeof searchResults[0]) => {
+    setCustomerName(cust.name);
+    setCustomerPhone(cust.phone || '');
+    if (cust.email && !cust.email.includes('@darksyndicate.in')) {
+      setCustomerEmail(cust.email);
+    }
+    setShowSearchDropdown(false);
+    setSearchResults([]);
+    toast.success(`Loaded returning player: ${cust.name}${cust.totalBookings ? ` (${cust.totalBookings} past games)` : ''}`);
+  };
+
   const [slots, setSlots] = useState<Slot[]>([]);
   const [periodFilter, setPeriodFilter] = useState<'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT'>('ALL');
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
@@ -164,6 +224,8 @@ export function StaffPreBookingModal({
       setSuccessBooking(null);
       setSelectedTime('');
       setPlayerCount(initialCategory === 'POOL_TABLE' ? 2 : 1);
+      setSearchResults([]);
+      setShowSearchDropdown(false);
     }
   }, [isOpen, initialCategory, initialStationId]);
 
@@ -936,18 +998,90 @@ export function StaffPreBookingModal({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  placeholder="Gamer / Customer Name *"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  required
-                  className="text-xs py-2 bg-ds-dark border-ds-border focus:border-cyan-400"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
+                <div className="relative">
+                  <Input
+                    placeholder="Gamer / Customer Name *"
+                    value={customerName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomerName(val);
+                      searchCustomers(val);
+                    }}
+                    onFocus={() => {
+                      if (searchResults.length > 0) setShowSearchDropdown(true);
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowSearchDropdown(false), 250);
+                    }}
+                    required
+                    className="text-xs py-2 bg-ds-dark border-ds-border focus:border-cyan-400"
+                  />
+
+                  {/* Autocomplete Search Dropdown */}
+                  {showSearchDropdown && searchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 sm:right-auto sm:w-[380px] top-[42px] z-50 bg-[#08121e] border border-cyan-500/50 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.9)] p-1.5 space-y-1 backdrop-blur-md max-h-56 overflow-y-auto">
+                      <div className="text-[10px] font-mono text-cyan-400 font-bold px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-cyan-900/50">
+                        <span className="flex items-center gap-1">
+                          <span>🎮 Returning Players</span>
+                        </span>
+                        <span>{searchResults.length} found</span>
+                      </div>
+                      {searchResults.map((cust) => (
+                        <button
+                          type="button"
+                          key={cust.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectCustomer(cust);
+                          }}
+                          className="w-full text-left p-2 rounded-lg hover:bg-cyan-950/70 transition-all flex items-center justify-between gap-2 group border border-transparent hover:border-cyan-500/40 cursor-pointer"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-heading font-black text-xs text-white group-hover:text-cyan-300 truncate">
+                                {cust.name}
+                              </span>
+                              {cust.membership && (
+                                <Badge variant="warning" size="sm" className="text-[9px] py-0 px-1 font-mono font-bold">
+                                  👑 {cust.membership.tier} ({cust.membership.discountPercent}%)
+                                </Badge>
+                              )}
+                              {cust.totalBookings && cust.totalBookings > 0 && (
+                                <span className="text-[9px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1 rounded">
+                                  {cust.totalBookings}x played
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-ds-text-dim font-mono truncate flex items-center gap-1.5 mt-0.5">
+                              {cust.phone ? <span>📱 {cust.phone}</span> : null}
+                              {cust.lastPlayed ? <span>• Last: {cust.lastPlayed}</span> : null}
+                              {cust.lastPlayedDate ? <span className="text-ds-text-muted">({cust.lastPlayedDate})</span> : null}
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-cyan-400 group-hover:underline shrink-0 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                            Auto-fill ↵
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Input
                   placeholder="WhatsApp Mobile Number (Optional)"
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCustomerPhone(val);
+                    searchCustomers(val);
+                  }}
+                  onFocus={() => {
+                    if (searchResults.length > 0) setShowSearchDropdown(true);
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowSearchDropdown(false), 250);
+                  }}
                   className="text-xs py-2 bg-ds-dark border-ds-border focus:border-cyan-400 font-mono"
                 />
               </div>

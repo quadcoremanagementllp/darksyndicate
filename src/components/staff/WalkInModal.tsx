@@ -211,12 +211,15 @@ export function WalkInModal({
     lastName: string | null;
     email: string;
     phone: string | null;
+    totalBookings?: number;
+    lastPlayed?: string | null;
+    lastPlayedDate?: string | null;
     membership: {
       id: string;
       tier: string;
       planName: string;
       discountPercent: number;
-      badgeColor: string;
+      badgeColor: string | null;
       expiresAt: string;
     } | null;
   }>>([]);
@@ -227,7 +230,7 @@ export function WalkInModal({
     tier: string;
     planName: string;
     discountPercent: number;
-    badgeColor: string;
+    badgeColor: string | null;
     expiresAt: string;
   } | null>(null);
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -313,7 +316,7 @@ export function WalkInModal({
     if (cust.membership) {
       toast.success(`${cust.membership.planName} applied (${cust.membership.discountPercent}% discount)`);
     } else {
-      toast.info(`Selected gamer: ${cust.name}`);
+      toast.success(`Loaded returning player: ${cust.name}${cust.totalBookings ? ` (${cust.totalBookings} past games)` : ''}`);
     }
   };
 
@@ -1102,13 +1105,13 @@ export function WalkInModal({
               )}
 
               <div className="space-y-2.5 relative">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 relative">
                   <div className="space-y-1 relative">
                     <span className="text-[10px] uppercase font-mono text-ds-text-muted block">
                       Gamer Name <span className="text-rose-400">*</span>
                     </span>
                     <Input
-                      placeholder="e.g. Rahul Verma"
+                      placeholder="e.g. Rahul Verma or Akash"
                       value={customerName}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -1130,6 +1133,55 @@ export function WalkInModal({
                       required
                       className="text-xs"
                     />
+
+                    {/* Autocomplete Search Dropdown anchored directly below Gamer Name input */}
+                    {showSearchDropdown && searchResults.length > 0 && (
+                      <div className="absolute left-0 right-0 sm:right-auto sm:w-[380px] top-[54px] z-50 bg-[#08121e] border border-cyan-500/50 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.9)] p-1.5 space-y-1 backdrop-blur-md max-h-56 overflow-y-auto">
+                        <div className="text-[10px] font-mono text-cyan-400 font-bold px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-cyan-900/50">
+                          <span className="flex items-center gap-1">
+                            <span>🎮 Returning Players</span>
+                          </span>
+                          <span>{searchResults.length} found</span>
+                        </div>
+                        {searchResults.map((cust) => (
+                          <button
+                            type="button"
+                            key={cust.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleSelectCustomer(cust);
+                            }}
+                            className="w-full text-left p-2 rounded-lg hover:bg-cyan-950/70 transition-all flex items-center justify-between gap-2 group border border-transparent hover:border-cyan-500/40 cursor-pointer"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-heading font-black text-xs text-white group-hover:text-cyan-300 truncate">
+                                  {cust.name}
+                                </span>
+                                {cust.membership && (
+                                  <Badge variant="warning" size="sm" className="text-[9px] py-0 px-1 font-mono font-bold">
+                                    👑 {cust.membership.tier} ({cust.membership.discountPercent}%)
+                                  </Badge>
+                                )}
+                                {cust.totalBookings && cust.totalBookings > 0 && (
+                                  <span className="text-[9px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1 rounded">
+                                    {cust.totalBookings}x played
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-ds-text-dim font-mono truncate flex items-center gap-1.5 mt-0.5">
+                                {cust.phone ? <span>📱 {cust.phone}</span> : null}
+                                {cust.lastPlayed ? <span>• Last: {cust.lastPlayed}</span> : null}
+                                {cust.lastPlayedDate ? <span className="text-ds-text-muted">({cust.lastPlayedDate})</span> : null}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-cyan-400 group-hover:underline shrink-0 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                              Auto-fill ↵
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -1166,46 +1218,6 @@ export function WalkInModal({
                     />
                   </div>
                 </div>
-
-                {/* Autocomplete Search Dropdown */}
-                {showSearchDropdown && searchResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-14 z-50 bg-[#08121e] border border-cyan-500/40 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.85)] p-1.5 space-y-1 backdrop-blur-md max-h-48 overflow-y-auto">
-                    <div className="text-[10px] font-mono text-cyan-400 font-bold px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-cyan-900/40">
-                      <span>Existing Customer Directory</span>
-                      <span>{searchResults.length} found</span>
-                    </div>
-                    {searchResults.map((cust) => (
-                      <button
-                        type="button"
-                        key={cust.id}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleSelectCustomer(cust);
-                        }}
-                        className="w-full text-left p-2 rounded-lg hover:bg-cyan-950/60 transition-all flex items-center justify-between gap-2 group border border-transparent hover:border-cyan-500/30 cursor-pointer"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-heading font-bold text-xs text-ds-ice group-hover:text-white truncate">
-                              {cust.name}
-                            </span>
-                            {cust.membership && (
-                              <Badge variant="warning" size="sm" className="text-[9px] py-0 px-1 font-mono font-bold">
-                                👑 {cust.membership.tier} ({cust.membership.discountPercent}%)
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-ds-text-dim font-mono truncate">
-                            {cust.phone ? `📱 ${cust.phone}` : ''} {cust.email && !cust.email.includes('@darksyndicate.in') ? `• ${cust.email}` : ''}
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold text-cyan-400 group-hover:underline shrink-0">
-                          Select ↵
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
 
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-mono text-ds-text-muted block">
