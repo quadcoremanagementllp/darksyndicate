@@ -3,6 +3,7 @@ import './globals.css';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import { MobileBottomBar } from '@/components/layout/MobileBottomBar';
+import { PwaInstaller } from '@/components/pwa/PwaInstaller';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -63,8 +64,14 @@ export const metadata: Metadata = {
     title: 'Dark Syndicate',
   },
   icons: {
-    icon: '/favicon.ico',
-    apple: '/logo-1024.png',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 };
 
@@ -80,6 +87,7 @@ export default function RootLayout({
           <ToastProvider>
             {children}
             <MobileBottomBar />
+            <PwaInstaller />
           </ToastProvider>
         </AuthProvider>
       </body>

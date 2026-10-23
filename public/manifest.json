@@ -1,23 +1,72 @@
 {
-  "name": "Dark Syndicate Staff Operations",
-  "short_name": "DS Staff",
-  "description": "Dark Syndicate Gaming World Staff & Operations Management",
-  "start_url": "/staff",
+  "id": "darksyndicate-gaming-world",
+  "name": "Dark Syndicate Gaming World",
+  "short_name": "Dark Syndicate",
+  "description": "Premium gaming zone experience — PlayStation 5 gaming arena, championship snooker lounge, and instant desk walk-ins.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#070a13",
   "theme_color": "#0A111C",
+  "categories": ["games", "entertainment", "sports"],
   "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/logo-1024.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Staff Floor Operations",
+      "short_name": "Staff Portal",
+      "description": "Floor management, station timers, and instant desk walk-in",
+      "url": "/staff",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
-      "src": "/logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "name": "Book Gaming Slot",
+      "short_name": "Book Slot",
+      "description": "Reserve a PS5 console or snooker table",
+      "url": "/booking",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "View Pricing",
+      "short_name": "Pricing",
+      "description": "Hourly rates and membership passes",
+      "url": "/pricing",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
