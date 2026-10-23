@@ -1237,9 +1237,6 @@ export default function StaffStationGridPage() {
                     Choose Booking Mode
                   </span>
                 </div>
-                <p className="text-xs text-ds-text-dim mt-0.5">
-                  Select whether to allocate an instant live session now or reserve an upcoming time slot.
-                </p>
               </div>
             </div>
 
