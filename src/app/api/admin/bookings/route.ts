@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, ConflictError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
+import { staffBookingDayRange } from '@/lib/staffBookingViews';
 
 const patchBookingSchema = z.object({
   bookingId: z.string().min(1),
@@ -25,6 +27,20 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
     const stationId = searchParams.get('stationId') || '';
+    const day = searchParams.get('day');
+    let dayFilter: Prisma.BookingWhereInput | undefined;
+    if (day) {
+      let range: ReturnType<typeof staffBookingDayRange>;
+      try {
+        range = staffBookingDayRange(day);
+      } catch {
+        throw new ValidationError('Invalid booking date');
+      }
+      const timestamp = { gte: range.start, lt: range.end };
+      dayFilter = status === 'COMPLETED'
+        ? { OR: [{ session: { is: { endedAt: timestamp } } }, { updatedAt: timestamp }] }
+        : { startTime: timestamp };
+    }
 
     const bookingInclude = {
       station: { include: { facility: true } },
@@ -42,6 +58,7 @@ export async function GET(req: NextRequest) {
         where: {
           ...(status ? { status: status as any } : {}),
           ...(stationId ? { stationId } : {}),
+          ...(dayFilter ? { AND: [dayFilter] } : {}),
           ...(search
             ? {
                 OR: [
@@ -57,7 +74,7 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         take: 500,
       }),
-      !status
+      !status && !dayFilter
         ? prisma.booking.findMany({
             where: {
               ...(stationId ? { stationId } : {}),

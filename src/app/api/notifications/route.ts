@@ -59,7 +59,7 @@ export async function GET() {
           type: 'SESSION_REMINDER',
           isRead: false,
           createdAt: b.startTime.toISOString(),
-          metadata: { path: '/staff/bookings?tab=ACTIVE', bookingId: b.id },
+          metadata: { path: '/staff/bookings/in-session', bookingId: b.id },
         };
       });
     }

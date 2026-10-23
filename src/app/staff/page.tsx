@@ -398,14 +398,14 @@ export default function StaffStationGridPage() {
         </Card>
 
         {/* Card 2: Active In-Session */}
-        <Link href="/staff/bookings?tab=ACTIVE" className="block group">
+        <Link href="/staff/bookings/in-session" className="block group">
           <Card glass className="p-4 sm:p-5 border-ds-border hover:border-ds-ice/60 hover:bg-ds-surface/70 transition-all cursor-pointer">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] uppercase font-mono text-ds-text-dim tracking-wider whitespace-nowrap">
                 Active In-Session
               </span>
               <span className="text-[10px] font-mono font-semibold text-ds-ice group-hover:underline flex items-center gap-1 shrink-0 whitespace-nowrap">
-                <span>View Schedule</span>
+                <span>View Sessions</span>
                 <ArrowRight className="w-3 h-3 text-ds-accent" />
               </span>
             </div>
@@ -445,11 +445,11 @@ export default function StaffStationGridPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-ds-surface/60 backdrop-blur-sm p-3 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
         {/* Left Side: Highlighted In-Session Button */}
         <div className="flex items-center">
-          <Link href="/staff/bookings?tab=ACTIVE">
+          <Link href="/staff/bookings/in-session">
             <button
               type="button"
               className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-ds-accent/20 via-ds-surface to-ds-surface border border-ds-accent/50 hover:border-ds-accent text-ds-ice hover:text-white font-heading font-black tracking-wider text-xs sm:text-sm uppercase shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_22px_rgba(6,182,212,0.45)] transition-all duration-200 group cursor-pointer"
-              title="View all active in-session consoles in Schedule"
+              title="View all active sessions"
             >
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -687,9 +687,9 @@ export default function StaffStationGridPage() {
             >
               Reset Filters
             </Button>
-            <Link href="/staff/bookings">
+            <Link href="/staff/bookings/in-session">
               <Button variant="secondary" size="sm">
-                <span>View Full Schedule →</span>
+                <span>View Sessions →</span>
               </Button>
             </Link>
           </div>

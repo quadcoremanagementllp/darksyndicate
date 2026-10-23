@@ -162,7 +162,7 @@ export function UpcomingBookingAlertManager() {
             sendMobilePushNotification(`🎮 RESERVATION READY: ${stationLabel}`, {
               body: `Player: ${guestLabel} • Slot is starting now! Ready to check in.`,
               tag: `booking-due-${b.id}`,
-              url: '/staff/bookings?tab=UPCOMING',
+              url: '/staff/bookings/online',
             });
           } else {
             playEndingSoonAlarm();
@@ -170,7 +170,7 @@ export function UpcomingBookingAlertManager() {
             sendMobilePushNotification(`📅 Upcoming Slot (${stageLabel}): ${stationLabel}`, {
               body: `Player: ${guestLabel} • Arriving in ${stageLabel}.`,
               tag: `booking-upcoming-${stage}-${b.id}`,
-              url: '/staff/bookings?tab=UPCOMING',
+              url: '/staff/bookings/online',
             });
           }
         }
@@ -492,7 +492,7 @@ export function UpcomingBookingAlertManager() {
                   <span>{checkingInId === currentAlert.bookingId ? 'Checking In...' : 'Quick Check In'}</span>
                 </Button>
 
-                <Link href="/staff/bookings?tab=UPCOMING" className="shrink-0">
+                <Link href="/staff/bookings/online" className="shrink-0">
                   <Button
                     variant="outline"
                     size="sm"

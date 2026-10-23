@@ -23,15 +23,10 @@ import { SoundAlarmToggle } from '@/components/staff/SoundAlarmToggle';
 import { SessionExpiryAlertManager } from '@/components/staff/SessionExpiryAlertManager';
 import { UpcomingBookingAlertManager } from '@/components/staff/UpcomingBookingAlertManager';
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
-const navigation: NavItem[] = [
-  { name: 'Live Station Grid', href: '/staff', icon: Gamepad2 },
-  { name: "Today's Schedule", href: '/staff/bookings', icon: Calendar },
+const sessionLinks = [
+  { name: 'In Session', href: '/staff/bookings/in-session' },
+  { name: 'Online Booking', href: '/staff/bookings/online' },
+  { name: 'History', href: '/staff/bookings/history' },
 ];
 
 function StaffSidebarNav({
@@ -48,6 +43,8 @@ function StaffSidebarNav({
   isMobile?: boolean;
 }) {
   const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const [sessionsExpanded, setSessionsExpanded] = useState<boolean | null>(null);
+  const sessionsOpen = sessionsExpanded ?? pathname.startsWith('/staff/bookings');
 
   return (
     <div className="flex flex-col h-full justify-between">
@@ -82,31 +79,65 @@ function StaffSidebarNav({
 
         {/* Navigation Links */}
         <nav className="p-4 space-y-1.5 flex-1">
-          <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
-            Arena Operations
-          </span>
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-            return (
+          <Link
+            href="/staff"
+            onClick={() => {
+              setSessionsExpanded(null);
+              if (isMobile) onClose?.();
+            }}
+            aria-current={pathname === '/staff' ? 'page' : undefined}
+            className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+              pathname === '/staff'
+                ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
+                : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
+            }`}
+          >
+            <span className="flex items-center gap-3 truncate">
+              <Gamepad2 className="w-4 h-4 shrink-0" />
+              <span className="truncate">Booking</span>
+            </span>
+            {pathname === '/staff' && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setSessionsExpanded(!sessionsOpen)}
+            aria-expanded={sessionsOpen}
+            aria-controls={`staff-sessions-nav-${isMobile ? 'mobile' : 'desktop'}`}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+              pathname.startsWith('/staff/bookings')
+                ? 'bg-ds-surface text-ds-ice'
+                : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span>Sessions</span>
+            </span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${sessionsOpen ? 'rotate-90' : ''}`} />
+          </button>
+
+          <div
+            id={`staff-sessions-nav-${isMobile ? 'mobile' : 'desktop'}`}
+            hidden={!sessionsOpen}
+            className="ml-5 pl-3 border-l border-ds-border space-y-1"
+          >
+            {sessionLinks.map((item) => (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 onClick={isMobile ? onClose : undefined}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-                  isActive
-                    ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
+                aria-current={pathname === item.href ? 'page' : undefined}
+                className={`block px-3 py-2 rounded-lg text-xs font-heading font-bold transition-all ${
+                  pathname === item.href
+                    ? 'bg-ds-accent text-white shadow-sm shadow-ds-accent/20'
                     : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
                 }`}
               >
-                <div className="flex items-center gap-3 truncate">
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </div>
-                {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+                {item.name}
               </Link>
-            );
-          })}
+            ))}
+          </div>
 
           {isAdminUser && (
             <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
