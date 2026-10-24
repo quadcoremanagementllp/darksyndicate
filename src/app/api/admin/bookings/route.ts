@@ -16,7 +16,7 @@ const patchBookingSchema = z.object({
 
 const deleteBookingSchema = z.object({
   bookingId: z.string().optional(),
-  bookingIds: z.array(z.string()).optional(),
+  bookingIds: z.array(z.string()).max(1000).optional(),
   clearAll: z.boolean().optional(),
   scope: z.enum(['ALL', 'COMPLETED_CANCELLED', 'WALK_IN_TEST']).optional().default('ALL'),
 });

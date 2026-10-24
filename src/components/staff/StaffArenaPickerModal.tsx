@@ -17,11 +17,10 @@ export function StaffArenaPickerModal({ isOpen, onClose, onSelect, accessibleTit
     <Modal
       isOpen={isOpen}
       onClose={busy ? () => {} : onClose}
-      title={<span className="sr-only">{accessibleTitle}</span>}
+      ariaLabel={accessibleTitle}
       size="md"
       closeOnOverlay={!busy}
-      showCloseButton={!busy}
-      bodyClassName="!pt-2 sm:!pt-2"
+      showCloseButton={false}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button

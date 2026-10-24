@@ -16,7 +16,7 @@ const updatePlanSchema = z.object({
   durationDays: z.number().int().min(1, 'Duration must be at least 1 day'),
   discountPercent: z.number().int().min(0).max(100, 'Discount must be between 0 and 100'),
   freeHours: z.number().int().min(0, 'Free hours must be 0 or greater'),
-  perks: z.array(z.string()).optional(),
+  perks: z.array(z.string()).max(50).optional(),
   badgeColor: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   displayOrder: z.number().int().optional(),

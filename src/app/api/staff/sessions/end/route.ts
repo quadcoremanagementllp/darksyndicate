@@ -13,7 +13,7 @@ const endSessionSchema = z.object({
   extraMinutes: z.number().optional(),
   settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD']).optional(),
   transferTab: z.boolean().optional(),
-  settleAdditionalBookingIds: z.array(z.string()).optional(),
+  settleAdditionalBookingIds: z.array(z.string()).max(20).optional(),
   discountPaise: z.number().int().min(0).max(100_000_000).optional(),
   finalPricePaise: z.number().int().min(0).max(100_000_000).optional(),
   refundConfirmed: z.boolean().optional(),

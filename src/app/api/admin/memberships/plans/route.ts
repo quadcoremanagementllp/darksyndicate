@@ -18,7 +18,7 @@ const createPlanSchema = z.object({
   durationDays: z.number().int().min(1, 'Duration must be at least 1 day'),
   discountPercent: z.number().int().min(0).max(100, 'Discount must be between 0 and 100'),
   freeHours: z.number().int().min(0, 'Free hours must be 0 or greater').default(0),
-  perks: z.array(z.string()).optional().default([]),
+  perks: z.array(z.string()).max(50).optional().default([]),
   badgeColor: z.string().optional().nullable(),
   displayOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),

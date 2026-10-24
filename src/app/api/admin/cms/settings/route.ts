@@ -13,7 +13,7 @@ const settingsBatchSchema = z.object({
       group: z.string().default('general'),
       label: z.string().optional(),
     })
-  ),
+  ).max(250),
 });
 
 export async function GET() {

@@ -10,6 +10,7 @@ export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: ReactNode;
+  ariaLabel?: string;
   description?: ReactNode;
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
@@ -34,6 +35,7 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  ariaLabel,
   description,
   children,
   size = 'md',
@@ -79,6 +81,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
+        aria-label={title ? undefined : ariaLabel}
         className={cn(
           'relative w-full bg-ds-surface border border-ds-border rounded-xl',
           'shadow-elevated animate-scale-in overflow-hidden max-h-[92vh] flex flex-col',

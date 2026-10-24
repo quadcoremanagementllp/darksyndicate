@@ -15,7 +15,7 @@ const updateGameSchema = z.object({
   description: z.string().optional().nullable(),
   coverImage: z.string().optional().nullable(),
   maxPlayers: z.number().int().min(1).max(16),
-  stationIds: z.array(z.string()).optional().default([]),
+  stationIds: z.array(z.string()).max(100).optional().default([]),
   isFeatured: z.boolean().optional(),
   isActive: z.boolean().optional(),
   displayOrder: z.number().int().optional(),
