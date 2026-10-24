@@ -933,6 +933,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             const scheduledEnd = b.session?.scheduledEndAt || b.endTime;
             const sessionStart = b.session?.startedAt || b.startTime;
             const countdown = isSessionActive ? getCountdown(scheduledEnd, sessionStart) : null;
+            const actualMinutes = b.session?.startedAt && b.session?.endedAt
+              ? Math.max(0, Math.round((new Date(b.session.endedAt).getTime() - new Date(b.session.startedAt).getTime()) / 60000))
+              : null;
 
             return (
               <div className="space-y-5">
@@ -1056,7 +1059,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                       <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1">
                         <span>Ref: {b.bookingRef}</span>
                         <span suppressHydrationWarning>
-                          End: {new Date(scheduledEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          End: {new Date(scheduledEnd).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>
@@ -1069,8 +1072,8 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                       <div className="flex justify-between">
                         <span className="text-ds-text-dim">Time Window:</span>
                         <span suppressHydrationWarning className="font-mono text-ds-text">
-                          {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
-                          {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(b.startTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} –{' '}
+                          {new Date(b.endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>
@@ -1104,6 +1107,20 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
 
                 {/* Additional Dossier Information */}
                 <div className="p-4 rounded-xl bg-ds-dark/60 border border-ds-border space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-ds-text-dim">Number of Players:</span>
+                    <span className="font-bold text-ds-text">{currentPlayers}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-ds-text-dim">Booked Duration:</span>
+                    <span className="font-bold text-ds-text">{Math.floor(b.durationMinutes / 60)}h {b.durationMinutes % 60}m</span>
+                  </div>
+                  {actualMinutes !== null && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-ds-text-dim">Actual Session:</span>
+                      <span className="font-bold text-ds-text">{Math.floor(actualMinutes / 60)}h {actualMinutes % 60}m</span>
+                    </div>
+                  )}
                   {(b.gameTitle || b.session?.gameTitle) && (
                     <div className="flex justify-between items-center pb-1.5 border-b border-ds-border/60">
                       <span className="text-ds-text-dim">Game Playing:</span>
@@ -1128,23 +1145,22 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                     </div>
                   )}
                   <div className="flex justify-between items-center">
-                    <span className="text-ds-text-dim">Payment Info:</span>
-                    <span className="font-bold text-ds-text">
-                      ₹{(b.totalPricePaise / 100).toFixed(0)} ({b.paymentMethod || 'CASH'} • {b.paymentStatus})
-                    </span>
+                    <span className="text-ds-text-dim">Price:</span>
+                    <span className="font-bold text-ds-text">₹{(b.totalPricePaise / 100).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-ds-text-dim">Payment Mode:</span>
+                    <span className="font-bold text-ds-text">{b.paymentMethod || 'Unpaid'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-ds-text-dim">Payment Status:</span>
+                    <span className="font-bold text-ds-text">{b.paymentStatus}</span>
                   </div>
                 </div>
 
                 {/* Quick Link Footer */}
                 <div className="flex items-center justify-between pt-2">
-                  <Link
-                    href={`/booking/confirmation/${b.bookingRef || b.id}`}
-                    target="_blank"
-                    className="text-xs text-ds-ice hover:underline flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>View Customer Receipt / QR Pass</span>
-                  </Link>
+                  <span className="text-xs text-ds-text-dim">Reference: {b.bookingRef}</span>
 
                   <Button variant="outline" size="sm" onClick={() => setSelectedBookingForGrid(null)}>
                     Close

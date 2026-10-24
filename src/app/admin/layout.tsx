@@ -92,6 +92,7 @@ function SidebarNav({
   pathname,
   user,
   onClose,
+  onExpand,
   onLogout,
   isMobile = false,
   collapsed = false,
@@ -99,6 +100,7 @@ function SidebarNav({
   pathname: string;
   user: AuthUser | null;
   onClose?: () => void;
+  onExpand?: () => void;
   onLogout?: () => void;
   isMobile?: boolean;
   collapsed?: boolean;
@@ -173,9 +175,16 @@ function SidebarNav({
               <div key={group.id} className="space-y-1">
                 <button
                   type="button"
-                  onClick={() => setOpenGroup(isOpen ? null : group.id)}
+                  onClick={() => {
+                    if (collapsed) {
+                      setOpenGroup(group.id);
+                      onExpand?.();
+                    } else {
+                      setOpenGroup(isOpen ? null : group.id);
+                    }
+                  }}
                   aria-label={group.name}
-                  aria-expanded={isOpen}
+                  aria-expanded={!collapsed && isOpen}
                   aria-controls={`admin-nav-${group.id}`}
                   title={collapsed ? group.name : undefined}
                   className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent ${
@@ -190,7 +199,7 @@ function SidebarNav({
                 </button>
                 <div
                   id={`admin-nav-${group.id}`}
-                  hidden={!isOpen}
+                  hidden={collapsed || !isOpen}
                   className={`${collapsed ? 'space-y-1' : 'ml-4 pl-2 border-l border-ds-border space-y-1'}`}
                 >
                   {group.items.map((item) => renderLink(item, true))}
@@ -349,6 +358,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             pathname={pathname}
             user={user}
             onClose={toggleSidebar}
+            onExpand={toggleSidebar}
             onLogout={handleLogout}
             isMobile={false}
             collapsed={!isSidebarOpen}

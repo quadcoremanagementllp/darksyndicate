@@ -6,8 +6,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import {
-  Calendar,
   Search,
   ExternalLink,
   RotateCw,
@@ -16,21 +16,12 @@ import {
   X,
   Download,
   CheckCircle2,
-  Ban,
-  AlertCircle,
   Trash2,
-  AlertTriangle,
   CheckSquare,
   Square,
-  List,
-  LayoutGrid,
-  Clock,
-  Gamepad2,
-  ArrowRight,
+  Info,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-
-type DatePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | '7DAYS' | 'MONTH' | 'CUSTOM';
 
 function getKolkataDateString(dateInput: string | Date): string {
   try {
@@ -47,6 +38,28 @@ function getKolkataDateString(dateInput: string | Date): string {
   }
 }
 
+interface SelectedBooking {
+  bookingRef: string;
+  customerName: string;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  playerCount?: number | null;
+  stationName: string;
+  facilityName: string;
+  bookedVia?: string | null;
+  isWalkIn: boolean;
+  staffName?: string | null;
+  gameTitle?: string | null;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  totalPricePaise: number;
+  paymentMethod?: string | null;
+  paymentStatus: string;
+  status: string;
+  session?: { startedAt: string; endedAt?: string | null } | null;
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,15 +67,13 @@ export default function AdminBookingsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [channelFilter, setChannelFilter] = useState<'ALL' | 'ONLINE' | 'DESK'>('ALL');
-  const [datePreset, setDatePreset] = useState<DatePreset>('ALL');
-  const [customDate, setCustomDate] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [todayOnly, setTodayOnly] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<SelectedBooking | null>(null);
 
-  // Clear Data & Selection states
+  // Row selection and deletion states
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [showClearModal, setShowClearModal] = useState(false);
-  const [clearScope, setClearScope] = useState<'ALL' | 'COMPLETED_CANCELLED' | 'WALK_IN_TEST'>('ALL');
-  const [clearConfirmText, setClearConfirmText] = useState('');
   const [clearLoading, setClearLoading] = useState(false);
   const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
@@ -125,12 +136,6 @@ export default function AdminBookingsPage() {
 
   const onlineCount = bookings.filter((b) => !b.isWalkIn).length;
   const deskCount = bookings.filter((b) => b.isWalkIn).length;
-  const completedOrCancelledCount = bookings.filter((b) =>
-    ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status)
-  ).length;
-  const walkInCount = bookings.filter(
-    (b) => b.isWalkIn || b.customerEmail === 'guest@darksyndicate.in'
-  ).length;
 
   const handleDeleteSingle = async (b: any) => {
     if (
@@ -193,35 +198,6 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const handleExecuteClearAll = async () => {
-    if (clearConfirmText.trim().toUpperCase() !== 'CLEAR') {
-      toast.error('Please type "CLEAR" into the box to confirm data purge.');
-      return;
-    }
-    setClearLoading(true);
-    try {
-      const res = await fetch('/api/admin/bookings', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clearAll: true, scope: clearScope }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success(json.data?.message || 'Reservations data cleared successfully');
-        setShowClearModal(false);
-        setClearConfirmText('');
-        setSelectedIds([]);
-        loadBookings();
-      } else {
-        toast.error(json.error?.message || 'Failed to clear data');
-      }
-    } catch {
-      toast.error('Network error while clearing data');
-    } finally {
-      setClearLoading(false);
-    }
-  };
-
   const handleSelectAllVisible = () => {
     const visibleIds = filteredBookings.map((b) => b.id);
     const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
@@ -238,23 +214,20 @@ export default function AdminBookingsPage() {
     );
   };
 
-  const handlePresetClick = (preset: DatePreset) => {
-    setDatePreset(preset);
-    setCustomDate('');
-  };
-
   const isAnyFilterActive =
     channelFilter !== 'ALL' ||
     statusFilter !== 'ALL' ||
-    datePreset !== 'ALL' ||
-    Boolean(customDate) ||
+    todayOnly ||
+    Boolean(dateFrom) ||
+    Boolean(dateTo) ||
     Boolean(search.trim());
 
   const handleResetFilters = () => {
     setChannelFilter('ALL');
     setStatusFilter('ALL');
-    setDatePreset('ALL');
-    setCustomDate('');
+    setDateFrom('');
+    setDateTo('');
+    setTodayOnly(false);
     setSearch('');
   };
 
@@ -279,21 +252,10 @@ export default function AdminBookingsPage() {
     let matchesDate = true;
     const bDateStr = getKolkataDateString(b.startTime || b.date);
 
-    if (customDate) {
-      matchesDate = bDateStr === customDate;
-    } else if (datePreset === 'TODAY') {
-      const todayStr = getKolkataDateString(new Date());
-      matchesDate = bDateStr === todayStr;
-    } else if (datePreset === 'YESTERDAY') {
-      const yesterdayStr = getKolkataDateString(new Date(Date.now() - 86400000));
-      matchesDate = bDateStr === yesterdayStr;
-    } else if (datePreset === '7DAYS') {
-      const bookingTimestamp = new Date(b.startTime || b.date).getTime();
-      const sevenDaysAgo = Date.now() - 7 * 86400000;
-      matchesDate = bookingTimestamp >= sevenDaysAgo;
-    } else if (datePreset === 'MONTH') {
-      const currentMonth = getKolkataDateString(new Date()).slice(0, 7);
-      matchesDate = bDateStr.startsWith(currentMonth);
+    if (todayOnly) {
+      matchesDate = bDateStr === getKolkataDateString(new Date());
+    } else {
+      matchesDate = (!dateFrom || bDateStr >= dateFrom) && (!dateTo || bDateStr <= dateTo);
     }
 
     return matchesStatus && matchesChannel && matchesSearch && matchesDate;
@@ -343,70 +305,26 @@ export default function AdminBookingsPage() {
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight flex items-center gap-2.5">
-            <span className="text-2xl">📋</span>
+          <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight">
             <span>All Reservations Ledger</span>
           </h1>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-          {/* Quick Metrics Badge Group */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-ds-dark border border-ds-border text-xs font-mono shrink-0">
-            <span className="px-2.5 py-1 rounded-lg text-ds-text-dim whitespace-nowrap">
-              Total: <strong className="text-white font-bold">{bookings.length}</strong>
-            </span>
-            <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 whitespace-nowrap">
-              Online: <strong className="text-white font-bold">{onlineCount}</strong>
-            </span>
-            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 whitespace-nowrap">
-              Desk: <strong className="text-white font-bold">{deskCount}</strong>
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              disabled={filteredBookings.length === 0}
-              className="text-xs font-heading font-bold whitespace-nowrap h-8"
-            >
-              <Download className="w-3.5 h-3.5 mr-1.5" />
-              <span>CSV</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadBookings}
-              disabled={loading}
-              className="text-xs font-heading font-bold whitespace-nowrap h-8"
-            >
-              <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowClearModal(true);
-                setClearConfirmText('');
-              }}
-              disabled={bookings.length === 0}
-              className="border-rose-500/40 text-rose-400 hover:bg-rose-500/15 hover:border-rose-400 hover:text-rose-300 text-xs font-heading font-bold whitespace-nowrap h-8"
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5 text-rose-400" />
-              <span>Clear Data</span>
-            </Button>
-          </div>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportCSV}
+          disabled={filteredBookings.length === 0}
+          className="text-xs font-heading font-bold whitespace-nowrap h-8"
+        >
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          <span>CSV</span>
+        </Button>
       </div>
 
       {/* Filter Bar (3 Clean Balanced Tiers) */}
       <div className="space-y-3 bg-ds-surface/50 p-3.5 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
-        {/* Tier 1: Source Channels, View Mode & Search */}
+        {/* Source channels and search */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Source Tabs */}
@@ -445,35 +363,6 @@ export default function AdminBookingsPage() {
               </button>
             </div>
 
-            {/* View Mode Switcher: Table vs Cards (Touch-friendly for Tablet) */}
-            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
-                  viewMode === 'table'
-                    ? 'bg-ds-surface text-ds-ice border border-ds-border shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-                title="Ledger Table View"
-              >
-                <List className="w-3.5 h-3.5" />
-                <span>Table</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                className={`px-2.5 py-1.5 rounded-lg font-heading font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
-                  viewMode === 'cards'
-                    ? 'bg-ds-surface text-cyan-300 border border-cyan-500/30 shadow-sm'
-                    : 'text-ds-text-dim hover:text-white'
-                }`}
-                title="Touch Cards View"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Cards</span>
-              </button>
-            </div>
           </div>
 
           {/* Search Bar - Responsive without overflowing card on tablet */}
@@ -524,66 +413,41 @@ export default function AdminBookingsPage() {
           ))}
         </div>
 
-        {/* Tier 3: Date Filtering Bar (Preset Tabs & Custom Calendar Picker & Record Count) */}
+        {/* Date range and record count */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-3 border-t border-ds-border/50 text-xs">
-          {/* Date Controls (Presets & Date Picker stay together on one line) */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-mono uppercase text-ds-text-dim flex items-center gap-1.5 font-bold shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-ds-accent" />
-              <span>Date:</span>
-            </span>
-
-            {/* Date Preset Tabs */}
-            <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-[11px] font-heading font-bold shrink-0">
-              {(
-                [
-                  { id: 'ALL', label: 'All Dates' },
-                  { id: 'TODAY', label: 'Today' },
-                  { id: 'YESTERDAY', label: 'Yesterday' },
-                  { id: '7DAYS', label: '7 Days' },
-                  { id: 'MONTH', label: 'Month' },
-                ] as const
-              ).map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => handlePresetClick(preset.id)}
-                  className={`px-2.5 py-1 rounded-lg uppercase transition-all whitespace-nowrap cursor-pointer ${
-                    datePreset === preset.id && !customDate
-                      ? 'bg-ds-accent text-white shadow-sm'
-                      : 'text-ds-text-dim hover:text-white'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Date Input */}
-            <div className="flex items-center gap-1.5 bg-ds-dark px-2.5 py-1 rounded-xl border border-ds-border shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setTodayOnly(!todayOnly);
+                setDateFrom('');
+                setDateTo('');
+              }}
+              aria-pressed={todayOnly}
+              className={`px-3 py-2 rounded-xl border font-heading font-bold ${todayOnly ? 'bg-ds-accent text-white border-ds-accent' : 'bg-ds-dark text-ds-text-muted border-ds-border hover:text-white'}`}
+            >
+              Today Only
+            </button>
+            <label className="flex items-center gap-2 text-ds-text-muted font-semibold">
+              From
               <input
                 type="date"
-                value={customDate}
-                onChange={(e) => {
-                  setCustomDate(e.target.value);
-                  setDatePreset(e.target.value ? 'CUSTOM' : 'ALL');
-                }}
-                className="bg-transparent text-xs text-ds-text font-mono [color-scheme:dark] focus:outline-none cursor-pointer"
-                title="Select specific date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => { setDateFrom(e.target.value); setTodayOnly(false); }}
+                className="bg-ds-dark border border-ds-border rounded-xl px-3 py-2 text-ds-text font-mono [color-scheme:dark] focus:outline-none focus:border-ds-accent"
               />
-              {customDate && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomDate('');
-                    setDatePreset('ALL');
-                  }}
-                  className="text-ds-text-dim hover:text-white cursor-pointer ml-0.5"
-                  title="Clear custom date"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+            </label>
+            <label className="flex items-center gap-2 text-ds-text-muted font-semibold">
+              To
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => { setDateTo(e.target.value); setTodayOnly(false); }}
+                className="bg-ds-dark border border-ds-border rounded-xl px-3 py-2 text-ds-text font-mono [color-scheme:dark] focus:outline-none focus:border-ds-accent"
+              />
+            </label>
           </div>
 
           {/* Sub-bar on tablet / right aligned on desktop: Filter Reset & Count */}
@@ -641,7 +505,7 @@ export default function AdminBookingsPage() {
         </div>
       )}
 
-      {/* Ledger Content (Table View & Cards View) */}
+      {/* Ledger table */}
       {loading ? (
         <Card glass className="border-ds-border p-16 text-center text-xs text-ds-text-dim flex flex-col items-center gap-2">
           <RotateCw className="w-5 h-5 animate-spin text-ds-accent" />
@@ -656,24 +520,11 @@ export default function AdminBookingsPage() {
             </Button>
           )}
         </Card>
-      ) : viewMode === 'table' ? (
+      ) : (
         <Card glass className="border-ds-border overflow-hidden shadow-lg">
-          {/* Tablet/Mobile Swipe Hint Banner */}
-          <div className="xl:hidden flex items-center justify-between px-4 py-2.5 bg-ds-dark/95 border-b border-ds-border text-[11px] font-mono text-ds-text-dim">
-            <span className="flex items-center gap-1.5">
-              <ArrowRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              <span>Swipe horizontally for full ledger table</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 hover:underline ml-2 shrink-0 cursor-pointer"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Cards View (Recommended) →</span>
-            </button>
-          </div>
-
+          <p className="xl:hidden px-4 py-2.5 border-b border-ds-border bg-ds-dark/95 text-[11px] font-mono text-ds-text-dim">
+            Swipe horizontally to see all columns.
+          </p>
           <div className="overflow-x-auto relative">
             <table className="w-full text-left text-xs min-w-[1080px]">
               <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
@@ -881,6 +732,16 @@ export default function AdminBookingsPage() {
 
                           <button
                             type="button"
+                            onClick={() => setSelectedBooking(b)}
+                            className="p-1.5 rounded-lg border border-ds-border text-ds-ice hover:border-ds-accent hover:bg-ds-surface transition-colors"
+                            title={`View details for ${b.bookingRef}`}
+                            aria-label={`View details for ${b.bookingRef}`}
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
                             disabled={deleteLoadingId === b.id || isBusy}
                             onClick={() => handleDeleteSingle(b)}
                             className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50 cursor-pointer"
@@ -897,367 +758,57 @@ export default function AdminBookingsPage() {
             </table>
           </div>
         </Card>
-      ) : (
-        /* ─── GRID CARDS VIEW (Tablet & Mobile Optimized Touch Cards) ─── */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredBookings.map((b) => {
-            const canMarkPaid =
-              b.paymentStatus !== 'COMPLETED' &&
-              !['CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status);
-            const canCancelOrNoShow = ['PENDING', 'CONFIRMED'].includes(b.status);
-            const isBusy = actionLoadingId === b.id;
-            const isRowSelected = selectedIds.includes(b.id);
-
-            return (
-              <Card
-                key={b.id}
-                glass
-                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                  isRowSelected ? 'border-rose-500/50 bg-rose-500/5' : 'border-ds-border hover:border-ds-border-bright'
-                }`}
-              >
-                {/* Card Top: Checkbox, Ref, Badges, Price */}
-                <div className="flex items-start justify-between gap-2 pb-3 border-b border-ds-border/50">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSelect(b.id)}
-                      className="text-ds-text-dim hover:text-white transition-colors cursor-pointer"
-                    >
-                      {isRowSelected ? (
-                        <CheckSquare className="w-4 h-4 text-rose-400" />
-                      ) : (
-                        <Square className="w-4 h-4 text-ds-border hover:text-ds-text" />
-                      )}
-                    </button>
-                    <span className="font-mono font-bold text-xs text-ds-ice bg-ds-dark/80 border border-ds-border px-2 py-0.5 rounded-lg select-all whitespace-nowrap">
-                      {b.bookingRef}
-                    </span>
-                    {b.isWalkIn ? (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold uppercase tracking-wider whitespace-nowrap">
-                        DESK
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold uppercase tracking-wider whitespace-nowrap">
-                        ONLINE
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-heading font-black text-ds-text">
-                      ₹{(b.totalPricePaise / 100).toFixed(0)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Body: Player, Station, Time, Payment */}
-                <div className="space-y-2.5 text-xs flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-heading font-bold text-ds-text text-sm">{b.customerName}</div>
-                      <div className="text-[11px] text-ds-text-dim">{b.customerEmail || b.customerPhone || '—'}</div>
-                    </div>
-                    <Badge
-                      variant={
-                        b.status === 'CONFIRMED'
-                          ? 'success'
-                          : b.status === 'IN_PROGRESS' || b.status === 'CHECKED_IN'
-                          ? 'accent'
-                          : b.status === 'COMPLETED'
-                          ? 'default'
-                          : b.status === 'CANCELLED' || b.status === 'NO_SHOW'
-                          ? 'danger'
-                          : 'warning'
-                      }
-                      size="sm"
-                      className="font-mono text-[10px] whitespace-nowrap shrink-0"
-                    >
-                      {b.status}
-                    </Badge>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-ds-dark/70 border border-ds-border/60 space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-ds-ice flex items-center gap-1.5">
-                        <Gamepad2 className="w-3.5 h-3.5 text-ds-accent shrink-0" />
-                        <span className="truncate max-w-[150px]">{b.stationName}</span>
-                      </span>
-                      <span className="text-[10px] text-ds-accent uppercase font-mono">{b.facilityName}</span>
-                    </div>
-                    {b.gameTitle && (
-                      <div className="text-[11px] text-ds-cyan font-mono flex items-center gap-1">
-                        <span>🎮</span>
-                        <span className="truncate">{b.gameTitle}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] font-mono pt-0.5">
-                    <span className="flex items-center gap-1.5 text-ds-text">
-                      <Clock className="w-3.5 h-3.5 text-ds-accent shrink-0" />
-                      <span className="whitespace-nowrap">
-                        {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
-                        {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </span>
-                    <span className="text-ds-text-dim whitespace-nowrap">
-                      {new Date(b.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] font-mono pt-0.5 text-ds-text-dim">
-                    <span>
-                      Payment: <strong className="text-ds-text">{b.paymentMethod || '—'}</strong>
-                    </span>
-                    <span
-                      className={`font-semibold ${
-                        b.paymentStatus === 'COMPLETED'
-                          ? 'text-emerald-400'
-                          : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
-                          ? 'text-amber-400'
-                          : 'text-rose-400'
-                      }`}
-                    >
-                      {b.paymentStatus}
-                    </span>
-                  </div>
-
-                  {b.staffName && (
-                    <div className="text-[10px] text-ds-text-dim font-mono pt-0.5">
-                      Staff: <span className="text-ds-ice font-semibold">{b.staffName}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Actions Footer */}
-                <div className="pt-3 border-t border-ds-border/50 flex items-center justify-end gap-1.5 flex-wrap">
-                  {canMarkPaid && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => handleBookingAction(b, 'MARK_PAID', 'CASH')}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Settle Pending Payment via Cash"
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Cash</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => handleBookingAction(b, 'MARK_PAID', 'UPI')}
-                        className="px-2.5 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Settle Pending Payment via UPI"
-                      >
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>UPI</span>
-                      </button>
-                    </>
-                  )}
-                  {canCancelOrNoShow && (
-                    <>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => handleBookingAction(b, 'NO_SHOW')}
-                        className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
-                        title="Mark as No-Show"
-                      >
-                        No-Show
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => handleBookingAction(b, 'CANCEL')}
-                        className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
-                        title="Cancel Reservation"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                  <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank">
-                    <Button variant="outline" size="sm" className="text-[11px] py-1 px-2.5 cursor-pointer">
-                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                      <span>Pass</span>
-                    </Button>
-                  </Link>
-
-                  <button
-                    type="button"
-                    disabled={deleteLoadingId === b.id || isBusy}
-                    onClick={() => handleDeleteSingle(b)}
-                    className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50 cursor-pointer"
-                    title={`Delete reservation ${b.bookingRef}`}
-                  >
-                    <Trash2 className={`w-3.5 h-3.5 ${deleteLoadingId === b.id ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
       )}
 
-      {/* Clear Data Modal */}
-      {showClearModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-ds-dark border border-rose-500/40 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setShowClearModal(false)}
-              className="absolute top-5 right-5 text-ds-text-dim hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Modal Header */}
-            <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-heading font-black text-lg text-white uppercase tracking-wide">
-                  Clear Reservations &amp; Test Data
-                </h3>
-                <p className="text-xs text-ds-text-muted mt-0.5">
-                  Permanently delete booking history, payments, and closed test sessions from the database.
-                </p>
-              </div>
+      <Modal
+        isOpen={!!selectedBooking}
+        onClose={() => setSelectedBooking(null)}
+        title="Reservation Details"
+        description={selectedBooking?.bookingRef}
+        size="lg"
+      >
+        {selectedBooking && (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                ['Player', selectedBooking.customerName],
+                ['Phone', selectedBooking.customerPhone || '—'],
+                ['Email', selectedBooking.customerEmail || '—'],
+                ['Players', String(selectedBooking.playerCount ?? '—')],
+                ['Station', selectedBooking.stationName],
+                ['Facility', selectedBooking.facilityName],
+                ['Booking Channel', selectedBooking.bookedVia || (selectedBooking.isWalkIn ? 'Desk Walk-in' : 'Online')],
+                ['Booked By', selectedBooking.staffName || 'Customer Portal'],
+                ['Game', selectedBooking.gameTitle || '—'],
+                ['Date (IST)', getKolkataDateString(selectedBooking.startTime)],
+                ['Start (IST)', new Date(selectedBooking.startTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })],
+                ['End (IST)', new Date(selectedBooking.endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })],
+                ['Duration', `${Math.floor(selectedBooking.durationMinutes / 60)}h ${selectedBooking.durationMinutes % 60}m`],
+                ['Price', `₹${(selectedBooking.totalPricePaise / 100).toLocaleString('en-IN')}`],
+                ['Payment Mode', selectedBooking.paymentMethod || 'Unpaid'],
+                ['Payment Status', selectedBooking.paymentStatus],
+                ['Booking Status', selectedBooking.status],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-ds-border bg-ds-dark/60 px-3 py-2.5 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider font-mono text-ds-text-dim">{label}</p>
+                  <p className="mt-1 font-semibold text-ds-text break-words">{value}</p>
+                </div>
+              ))}
+              {selectedBooking.session?.endedAt && (
+                <div className="rounded-xl border border-ds-border bg-ds-dark/60 px-3 py-2.5 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider font-mono text-ds-text-dim">Actual Session</p>
+                  <p className="mt-1 font-semibold text-ds-text">
+                    {Math.max(0, Math.round((new Date(selectedBooking.session.endedAt).getTime() - new Date(selectedBooking.session.startedAt).getTime()) / 60000))} minutes
+                  </p>
+                </div>
+              )}
             </div>
-
-            {/* Scope Selection */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text-dim block">
-                Choose Data Purge Scope:
-              </label>
-
-              <div className="space-y-2">
-                <label
-                  onClick={() => setClearScope('ALL')}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    clearScope === 'ALL'
-                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
-                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="clearScope"
-                    checked={clearScope === 'ALL'}
-                    onChange={() => setClearScope('ALL')}
-                    className="mt-1 accent-rose-500"
-                  />
-                  <div>
-                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
-                      <span>Full Wipe: All Reservations</span>
-                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
-                        {bookings.length} Records
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ds-text-dim mt-0.5">
-                      Clears all {bookings.length} reservations, receipts, and closed sessions to reset the ledger to zero.
-                    </p>
-                  </div>
-                </label>
-
-                <label
-                  onClick={() => setClearScope('COMPLETED_CANCELLED')}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    clearScope === 'COMPLETED_CANCELLED'
-                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
-                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="clearScope"
-                    checked={clearScope === 'COMPLETED_CANCELLED'}
-                    onChange={() => setClearScope('COMPLETED_CANCELLED')}
-                    className="mt-1 accent-rose-500"
-                  />
-                  <div>
-                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
-                      <span>Past &amp; Completed Only</span>
-                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
-                        {completedOrCancelledCount} Records
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ds-text-dim mt-0.5">
-                      Removes completed, cancelled, and no-show sessions while preserving active/upcoming bookings.
-                    </p>
-                  </div>
-                </label>
-
-                <label
-                  onClick={() => setClearScope('WALK_IN_TEST')}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    clearScope === 'WALK_IN_TEST'
-                      ? 'bg-rose-500/15 border-rose-500 text-white shadow-sm'
-                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-rose-500/40'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="clearScope"
-                    checked={clearScope === 'WALK_IN_TEST'}
-                    onChange={() => setClearScope('WALK_IN_TEST')}
-                    className="mt-1 accent-rose-500"
-                  />
-                  <div>
-                    <div className="font-heading font-bold text-xs uppercase text-white flex items-center gap-1.5">
-                      <span>Front-Desk Walk-In Tests Only</span>
-                      <span className="font-mono text-[10px] text-rose-400 font-bold px-1.5 py-0.5 bg-rose-500/20 rounded">
-                        {walkInCount} Records
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ds-text-dim mt-0.5">
-                      Removes only walk-in test guest records created at the front desk.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Confirmation Input Safeguard */}
-            <div className="space-y-1.5 p-3.5 rounded-2xl bg-ds-surface/70 border border-ds-border">
-              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                <span>Type &quot;CLEAR&quot; to Confirm Data Purge:</span>
-              </label>
-              <Input
-                placeholder="CLEAR"
-                value={clearConfirmText}
-                onChange={(e) => setClearConfirmText(e.target.value)}
-                className="text-center font-mono font-bold tracking-widest uppercase text-rose-300 border-rose-500/30 bg-ds-dark"
-              />
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowClearModal(false)}
-                disabled={clearLoading}
-              >
-                Cancel
-              </Button>
-              <button
-                type="button"
-                onClick={handleExecuteClearAll}
-                disabled={clearLoading || clearConfirmText.trim().toUpperCase() !== 'CLEAR'}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-heading font-bold text-xs uppercase flex items-center gap-2 transition-all shadow-lg shadow-rose-900/50"
-              >
-                <Trash2 className={`w-4 h-4 ${clearLoading ? 'animate-spin' : ''}`} />
-                <span>{clearLoading ? 'Purging...' : 'Permanently Clear Data'}</span>
-              </button>
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setSelectedBooking(null)}>Close</Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }
