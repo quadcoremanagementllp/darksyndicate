@@ -103,48 +103,15 @@ export default function AdminReportsPage() {
   return (
     <div className="space-y-8 print:p-0">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+        <div className="min-w-0">
           <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
             Business Intelligence & Reports
           </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Settled payments, reservation volume, facility mix, and booked hours from your records.
           </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-2 xl:items-end">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Timeframe selector */}
-            <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold">
-              {(['7d', '30d', 'month', 'year'] as const).map((tf) => (
-                <button
-                  key={tf}
-                  type="button"
-                  onClick={() => { setTimeframe(tf); setFromDate(''); setToDate(''); }}
-                  className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors ${
-                    timeframe === tf
-                      ? 'bg-ds-accent text-white shadow-glow-sm'
-                      : 'text-ds-text-muted hover:text-white'
-                  }`}
-                >
-                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === 'month' ? 'Month' : 'YTD'}
-                </button>
-              ))}
-            </div>
-
-            <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!reportData || loading}>
-              <Download className="w-3.5 h-3.5 mr-1.5" />
-              <span>CSV</span>
-            </Button>
-
-            <Button variant="ghost" size="sm" onClick={() => window.print()}>
-              <Printer className="w-3.5 h-3.5 mr-1.5" />
-              <span>Print</span>
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-ds-text-muted">
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-mono text-ds-text-muted">
             <label className="flex items-center gap-2">
               <span>From</span>
               <input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => { setFromDate(event.target.value); setTimeframe('custom'); }} className="rounded-lg border border-ds-border bg-ds-surface px-2.5 py-1.5 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none" />
@@ -155,8 +122,38 @@ export default function AdminReportsPage() {
             </label>
           </div>
           {timeframe === 'custom' && (!fromDate || !toDate) && (
-            <p className="text-xs text-ds-text-muted">Choose both dates to view the report.</p>
+            <p className="mt-2 text-xs text-ds-text-muted">Choose both dates to view the report.</p>
           )}
+        </div>
+
+        {/* Report controls */}
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:shrink-0">
+          <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold">
+            {(['7d', '30d', 'month', 'year'] as const).map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                onClick={() => { setTimeframe(tf); setFromDate(''); setToDate(''); }}
+                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors ${
+                  timeframe === tf
+                    ? 'bg-ds-accent text-white shadow-glow-sm'
+                    : 'text-ds-text-muted hover:text-white'
+                }`}
+              >
+                {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === 'month' ? 'Month' : 'YTD'}
+              </button>
+            ))}
+          </div>
+
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!reportData || loading}>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            <span>CSV</span>
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={() => window.print()}>
+            <Printer className="w-3.5 h-3.5 mr-1.5" />
+            <span>Print</span>
+          </Button>
         </div>
       </div>
 

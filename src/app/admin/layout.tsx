@@ -60,30 +60,32 @@ function SidebarNav({
   onClose,
   onLogout,
   isMobile = false,
+  collapsed = false,
 }: {
   pathname: string;
   user: any;
   onClose?: () => void;
   onLogout?: () => void;
   isMobile?: boolean;
+  collapsed?: boolean;
 }) {
   return (
     <div className="flex flex-col h-full justify-between">
       <div className="flex flex-col flex-1 overflow-y-auto">
         {/* Brand Header */}
-        <div className="p-5 border-b border-ds-border flex items-center justify-between">
-          <Link href="/admin" onClick={isMobile ? onClose : undefined} className="flex items-center gap-3 group min-w-0">
+        <div className={`${collapsed ? 'p-3 justify-center' : 'p-5 justify-between'} border-b border-ds-border flex items-center`}>
+          <Link href="/admin" onClick={isMobile ? onClose : undefined} title={collapsed ? 'Dark Syndicate Dashboard' : undefined} aria-label="Dark Syndicate Dashboard" className="flex items-center gap-3 group min-w-0">
             <div className="w-9 h-9 rounded-xl bg-ds-surface flex items-center justify-center border border-ds-accent/40 shadow-inner shrink-0">
               <Image src="/logo.svg" alt="Dark Syndicate" width={26} height={26} className="object-contain" />
             </div>
-            <div className="truncate">
+            {!collapsed && <div className="truncate">
               <span className="font-heading font-black text-sm uppercase tracking-wider text-ds-text group-hover:text-ds-ice transition-colors block truncate">
                 DARK SYNDICATE
               </span>
               <span className="text-[9px] font-mono tracking-widest text-ds-accent uppercase block font-bold truncate">
                 COMMAND CENTER
               </span>
-            </div>
+            </div>}
           </Link>
           {isMobile && onClose && (
             <button
@@ -99,10 +101,10 @@ function SidebarNav({
         </div>
 
         {/* Navigation Links */}
-        <nav className="p-4 space-y-1.5 flex-1">
-          <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
+        <nav className={`${collapsed ? 'p-2' : 'p-4'} space-y-1.5 flex-1`}>
+          {!collapsed && <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
             Management
-          </span>
+          </span>}
           {navigation.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -111,7 +113,10 @@ function SidebarNav({
                 key={item.name}
                 href={item.href}
                 onClick={isMobile ? onClose : undefined}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                aria-label={item.name}
+                aria-current={isActive ? 'page' : undefined}
+                title={collapsed ? item.name : undefined}
+                className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
                   isActive
                     ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
                     : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
@@ -119,36 +124,36 @@ function SidebarNav({
               >
                 <div className="flex items-center gap-3 truncate">
                   <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.name}</span>
+                  {!collapsed && <span className="truncate">{item.name}</span>}
                 </div>
-                {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+                {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
               </Link>
             );
           })}
         </nav>
 
         {/* User Profile Badge */}
-        <div className="p-4 border-t border-ds-border bg-ds-surface/30">
-          <div className="flex items-center justify-between">
+        <div className={`${collapsed ? 'p-3' : 'p-4'} border-t border-ds-border bg-ds-surface/30`}>
+          <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'justify-between'}`}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-ds-accent/20 border border-ds-accent/40 text-ds-ice flex items-center justify-center font-heading font-bold text-xs shrink-0">
                 {user?.firstName?.[0] || 'A'}
               </div>
-              <div className="text-left text-xs truncate">
+              {!collapsed && <div className="text-left text-xs truncate">
                 <p className="font-heading font-bold text-ds-text leading-tight truncate">
                   {user?.firstName || 'System'} {user?.lastName || 'Admin'}
                 </p>
                 <span className="text-[10px] text-emerald-400 font-mono font-semibold uppercase">
                   {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Administrator'}
                 </span>
-              </div>
+              </div>}
             </div>
 
             {onLogout && (
               <button
                 type="button"
                 onClick={onLogout}
-                className="p-1.5 rounded-lg text-ds-text-dim hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 ml-1"
+                className={`p-1.5 rounded-lg text-ds-text-dim hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all shrink-0 ${collapsed ? '' : 'ml-1'}`}
                 title="Sign Out"
                 aria-label="Sign Out"
               >
@@ -266,18 +271,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Desktop Collapsible Sidebar */}
       <aside
         className={`bg-ds-dark/95 border-r border-ds-border flex flex-col justify-between shrink-0 hidden md:flex sticky top-0 h-screen transition-all duration-300 ease-in-out ${
-          isSidebarOpen
-            ? 'w-64 opacity-100'
-            : 'w-0 opacity-0 pointer-events-none overflow-hidden border-r-0'
+          isSidebarOpen ? 'w-64' : 'w-20'
         }`}
       >
-        <div className="w-64 h-full flex flex-col">
+        <div className="w-full h-full flex flex-col">
           <SidebarNav
             pathname={pathname}
             user={user}
             onClose={toggleSidebar}
             onLogout={handleLogout}
             isMobile={false}
+            collapsed={!isSidebarOpen}
           />
         </div>
       </aside>
