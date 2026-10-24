@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Record shift only for floor STAFF (Administrators are not tracked as floor shift workers)
-      if (user.role === 'STAFF') {
+      // Track staff and administrators; super administrators are excluded.
+      if (user.role === 'STAFF' || user.role === 'ADMIN') {
         // Close abandoned shifts at the one-hour inactivity deadline.
         const openShifts = await prisma.staffShift.findMany({
           where: { userId: user.id, logoutAt: null },

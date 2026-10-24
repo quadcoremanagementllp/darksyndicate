@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import {
   CreditCard,
   Search,
-  RotateCw,
+  CalendarDays,
   Banknote,
   Sparkles,
   Globe,
@@ -18,8 +18,11 @@ import {
   Filter,
   Download,
   RotateCcw,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { paymentDateInISTRange } from '@/lib/paymentDateFilter';
+import { serializeCsv } from '@/lib/csv';
 
 interface CollectedBy {
   id?: string;
@@ -63,7 +66,20 @@ export default function AdminPaymentsPage() {
   const [methodFilter, setMethodFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [staffFilter, setStaffFilter] = useState('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const paymentsRequest = useRef(0);
+
+  const clearFilters = () => {
+    setChannelFilter('ALL');
+    setMethodFilter('ALL');
+    setStatusFilter('ALL');
+    setStaffFilter('ALL');
+    setDateFrom('');
+    setDateTo('');
+    setSearch('');
+  };
 
   // Refund & Settlement State
   const [refundModalOpen, setRefundModalOpen] = useState(false);
@@ -75,27 +91,34 @@ export default function AdminPaymentsPage() {
   const toast = useToast();
 
   const loadPayments = async () => {
+    const requestId = ++paymentsRequest.current;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/payments');
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      const query = params.toString();
+      const res = await fetch(`/api/admin/payments${query ? `?${query}` : ''}`);
       const json = await res.json();
-      if (json.success && json.data) {
+      if (requestId === paymentsRequest.current && res.ok && json.success && json.data) {
         const list = Array.isArray(json.data) ? json.data : json.data.payments || [];
         setPayments(list);
         if (json.data.staffList) {
           setStaffList(json.data.staffList);
         }
+      } else if (requestId === paymentsRequest.current) {
+        toast.error(json.error?.message || 'Failed to load payments ledger');
       }
     } catch {
-      toast.error('Failed to load payments ledger');
+      if (requestId === paymentsRequest.current) toast.error('Failed to load payments ledger');
     } finally {
-      setLoading(false);
+      if (requestId === paymentsRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadPayments();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const handleSettlePayment = async (payment: Payment, method: 'CASH' | 'UPI') => {
     if (!confirm(`Mark ${payment.bookingRef} (₹${(payment.amountPaise / 100).toFixed(0)}) as settled via ${method}?`)) {
@@ -177,16 +200,21 @@ export default function AdminPaymentsPage() {
       toast.error('No transactions to export');
       return;
     }
-    const headers = 'Reference,Customer,Email,Channel,AmountINR,RefundedINR,NetINR,Method,Collector,Station,Status,Date\n';
-    const rows = filteredPayments
-      .map((p) => {
+    const rows = [
+      ['Reference', 'Customer', 'Email', 'Channel', 'AmountINR', 'RefundedINR', 'NetINR', 'Method', 'Collector', 'Station', 'Status', 'Date (IST)'],
+      ...filteredPayments.map((p) => {
         const net = (p.netAmountPaise ?? p.amountPaise) / 100;
         const refunded = (p.refundedPaise || 0) / 100;
-        return `"${p.bookingRef}","${p.customerName}","${p.customerEmail || ''}","${p.channel}","${(p.amountPaise / 100).toFixed(2)}","${refunded.toFixed(2)}","${net.toFixed(2)}","${p.method}","${p.collectedBy?.name || ''}","${p.stationName}","${p.status}","${new Date(p.paidAt).toLocaleString()}"`;
-      })
-      .join('\n');
+        return [
+          p.bookingRef, p.customerName, p.customerEmail || '', p.channel,
+          (p.amountPaise / 100).toFixed(2), refunded.toFixed(2), net.toFixed(2),
+          p.method, p.collectedBy?.name || '', p.stationName, p.status,
+          new Date(p.paidAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        ];
+      }),
+    ];
 
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF', serializeCsv(rows)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -194,36 +222,42 @@ export default function AdminPaymentsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success('Payments ledger exported to CSV');
   };
 
-  // Compute live ledger summary (net of refunds)
+  const dateScopedPayments = useMemo(
+    () => payments.filter((payment) => paymentDateInISTRange(payment.paidAt, dateFrom, dateTo)),
+    [payments, dateFrom, dateTo],
+  );
+
+  // Compute summary for the selected India-time date range (net of refunds).
   const summary = useMemo(() => {
     const settledStatuses = ['COMPLETED', 'PARTIALLY_REFUNDED'];
-    const totalRevenuePaise = payments
+    const totalRevenuePaise = dateScopedPayments
       .filter((p) => settledStatuses.includes(p.status))
       .reduce((sum, p) => sum + (p.netAmountPaise ?? p.amountPaise), 0);
 
-    const onlineRevenuePaise = payments
+    const onlineRevenuePaise = dateScopedPayments
       .filter((p) => settledStatuses.includes(p.status) && p.channel === 'ONLINE')
       .reduce((sum, p) => sum + (p.netAmountPaise ?? p.amountPaise), 0);
 
-    const deskRevenuePaise = payments
+    const deskRevenuePaise = dateScopedPayments
       .filter((p) => settledStatuses.includes(p.status) && p.channel === 'DESK')
       .reduce((sum, p) => sum + (p.netAmountPaise ?? p.amountPaise), 0);
 
-    const onlineCount = payments.filter((p) => p.channel === 'ONLINE').length;
-    const deskCount = payments.filter((p) => p.channel === 'DESK').length;
+    const onlineCount = dateScopedPayments.filter((p) => p.channel === 'ONLINE').length;
+    const deskCount = dateScopedPayments.filter((p) => p.channel === 'DESK').length;
 
     return {
       totalRevenuePaise,
       onlineRevenuePaise,
       deskRevenuePaise,
-      totalCount: payments.length,
+      totalCount: dateScopedPayments.length,
       onlineCount,
       deskCount,
     };
-  }, [payments]);
+  }, [dateScopedPayments]);
 
   // Extract unique staff names from payments list
   const uniqueCollectors = useMemo(() => {
@@ -237,7 +271,7 @@ export default function AdminPaymentsPage() {
   }, [payments]);
 
   const filteredPayments = useMemo(() => {
-    return payments.filter((p) => {
+    return dateScopedPayments.filter((p) => {
       const matchesChannel = channelFilter === 'ALL' || p.channel === channelFilter;
       const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
@@ -261,7 +295,10 @@ export default function AdminPaymentsPage() {
 
       return matchesChannel && matchesMethod && matchesStatus && matchesStaff && matchesSearch;
     });
-  }, [payments, channelFilter, methodFilter, statusFilter, staffFilter, search]);
+  }, [dateScopedPayments, channelFilter, methodFilter, statusFilter, staffFilter, search]);
+
+  const hasActiveFilters = channelFilter !== 'ALL' || methodFilter !== 'ALL' || statusFilter !== 'ALL' ||
+    staffFilter !== 'ALL' || Boolean(dateFrom || dateTo || search.trim());
 
   return (
     <div className="space-y-6">
@@ -277,16 +314,10 @@ export default function AdminPaymentsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-ds-border hover:border-ds-accent/40">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>Export CSV</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={loadPayments} className="border-ds-border hover:border-ds-accent/40">
-            <RotateCw className="w-3.5 h-3.5 mr-1.5 text-ds-accent" />
-            <span>Refresh Ledger</span>
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-ds-border hover:border-ds-accent/40">
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          <span>Export CSV</span>
+        </Button>
       </div>
 
       {/* KPI Stat Cards: Online vs Desk Breakdown */}
@@ -404,7 +435,7 @@ export default function AdminPaymentsPage() {
             </div>
           </div>
 
-          {/* Payment Method & Status Filters */}
+          {/* Payment Method Filter */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim mr-1">
               Method:
@@ -425,25 +456,12 @@ export default function AdminPaymentsPage() {
                 </button>
               ))}
             </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-ds-dark border border-ds-border text-xs font-mono text-ds-text focus:outline-none focus:border-ds-accent"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="COMPLETED">COMPLETED</option>
-              <option value="PENDING">PENDING</option>
-              <option value="PARTIALLY_REFUNDED">PARTIALLY_REFUNDED</option>
-              <option value="REFUNDED">REFUNDED</option>
-            </select>
           </div>
         </div>
 
-        {/* Second Row: Staff Filter Dropdown & Search Bar */}
+        {/* Staff, status, and search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-ds-border/40">
-          {/* Staff Filter Dropdown */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <UserCheck className="w-4 h-4 text-purple-400 shrink-0" />
             <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim">
               Staff:
@@ -461,6 +479,21 @@ export default function AdminPaymentsPage() {
                 </option>
               ))}
             </select>
+            <label htmlFor="payment-status-filter" className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim sm:ml-2">
+              Status:
+            </label>
+            <select
+              id="payment-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-ds-dark border border-ds-border text-xs font-mono text-ds-text focus:outline-none focus:border-ds-accent"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="COMPLETED">COMPLETED</option>
+              <option value="PENDING">PENDING</option>
+              <option value="PARTIALLY_REFUNDED">PARTIALLY_REFUNDED</option>
+              <option value="REFUNDED">REFUNDED</option>
+            </select>
           </div>
 
           {/* Search Bar */}
@@ -473,6 +506,52 @@ export default function AdminPaymentsPage() {
             />
             <Search className="w-3.5 h-3.5 text-ds-text-dim absolute left-2.5 top-2.5" />
           </div>
+        </div>
+
+        {/* India-time date range and reset */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 border-t border-ds-border/40">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-ds-text-dim shrink-0">
+            <CalendarDays className="w-4 h-4 text-ds-accent" />
+            Date (IST):
+          </div>
+          <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
+            From
+            <input
+              type="date"
+              aria-label="Payments from date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDateFrom(value);
+                if (value && dateTo && value > dateTo) setDateTo('');
+              }}
+              className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
+            To
+            <input
+              type="date"
+              aria-label="Payments to date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDateTo(value);
+                if (value && dateFrom && value < dateFrom) setDateFrom('');
+              }}
+              className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className="sm:ml-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-ds-border px-3 py-2 text-xs font-heading font-bold text-ds-text-muted hover:border-ds-accent/50 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <X className="h-3.5 w-3.5" /> Clear filters
+          </button>
         </div>
       </div>
 
@@ -489,13 +568,7 @@ export default function AdminPaymentsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setChannelFilter('ALL');
-                setMethodFilter('ALL');
-                setStatusFilter('ALL');
-                setStaffFilter('ALL');
-                setSearch('');
-              }}
+              onClick={clearFilters}
               className="text-xs mt-2"
             >
               Reset Filters

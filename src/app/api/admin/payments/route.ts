@@ -4,6 +4,7 @@ import { apiSuccess, ConflictError, handleApiError, NotFoundError, ValidationErr
 import { requireRole } from '@/lib/session';
 import { z } from 'zod';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { paymentDateBounds } from '@/lib/paymentDateFilter';
 
 const patchPaymentSchema = z.object({
   paymentId: z.string().min(1),
@@ -20,6 +21,14 @@ export async function GET(req: NextRequest) {
     const method = searchParams.get('method') || '';
     const status = searchParams.get('status') || '';
     const channel = searchParams.get('channel') || ''; // 'ALL' | 'ONLINE' | 'DESK'
+    const dateFrom = searchParams.get('from') || '';
+    const dateTo = searchParams.get('to') || '';
+    let dateBounds: { gte?: Date; lt?: Date } | undefined;
+    try {
+      if (dateFrom || dateTo) dateBounds = paymentDateBounds(dateFrom, dateTo);
+    } catch {
+      throw new ValidationError('Enter a valid From/To date range.');
+    }
     const parsedMethod = z.enum(PaymentMethod).safeParse(method);
     const parsedStatus = z.enum(PaymentStatus).safeParse(status);
 
@@ -28,6 +37,7 @@ export async function GET(req: NextRequest) {
         where: {
           ...(parsedMethod.success ? { method: parsedMethod.data } : {}),
           ...(parsedStatus.success ? { status: parsedStatus.data } : {}),
+          ...(dateBounds ? { OR: [{ paidAt: dateBounds }, { paidAt: null, createdAt: dateBounds }] } : {}),
         },
         include: {
           booking: {
@@ -52,7 +62,7 @@ export async function GET(req: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 300,
+        take: dateBounds ? undefined : 300,
       }),
       status && status !== 'ALL' && status !== 'COMPLETED'
         ? Promise.resolve([])
@@ -61,12 +71,13 @@ export async function GET(req: NextRequest) {
               status: { not: 'CANCELLED' },
               pricePaidPaise: { gt: 0 },
               ...(parsedMethod.success ? { paymentMethod: parsedMethod.data } : {}),
+              ...(dateBounds ? { createdAt: dateBounds } : {}),
             },
             include: {
               user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
             },
             orderBy: { createdAt: 'desc' },
-            take: 100,
+            take: dateBounds ? undefined : 100,
           }),
       prisma.user.findMany({
         where: { role: { in: ['STAFF', 'ADMIN', 'SUPER_ADMIN'] } },

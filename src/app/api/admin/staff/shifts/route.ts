@@ -63,10 +63,10 @@ export async function GET(req: NextRequest) {
       console.error('Error auto-closing stale shifts:', e);
     }
 
-    // 2. Build query filters (Restricted strictly to floor STAFF)
+    // 2. Include staff and administrators, but not super administrators.
     const where: Prisma.StaffShiftWhereInput = {
       user: {
-        role: 'STAFF',
+        role: { in: ['STAFF', 'ADMIN'] },
       },
     };
     if (staffId && staffId !== 'ALL') {
@@ -123,10 +123,10 @@ export async function GET(req: NextRequest) {
       orderBy: { loginAt: 'desc' },
     });
 
-    // 4. Fetch all staff members for selector dropdown (Floor staff only)
+    // 4. Fetch staff and administrators for the selector.
     const staffUsers = await prisma.user.findMany({
       where: {
-        role: 'STAFF',
+        role: { in: ['STAFF', 'ADMIN'] },
       },
       select: {
         id: true,

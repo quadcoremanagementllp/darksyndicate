@@ -217,7 +217,7 @@ export default function AdminStaffPage() {
       return;
     }
     const headers =
-      'Staff Name,Email,Role,Date (IST),Login Time (IST),Logout Time (IST),Status / Reason,Duration Formatted,Duration Minutes,IP Address\n';
+      'Team Member,Email,Role,Date (IST),Login Time (IST),Logout Time (IST),Status / Reason,Duration Formatted,Duration Minutes,IP Address\n';
     const rows = shifts
       .map(
         (s) =>
@@ -955,7 +955,7 @@ export default function AdminStaffPage() {
             <Card glass className="p-4 border-amber-500/30 bg-amber-500/5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">
-                  System 2h Inactive
+                  System 1h Inactive
                 </span>
                 <AlertCircle className="w-4 h-4 text-amber-400" />
               </div>
@@ -990,14 +990,14 @@ export default function AdminStaffPage() {
               {/* Operator Filter */}
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim">
-                  Staff Member:
+                  Staff / Admin:
                 </span>
                 <select
                   value={selectedStaffFilter}
                   onChange={(e) => setSelectedStaffFilter(e.target.value)}
                   className="bg-ds-dark border border-ds-border rounded-xl px-3 py-1.5 text-xs text-ds-text font-mono focus:border-ds-accent focus:outline-none"
                 >
-                  <option value="ALL">All Staff Members ({shiftStaffList.length})</option>
+                  <option value="ALL">All Staff & Admins ({shiftStaffList.length})</option>
                   {shiftStaffList.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name} ({m.role})
@@ -1065,13 +1065,13 @@ export default function AdminStaffPage() {
             <div className="space-y-1 text-center md:text-left">
               <div className="text-[11px] font-mono uppercase tracking-widest text-ds-text-dim flex items-center justify-center md:justify-start gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-ds-accent" />
-                <span>Staff Working Hours & Shift Totals</span>
+                <span>Team Working Hours & Shift Totals</span>
               </div>
               <div className="text-xs text-ds-text-muted">
                 Showing <span className="font-bold text-ds-text">{shifts.length}</span> shifts across{' '}
                 <span className="font-bold text-ds-text">
                   {selectedStaffFilter === 'ALL'
-                    ? 'all operators'
+                    ? 'all staff and admins'
                     : shiftStaffList.find((s) => s.id === selectedStaffFilter)?.name || 'selected operator'}
                 </span>.
               </div>
@@ -1102,7 +1102,7 @@ export default function AdminStaffPage() {
           <Card glass className="border-ds-border overflow-hidden p-0">
             {loadingShifts ? (
               <div className="p-16 text-center text-xs text-ds-text-dim animate-pulse">
-                Loading staff attendance logs and calculating hours...
+                Loading team attendance logs and calculating hours...
               </div>
             ) : shifts.length === 0 ? (
               <div className="p-16 text-center text-xs text-ds-text-dim space-y-2">
@@ -1115,7 +1115,7 @@ export default function AdminStaffPage() {
                   <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border">
                     <tr>
                       <th className="py-3.5 px-4 font-semibold">Date (IST)</th>
-                      <th className="py-3.5 px-4 font-semibold">Staff Member</th>
+                      <th className="py-3.5 px-4 font-semibold">Team Member</th>
                       <th className="py-3.5 px-4 font-semibold">Login Time (IST)</th>
                       <th className="py-3.5 px-4 font-semibold">Logout Time (IST)</th>
                       <th className="py-3.5 px-4 font-semibold">Status / Logout Reason</th>
