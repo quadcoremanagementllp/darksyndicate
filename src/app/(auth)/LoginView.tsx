@@ -210,7 +210,7 @@ function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
         {/* Inactivity Logout Notice */}
         {reasonParam === 'inactive' && (
           <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-center text-xs text-amber-300 font-semibold shadow-glow-sm">
-            ⏳ Session Expired: You were automatically logged out by the system due to 2 hours of inactivity in the staff portal. Please sign in again.
+            ⏳ Session Expired: You were automatically logged out after 1 hour of inactivity in the staff portal. Please sign in again.
           </div>
         )}
 

@@ -3,6 +3,7 @@ import { clearSessionCookie, getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { handleApiError, apiSuccess } from '@/lib/errors';
 import { getClientIp } from '@/lib/rate-limit';
+import { inactiveShiftEnd } from '@/lib/staffShiftTime';
 
 // ─── POST /api/auth/logout ──────────────────────────────────────────────────
 
@@ -12,10 +13,14 @@ export async function POST(request: NextRequest) {
 
     // Check optional logout reason: "MANUAL" or "SYSTEM_INACTIVE"
     let reason: 'MANUAL' | 'SYSTEM_INACTIVE' = 'MANUAL';
+    let lastActiveAt: Date | undefined;
     try {
       const body = await request.json();
       if (body?.reason === 'SYSTEM_INACTIVE') {
         reason = 'SYSTEM_INACTIVE';
+        if (typeof body.lastActiveAt === 'number' && Number.isFinite(body.lastActiveAt)) {
+          lastActiveAt = new Date(body.lastActiveAt);
+        }
       }
     } catch {
       // Body may be empty on basic beacon or default fetch
@@ -55,13 +60,16 @@ export async function POST(request: NextRequest) {
 
         if (activeShift) {
           const now = new Date();
-          const rawMinutes = Math.round((now.getTime() - new Date(activeShift.loginAt).getTime()) / (60 * 1000));
+          const logoutAt = reason === 'SYSTEM_INACTIVE'
+            ? inactiveShiftEnd(activeShift.loginAt, now, lastActiveAt)
+            : now;
+          const rawMinutes = Math.round((logoutAt.getTime() - new Date(activeShift.loginAt).getTime()) / (60 * 1000));
           const durationMinutes = Math.max(1, rawMinutes);
 
           await prisma.staffShift.update({
             where: { id: activeShift.id },
             data: {
-              logoutAt: now,
+              logoutAt,
               logoutReason: reason,
               durationMinutes,
             },

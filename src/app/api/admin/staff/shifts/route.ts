@@ -2,6 +2,15 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import type { Prisma } from '@prisma/client';
+import {
+  correctedLegacyShiftEnd,
+  formatShiftDateIST,
+  formatShiftTimeIST,
+  inactiveShiftEnd,
+  istDayBounds,
+  STAFF_INACTIVITY_MINUTES,
+} from '@/lib/staffShiftTime';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +22,7 @@ export async function GET(req: NextRequest) {
     const dateTo = searchParams.get('dateTo') || '';
     const reasonFilter = searchParams.get('reason') || 'ALL';
 
-    // 1. Auto-cleanup any hanging abandoned shifts older than 16 hours that missed logout
+    // Close abandoned shifts and repair fixed two/eight-hour estimates from earlier versions.
     try {
       const staleShifts = await prisma.staffShift.findMany({
         where: {
@@ -28,18 +37,34 @@ export async function GET(req: NextRequest) {
         await prisma.staffShift.update({
           where: { id: stale.id },
           data: {
-            logoutAt: new Date(new Date(stale.loginAt).getTime() + 8 * 60 * 60 * 1000),
+            logoutAt: inactiveShiftEnd(stale.loginAt, new Date()),
             logoutReason: 'SYSTEM_INACTIVE',
-            durationMinutes: 480,
+            durationMinutes: STAFF_INACTIVITY_MINUTES,
           },
         });
+      }
+
+      const legacyShifts = await prisma.staffShift.findMany({
+        where: { logoutReason: 'SYSTEM_INACTIVE', durationMinutes: { in: [120, 480] } },
+        select: { id: true, loginAt: true, logoutAt: true, durationMinutes: true, logoutReason: true },
+      });
+      for (const legacy of legacyShifts) {
+        const corrected = correctedLegacyShiftEnd(
+          legacy.loginAt, legacy.logoutAt, legacy.durationMinutes, legacy.logoutReason,
+        );
+        if (corrected) {
+          await prisma.staffShift.update({
+            where: { id: legacy.id },
+            data: { logoutAt: corrected, durationMinutes: STAFF_INACTIVITY_MINUTES },
+          });
+        }
       }
     } catch (e) {
       console.error('Error auto-closing stale shifts:', e);
     }
 
     // 2. Build query filters (Restricted strictly to floor STAFF)
-    const where: any = {
+    const where: Prisma.StaffShiftWhereInput = {
       user: {
         role: 'STAFF',
       },
@@ -59,14 +84,13 @@ export async function GET(req: NextRequest) {
     // Date range filter
     if (dateRange === 'TODAY') {
       const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
-      const startOfDay = new Date(`${istDateStr}T00:00:00+05:30`);
-      where.loginAt = { gte: startOfDay };
+      const [startOfDay, endOfDay] = istDayBounds(istDateStr);
+      where.loginAt = { gte: startOfDay, lt: endOfDay };
     } else if (dateRange === 'YESTERDAY') {
       const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const istDateStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-      const startOfYesterday = new Date(`${istDateStr}T00:00:00+05:30`);
-      const endOfYesterday = new Date(`${istDateStr}T23:59:59.999+05:30`);
-      where.loginAt = { gte: startOfYesterday, lte: endOfYesterday };
+      const [startOfYesterday, endOfYesterday] = istDayBounds(istDateStr);
+      where.loginAt = { gte: startOfYesterday, lt: endOfYesterday };
     } else if (dateRange === '7DAYS') {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       where.loginAt = { gte: sevenDaysAgo };
@@ -74,13 +98,10 @@ export async function GET(req: NextRequest) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       where.loginAt = { gte: thirtyDaysAgo };
     } else if (dateFrom || dateTo) {
-      where.loginAt = {};
-      if (dateFrom) where.loginAt.gte = new Date(dateFrom);
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        where.loginAt.lte = toDate;
-      }
+      const loginAt: Prisma.DateTimeFilter = {};
+      if (dateFrom) loginAt.gte = istDayBounds(dateFrom)[0];
+      if (dateTo) loginAt.lt = istDayBounds(dateTo)[1];
+      where.loginAt = loginAt;
     }
 
     // 3. Fetch shifts with user details
@@ -144,28 +165,9 @@ export async function GET(req: NextRequest) {
       const loginDate = new Date(s.loginAt);
       const logoutDate = s.logoutAt ? new Date(s.logoutAt) : null;
 
-      const dateFormatted = loginDate.toLocaleDateString('en-US', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-
-      const loginTimeFormatted = loginDate.toLocaleTimeString('en-US', {
-        timeZone: 'Asia/Kolkata',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-
-      const logoutTimeFormatted = logoutDate
-        ? logoutDate.toLocaleTimeString('en-US', {
-            timeZone: 'Asia/Kolkata',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })
-        : '🟢 Active Now';
+      const dateFormatted = formatShiftDateIST(loginDate);
+      const loginTimeFormatted = formatShiftTimeIST(loginDate);
+      const logoutTimeFormatted = logoutDate ? formatShiftTimeIST(logoutDate) : 'Active Now';
 
       const logoutReasonLabel = isActive
         ? 'Active Shift'
@@ -186,6 +188,7 @@ export async function GET(req: NextRequest) {
         loginTimeFormatted,
         logoutAt: s.logoutAt ? s.logoutAt.toISOString() : null,
         logoutTimeFormatted,
+        logoutDateFormatted: logoutDate ? formatShiftDateIST(logoutDate) : null,
         isActive,
         logoutReason: s.logoutReason || (isActive ? 'ACTIVE' : 'MANUAL'),
         logoutReasonLabel,

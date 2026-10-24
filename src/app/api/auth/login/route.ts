@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { inactiveShiftEnd } from '@/lib/staffShiftTime';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/auth';
 import { setSessionCookie } from '@/lib/session';
@@ -114,18 +115,18 @@ export async function POST(request: NextRequest) {
 
       // Record shift only for floor STAFF (Administrators are not tracked as floor shift workers)
       if (user.role === 'STAFF') {
-        // Auto-close any prior open shifts left hanging without logout (> 2 hours)
+        // Close abandoned shifts at the one-hour inactivity deadline.
         const openShifts = await prisma.staffShift.findMany({
           where: { userId: user.id, logoutAt: null },
         });
 
         for (const open of openShifts) {
-          const shiftAgeMin = Math.round((Date.now() - new Date(open.loginAt).getTime()) / (60 * 1000));
-          const duration = Math.min(120, Math.max(1, shiftAgeMin));
+          const logoutAt = inactiveShiftEnd(open.loginAt, new Date());
+          const duration = Math.max(1, Math.round((logoutAt.getTime() - open.loginAt.getTime()) / (60 * 1000)));
           await prisma.staffShift.update({
             where: { id: open.id },
             data: {
-              logoutAt: new Date(new Date(open.loginAt).getTime() + duration * 60 * 1000),
+              logoutAt,
               logoutReason: 'SYSTEM_INACTIVE',
               durationMinutes: duration,
             },

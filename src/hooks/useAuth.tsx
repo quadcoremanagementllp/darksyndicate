@@ -142,12 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [saveUser]
   );
 
-  const logout = useCallback(async (reason?: 'MANUAL' | 'SYSTEM_INACTIVE') => {
+  const logout = useCallback(async (reason?: 'MANUAL' | 'SYSTEM_INACTIVE', lastActiveAt?: number) => {
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason || 'MANUAL' }),
+        body: JSON.stringify({ reason: reason || 'MANUAL', lastActiveAt }),
       });
     } catch {}
     saveUser(null);

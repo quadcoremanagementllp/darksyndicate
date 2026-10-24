@@ -259,18 +259,42 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ─── 12-HOUR SHIFT INACTIVITY TIMEOUT ───
-  const INACTIVITY_LIMIT_MS = 12 * 60 * 60 * 1000; // 12 hours full shift duration
+  // ─── ONE-HOUR STAFF INACTIVITY TIMEOUT ───
+  const INACTIVITY_LIMIT_MS = 60 * 60 * 1000; // 1 hour without activity
 
   useEffect(() => {
-    // Record active timestamp on mount (always start fresh on page load)
+    if (isLoading || !user || !isStaffOrAdmin) return;
+    // Preserve the login timestamp across refreshes.
     const markActivity = () => {
       try {
         localStorage.setItem('ds_staff_last_active', String(Date.now()));
       } catch {}
     };
 
-    markActivity();
+    const lastActivity = () => {
+      try {
+        const stored = Number(localStorage.getItem('ds_staff_last_active'));
+        if (Number.isFinite(stored) && stored > 0) return stored;
+      } catch {}
+      markActivity();
+      return Date.now();
+    };
+
+    let loggingOut = false;
+    const checkInactivity = async () => {
+      const lastActiveTimestamp = lastActivity();
+      if (Date.now() - lastActiveTimestamp < INACTIVITY_LIMIT_MS) return false;
+      if (loggingOut) return true;
+      loggingOut = true;
+      try {
+        await logout('SYSTEM_INACTIVE', lastActiveTimestamp);
+      } finally {
+        window.location.href = '/login?portal=staff&reason=inactive';
+      }
+      return true;
+    };
+
+    void checkInactivity();
 
     // User activity listeners (throttled to at most once every 5 seconds)
     let lastThrottledTime = 0;
@@ -278,46 +302,32 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
       const now = Date.now();
       if (now - lastThrottledTime > 5000) {
         lastThrottledTime = now;
-        markActivity();
+        void checkInactivity().then((expired) => {
+          if (!expired) markActivity();
+        });
       }
     };
 
     const trackedEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
     trackedEvents.forEach((evt) => window.addEventListener(evt, onUserInteraction, { passive: true }));
 
-    // Reset activity when tab/screen becomes visible again
+    // Check a suspended tab before accepting activity on return.
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        markActivity();
+        void checkInactivity();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     // Periodic check every 60 seconds
-    const inactivityInterval = setInterval(async () => {
-      try {
-        const lastActiveTimestamp = Number(localStorage.getItem('ds_staff_last_active')) || Date.now();
-        const inactiveTime = Date.now() - lastActiveTimestamp;
-
-        if (inactiveTime >= INACTIVITY_LIMIT_MS) {
-          console.warn('[Staff Portal] Shift duration exceeded. Logging out.');
-          try {
-            await logout('SYSTEM_INACTIVE');
-          } finally {
-            window.location.href = '/login?portal=staff&reason=inactive';
-          }
-        }
-      } catch (err) {
-        console.error('Inactivity check error:', err);
-      }
-    }, 60000);
+    const inactivityInterval = setInterval(() => { void checkInactivity(); }, 60000);
 
     return () => {
       trackedEvents.forEach((evt) => window.removeEventListener(evt, onUserInteraction));
       document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(inactivityInterval);
     };
-  }, [logout]);
+  }, [logout, isLoading, user, isStaffOrAdmin]);
 
   const handleLogout = async () => {
     try {

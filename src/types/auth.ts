@@ -26,7 +26,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string, portal?: 'player' | 'admin' | 'staff') => Promise<AuthUser>;
   register: (data: RegisterData) => Promise<void>;
-  logout: (reason?: 'MANUAL' | 'SYSTEM_INACTIVE') => Promise<void>;
+  logout: (reason?: 'MANUAL' | 'SYSTEM_INACTIVE', lastActiveAt?: number) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 

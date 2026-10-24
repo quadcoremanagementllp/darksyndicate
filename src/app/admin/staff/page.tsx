@@ -52,6 +52,7 @@ interface StaffShiftItem {
   loginTimeFormatted: string;
   logoutAt: string | null;
   logoutTimeFormatted: string;
+  logoutDateFormatted: string | null;
   isActive: boolean;
   logoutReason: string;
   logoutReasonLabel: string;
@@ -157,7 +158,6 @@ export default function AdminStaffPage() {
   const [loadingShifts, setLoadingShifts] = useState(false);
   const [selectedStaffFilter, setSelectedStaffFilter] = useState('ALL');
   const [dateRangeFilter, setDateRangeFilter] = useState('ALL');
-  const [shiftReasonFilter, setShiftReasonFilter] = useState('ALL');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
@@ -182,7 +182,6 @@ export default function AdminStaffPage() {
       const params = new URLSearchParams();
       if (selectedStaffFilter !== 'ALL') params.append('staffId', selectedStaffFilter);
       if (dateRangeFilter !== 'ALL') params.append('dateRange', dateRangeFilter);
-      if (shiftReasonFilter !== 'ALL') params.append('reason', shiftReasonFilter);
       if (dateRangeFilter === 'CUSTOM') {
         if (customDateFrom) params.append('dateFrom', customDateFrom);
         if (customDateTo) params.append('dateTo', customDateTo);
@@ -210,7 +209,7 @@ export default function AdminStaffPage() {
     if (activeTab === 'shifts') {
       loadShifts();
     }
-  }, [activeTab, selectedStaffFilter, dateRangeFilter, shiftReasonFilter]);
+  }, [activeTab, selectedStaffFilter, dateRangeFilter]);
 
   const handleExportShiftsCSV = () => {
     if (shifts.length === 0) {
@@ -987,9 +986,9 @@ export default function AdminStaffPage() {
 
           {/* Shifts Filter Toolbar */}
           <div className="flex flex-col gap-3 bg-ds-surface/50 p-4 rounded-2xl border border-ds-border">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Operator & Reason Filters */}
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              {/* Operator Filter */}
+              <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim">
                   Staff Member:
                 </span>
@@ -1005,21 +1004,10 @@ export default function AdminStaffPage() {
                     </option>
                   ))}
                 </select>
-
-                <select
-                  value={shiftReasonFilter}
-                  onChange={(e) => setShiftReasonFilter(e.target.value)}
-                  className="bg-ds-dark border border-ds-border rounded-xl px-3 py-1.5 text-xs text-ds-text font-mono focus:border-ds-accent focus:outline-none"
-                >
-                  <option value="ALL">All Shift Statuses</option>
-                  <option value="ACTIVE">🟢 Active Shifts</option>
-                  <option value="MANUAL">Manual Logouts</option>
-                  <option value="SYSTEM_INACTIVE">⚠️ System Inactive Logouts</option>
-                </select>
               </div>
 
               {/* Date Range Presets */}
-              <div className="flex flex-wrap items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
+              <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs overflow-x-auto whitespace-nowrap min-w-0">
                 {(
                   [
                     { id: 'ALL', label: 'All Time' },
@@ -1034,7 +1022,7 @@ export default function AdminStaffPage() {
                     key={range.id}
                     type="button"
                     onClick={() => setDateRangeFilter(range.id)}
-                    className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all ${
+                    className={`px-2.5 py-1 rounded-lg font-heading font-bold uppercase transition-all shrink-0 ${
                       dateRangeFilter === range.id
                         ? 'bg-ds-accent text-white shadow-sm'
                         : 'text-ds-text-dim hover:text-white'
@@ -1070,6 +1058,44 @@ export default function AdminStaffPage() {
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* Working hours summary */}
+          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-ds-surface/95 via-ds-dark/95 to-ds-surface/95 border border-ds-accent/40 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center md:text-left">
+              <div className="text-[11px] font-mono uppercase tracking-widest text-ds-text-dim flex items-center justify-center md:justify-start gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-ds-accent" />
+                <span>Staff Working Hours & Shift Totals</span>
+              </div>
+              <div className="text-xs text-ds-text-muted">
+                Showing <span className="font-bold text-ds-text">{shifts.length}</span> shifts across{' '}
+                <span className="font-bold text-ds-text">
+                  {selectedStaffFilter === 'ALL'
+                    ? 'all operators'
+                    : shiftStaffList.find((s) => s.id === selectedStaffFilter)?.name || 'selected operator'}
+                </span>.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 bg-ds-dark/80 px-5 py-3 rounded-2xl border border-ds-accent/30 shadow-lg shadow-ds-accent/10">
+              <div className="text-right">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim block">
+                  Total Accumulated Working Hours
+                </span>
+                <div className="text-2xl sm:text-3xl font-heading font-black text-ds-ice tracking-tight flex items-baseline justify-end gap-2">
+                  <span>{shiftSummary.totalWorkingHoursFormatted}</span>
+                  <span className="text-xs font-mono font-normal text-ds-text-dim">
+                    ({shiftSummary.totalWorkingHoursDecimal} hrs)
+                  </span>
+                </div>
+              </div>
+              <div className="h-8 w-[1px] bg-ds-border hidden sm:block" />
+              <div className="text-xs font-mono space-y-0.5 text-left text-ds-text-dim">
+                <div>Active: <span className="text-emerald-400 font-bold">{shiftSummary.activeShifts}</span></div>
+                <div>Manual: <span className="text-cyan-400 font-bold">{shiftSummary.manualLogouts}</span></div>
+                <div>Inactive: <span className="text-amber-400 font-bold">{shiftSummary.systemInactivityLogouts}</span></div>
+              </div>
+            </div>
           </div>
 
           {/* Shifts & Hours Table */}
@@ -1136,7 +1162,12 @@ export default function AdminStaffPage() {
                               <span>Active Now</span>
                             </span>
                           ) : (
-                            <span className="text-ds-text">{s.logoutTimeFormatted}</span>
+                            <span className="text-ds-text">
+                              {s.logoutTimeFormatted}
+                              {s.logoutDateFormatted && s.logoutDateFormatted !== s.dateFormatted && (
+                                <span className="block text-[10px] text-ds-text-dim">{s.logoutDateFormatted} IST</span>
+                              )}
+                            </span>
                           )}
                         </td>
 
@@ -1196,52 +1227,6 @@ export default function AdminStaffPage() {
               </div>
             )}
 
-            {/* Total Working Hours Session at the end */}
-            <div className="p-4 sm:p-6 bg-gradient-to-r from-ds-surface/95 via-ds-dark/95 to-ds-surface/95 border-t-2 border-ds-accent/40 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="space-y-1 text-center md:text-left">
-                <div className="text-[11px] font-mono uppercase tracking-widest text-ds-text-dim flex items-center justify-center md:justify-start gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-ds-accent" />
-                  <span>Staff Working Hours & Shift Totals</span>
-                </div>
-                <div className="text-xs text-ds-text-muted">
-                  Showing <span className="font-bold text-ds-text">{shifts.length}</span> shifts across{' '}
-                  <span className="font-bold text-ds-text">
-                    {selectedStaffFilter === 'ALL'
-                      ? 'all operators'
-                      : shiftStaffList.find((s) => s.id === selectedStaffFilter)?.name || 'selected operator'}
-                  </span>.
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 bg-ds-dark/80 px-5 py-3 rounded-2xl border border-ds-accent/30 shadow-lg shadow-ds-accent/10">
-                <div className="text-right">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim block">
-                    Total Accumulated Working Hours
-                  </span>
-                  <div className="text-2xl sm:text-3xl font-heading font-black text-ds-ice tracking-tight flex items-baseline justify-end gap-2">
-                    <span>{shiftSummary.totalWorkingHoursFormatted}</span>
-                    <span className="text-xs font-mono font-normal text-ds-text-dim">
-                      ({shiftSummary.totalWorkingHoursDecimal} hrs)
-                    </span>
-                  </div>
-                </div>
-                <div className="h-8 w-[1px] bg-ds-border hidden sm:block" />
-                <div className="text-xs font-mono space-y-0.5 text-left text-ds-text-dim">
-                  <div>
-                    Active: <span className="text-emerald-400 font-bold">{shiftSummary.activeShifts}</span>
-                  </div>
-                  <div>
-                    Manual: <span className="text-cyan-400 font-bold">{shiftSummary.manualLogouts}</span>
-                  </div>
-                  <div>
-                    Inactive 2h:{' '}
-                    <span className="text-amber-400 font-bold">
-                      {shiftSummary.systemInactivityLogouts}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </Card>
         </div>
       )}
