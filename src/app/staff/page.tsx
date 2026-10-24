@@ -1095,7 +1095,7 @@ export default function StaffStationGridPage() {
         showCloseButton={false}
         className="p-0 border border-ds-border/90 bg-ds-dark shadow-2xl overflow-hidden"
       >
-        <div className="p-6 sm:p-7 space-y-6">
+        <div className="space-y-5">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-ds-border/70">
             <div className="flex items-center gap-3">
@@ -1130,6 +1130,7 @@ export default function StaffStationGridPage() {
               onClick={() => {
                 const targetZone = modeModalZone;
                 setModeModalZone(null);
+                setWalkInInitialCategory(targetZone || 'PS5');
                 if (targetZone === 'PS5') {
                   const firstAvail = ps5List.find((s) => s.status === 'AVAILABLE' && !s.activeSession);
                   setSelectedWalkInStationId(firstAvail?.id || ps5List[0]?.id);
@@ -1146,9 +1147,6 @@ export default function StaffStationGridPage() {
                   <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Play className="w-5 h-5 fill-current" />
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase">
-                    Play Right Now
-                  </span>
                 </div>
 
                 <div>
@@ -1180,9 +1178,6 @@ export default function StaffStationGridPage() {
                   <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Calendar className="w-5 h-5" />
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase">
-                    Reserve Ahead
-                  </span>
                 </div>
 
                 <div>

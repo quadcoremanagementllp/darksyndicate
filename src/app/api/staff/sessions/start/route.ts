@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { sessionHourlyRatePaise } from '@/lib/staffSessionRules';
+import { PAY_ON_EXIT_MARKER } from '@/lib/staffPaymentPolicy';
 import { z } from 'zod';
 
 const startSessionSchema = z.object({
@@ -64,7 +66,10 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          const basePricePaise = station.pricePerHourPaise * (data.durationMinutes / 60);
+          const playerCount = station.stationType === 'POOL_TABLE' ? 4 : 1;
+          const basePricePaise = Math.round(
+            sessionHourlyRatePaise(station.stationType, station.pricePerHourPaise, playerCount) * (data.durationMinutes / 60)
+          );
           const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
           const booking = await tx.booking.create({
             data: {
@@ -82,21 +87,20 @@ export async function POST(req: NextRequest) {
               isWalkIn: true,
               customerName: data.customerName || 'Walk-in Gamer',
               customerPhone: data.customerPhone || null,
+              notes: `${PAY_ON_EXIT_MARKER} [Players: ${playerCount}]`,
             },
           });
           bookingId = booking.id;
 
-          // Record cash payment
+          // Staff-started sessions remain an open tab until checkout.
           await tx.payment.create({
             data: {
               bookingId: booking.id,
               userId: guest.id,
               amountPaise: basePricePaise,
-              method: 'CASH',
-              status: 'COMPLETED',
-              paidAt: now,
-              recordedByStaffId: staffSession.userId,
-              notes: `Desk walk-in payment processed by ${staffName}`,
+              method: 'OTHER',
+              status: 'PENDING',
+              notes: `Open tab started by ${staffName}; pay after session`,
             },
           });
         } else {

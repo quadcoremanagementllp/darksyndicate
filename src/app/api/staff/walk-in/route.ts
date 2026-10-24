@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { sessionHourlyRatePaise } from '@/lib/staffSessionRules';
+import { PAY_ON_EXIT_MARKER } from '@/lib/staffPaymentPolicy';
 import { getActiveUserMembership } from '@/lib/memberships';
 import { hashPassword } from '@/lib/auth';
 import { z } from 'zod';
@@ -15,7 +16,7 @@ const walkInSchema = z.object({
   customerName: z.string().min(2, 'Customer name is required'),
   customerPhone: z.string().optional().or(z.literal('')),
   customerEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
-  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'PAY_ON_EXIT', 'OTHER']).default('CASH'),
+  paymentMethod: z.literal('PAY_ON_EXIT').default('PAY_ON_EXIT'),
   gameTitle: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -235,6 +236,7 @@ export async function POST(req: NextRequest) {
           customerPhone: data.customerPhone?.trim() || null,
           gameTitle: data.gameTitle || null,
           notes:
+            `${PAY_ON_EXIT_MARKER} ` +
             (data.gameTitle ? `Game: ${data.gameTitle}. ` : '') +
             (cleanEmail ? `Email: ${cleanEmail}. ` : '') +
             `[Players: ${playerCount}]. ` +
@@ -245,23 +247,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // 8. Record Desk Payment with accurate payment method
-      const isPayOnExit = data.paymentMethod === 'PAY_ON_EXIT';
-      const recordedPaymentMethod =
-        data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
-
+      // 8. Keep every staff walk-in as an unpaid tab until the session ends.
       await tx.payment.create({
         data: {
           bookingId: booking.id,
           userId: user.id,
           amountPaise: totalPricePaise,
-          method: isPayOnExit ? 'OTHER' : recordedPaymentMethod,
-          status: isPayOnExit ? 'PENDING' : 'COMPLETED',
-          paidAt: isPayOnExit ? null : now,
+          method: 'OTHER',
+          status: 'PENDING',
           recordedByStaffId: staffSession?.userId || null,
-          notes: isPayOnExit
-            ? `Pay-on-Exit desk walk-in - balance to be collected on checkout${staffName ? ` [Registered by ${staffName}]` : ''}`
-            : `Walk-in desk payment (${data.paymentMethod})${staffName ? ` processed by ${staffName}` : ''}${membershipPlanName ? ` [${membershipPlanName} Discount: ₹${(membershipDiscountPaise / 100).toFixed(0)}]` : ''}`,
+          notes: `Pay-on-Exit desk walk-in - balance to be collected on checkout${staffName ? ` [Registered by ${staffName}]` : ''}`,
         },
       });
 
@@ -274,22 +269,21 @@ export async function POST(req: NextRequest) {
           status: 'ACTIVE',
           startedAt: now,
           scheduledEndAt,
-          notes: (isPayOnExit ? '[PAY ON EXIT] ' : '') + (data.gameTitle || data.notes || ''),
+          notes: `${PAY_ON_EXIT_MARKER} ` + (data.gameTitle || data.notes || ''),
         },
       });
 
-      // 10. Update Customer Profile if registered member (defer spend increment if Pay on Exit)
+      // 10. Record the visit; payment is counted only at checkout.
       if (registeredUser) {
         await tx.customerProfile.upsert({
           where: { userId: registeredUser.id },
           create: {
             userId: registeredUser.id,
             totalBookings: 1,
-            totalSpent: isPayOnExit ? 0 : totalPricePaise,
+            totalSpent: 0,
           },
           update: {
             totalBookings: { increment: 1 },
-            ...(isPayOnExit ? {} : { totalSpent: { increment: totalPricePaise } }),
           },
         });
       }

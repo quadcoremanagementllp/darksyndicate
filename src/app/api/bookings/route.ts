@@ -13,6 +13,7 @@ import {
   ForbiddenError,
 } from '@/lib/errors';
 import { z } from 'zod';
+import { isStaffReservation, PAY_ON_EXIT_MARKER } from '@/lib/staffPaymentPolicy';
 import crypto from 'crypto';
 import { razorpayEnabled } from '@/lib/razorpay';
 
@@ -90,9 +91,16 @@ export async function POST(req: NextRequest) {
       // 1. Resolve User
       let userId: string;
       const isStaffOrAdmin = session?.role === 'ADMIN' || session?.role === 'SUPER_ADMIN' || session?.role === 'STAFF';
-      if (data.notes?.includes('[Front Desk Pre-Booking]') && !isStaffOrAdmin) {
+      if (isStaffReservation(data.notes) && !isStaffOrAdmin) {
         throw new ForbiddenError('Staff reservations require a staff account.');
       }
+      if (isStaffReservation(data.notes) && !data.payAtCounter) {
+        throw new ValidationError('Staff reservations must use a pay-after desk tab.');
+      }
+      if (data.notes?.includes(PAY_ON_EXIT_MARKER) && !isStaffOrAdmin) {
+        throw new ForbiddenError('Pay-after booking requires a staff account.');
+      }
+      const staffReservation = Boolean(isStaffOrAdmin && data.payAtCounter && isStaffReservation(data.notes));
       const isBookingForOther = isStaffOrAdmin && Boolean(data.customerEmail && data.customerEmail.toLowerCase() !== session?.email?.toLowerCase());
 
       if (session?.userId && !isBookingForOther) {
@@ -413,7 +421,7 @@ export async function POST(req: NextRequest) {
             customerPhone: data.customerPhone || null,
             gameTitle: data.gameTitle || null,
             notes: data.notes
-              ? `${data.notes} • [Players: ${data.playerCount}]`
+              ? `${data.notes}${staffReservation && !data.notes.includes(PAY_ON_EXIT_MARKER) ? ` ${PAY_ON_EXIT_MARKER}` : ''} • [Players: ${data.playerCount}]`
               : `Players: ${data.playerCount}`,
             isWalkIn: false,
           },
@@ -437,12 +445,7 @@ export async function POST(req: NextRequest) {
 
         // If paying at counter, create a payment record
         if (data.payAtCounter) {
-          const isImmediateSettlement =
-            session &&
-            (session.role === 'STAFF' || session.role === 'ADMIN' || session.role === 'SUPER_ADMIN') &&
-            data.notes?.includes('[SETTLED]');
-
-          const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : 'CASH';
+          const recordedMethod = staffReservation ? 'OTHER' : data.paymentMethod === 'UPI' ? 'UPI' : 'CASH';
 
           await tx.payment.create({
             data: {
@@ -450,24 +453,10 @@ export async function POST(req: NextRequest) {
               userId,
               amountPaise: totalPricePaise,
               method: recordedMethod,
-              status: isImmediateSettlement ? 'COMPLETED' : 'PENDING',
-              notes: isImmediateSettlement
-                ? `Paid in advance at desk via ${recordedMethod}`
-                : 'Pay at front desk upon check-in',
-              paidAt: isImmediateSettlement ? new Date() : null,
-              recordedByStaffId: isImmediateSettlement ? session.userId : null,
+              status: 'PENDING',
+              notes: staffReservation ? 'Pay after session at checkout' : 'Pay at front desk upon check-in',
             },
           });
-
-          if (isImmediateSettlement && userId && totalPricePaise > 0) {
-            await tx.customerProfile
-              .upsert({
-                where: { userId },
-                create: { userId, totalSpent: totalPricePaise },
-                update: { totalSpent: { increment: totalPricePaise } },
-              })
-              .catch(() => {});
-          }
         }
 
         // Coupon redemption log

@@ -99,6 +99,7 @@ export function ExtendSessionModal({
     station?.activeSession?.isPayOnExit ||
     station?.activeSession?.paymentStatus === 'PENDING'
   );
+  const effectivePaymentTiming = isExistingPayOnExit ? 'PAY_ON_EXIT' : paymentTiming;
 
   // Initialize defaults whenever modal opens for a station
   useEffect(() => {
@@ -116,7 +117,7 @@ export function ExtendSessionModal({
 
   // Generate dynamic QR fallback if admin has not uploaded a static QR image
   useEffect(() => {
-    if (paymentTiming === 'PRE_PAID' && paymentMethod === 'UPI' && !adminQrUrl && station) {
+    if (effectivePaymentTiming === 'PRE_PAID' && paymentMethod === 'UPI' && !adminQrUrl && station) {
       const amount = extensionFeeRupees.toFixed(2);
       const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiPayeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Extension ${stationName}`)}`;
       QRCode.toDataURL(upiUrl, {
@@ -127,7 +128,7 @@ export function ExtendSessionModal({
         .then((url) => setDynamicQrUrl(url))
         .catch(() => {});
     }
-  }, [paymentTiming, paymentMethod, adminQrUrl, upiId, upiPayeeName, extensionFeeRupees, stationName, station]);
+  }, [effectivePaymentTiming, paymentMethod, adminQrUrl, upiId, upiPayeeName, extensionFeeRupees, stationName, station]);
 
   const handleCopyUpi = () => {
     navigator.clipboard.writeText(upiId);
@@ -155,8 +156,8 @@ export function ExtendSessionModal({
           stationId: station.id,
           bookingId: station.activeSession?.bookingId,
           additionalMinutes,
-          paymentTiming,
-          paymentMethod: paymentTiming === 'PAY_ON_EXIT' ? 'PAY_ON_EXIT' : paymentMethod,
+          paymentTiming: effectivePaymentTiming,
+          paymentMethod: effectivePaymentTiming === 'PAY_ON_EXIT' ? 'PAY_ON_EXIT' : paymentMethod,
         }),
       });
 
@@ -274,21 +275,17 @@ export function ExtendSessionModal({
           </div>
 
           {/* ─── TIER 1: PAYMENT TIMING SELECTOR (Add to Tab vs Pay Now) ─── */}
+          {!isExistingPayOnExit && (
           <div className="space-y-2">
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim flex items-center justify-between">
               <span>Extension Payment Timing</span>
-              {isExistingPayOnExit && (
-                <span className="text-[10px] font-mono text-amber-400 font-semibold">
-                  (Guest has active open tab)
-                </span>
-              )}
             </label>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setPaymentTiming('PAY_ON_EXIT')}
                 className={`p-3 rounded-xl border text-left transition-all ${
-                  paymentTiming === 'PAY_ON_EXIT'
+                  effectivePaymentTiming === 'PAY_ON_EXIT'
                     ? 'bg-amber-500/15 border-amber-500 text-amber-300 ring-1 ring-amber-500'
                     : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border'
                 }`}
@@ -308,7 +305,7 @@ export function ExtendSessionModal({
                 type="button"
                 onClick={() => setPaymentTiming('PRE_PAID')}
                 className={`p-3 rounded-xl border text-left transition-all ${
-                  paymentTiming === 'PRE_PAID'
+                  effectivePaymentTiming === 'PRE_PAID'
                     ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500'
                     : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border'
                 }`}
@@ -325,9 +322,10 @@ export function ExtendSessionModal({
               </button>
             </div>
           </div>
+          )}
 
           {/* ─── CASE A: ADD TO TAB EXPLANATION ─── */}
-          {paymentTiming === 'PAY_ON_EXIT' && (
+          {effectivePaymentTiming === 'PAY_ON_EXIT' && (
             <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-amber-400 font-heading font-bold text-xs">
@@ -354,7 +352,7 @@ export function ExtendSessionModal({
           )}
 
           {/* ─── CASE B: PAY NOW PAYMENT METHOD SELECTOR ─── */}
-          {paymentTiming === 'PRE_PAID' && (
+          {effectivePaymentTiming === 'PRE_PAID' && (
             <div className="space-y-3 animate-in fade-in duration-200">
               <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
                 Extension Payment Received
@@ -472,12 +470,12 @@ export function ExtendSessionModal({
             </div>
             <div className="text-right">
               <span className="text-[10px] uppercase font-mono text-ds-text-dim block">
-                {paymentTiming === 'PAY_ON_EXIT' ? 'Amount to Collect Right Now' : 'Extension Fee'}
+                {effectivePaymentTiming === 'PAY_ON_EXIT' ? 'Amount to Collect Right Now' : 'Extension Fee'}
               </span>
-              <span className={`text-xl font-heading font-black ${paymentTiming === 'PAY_ON_EXIT' ? 'text-emerald-400' : 'text-ds-text'}`}>
-                {paymentTiming === 'PAY_ON_EXIT' ? '₹0' : `₹${extensionFeeRupees}`}
+              <span className={`text-xl font-heading font-black ${effectivePaymentTiming === 'PAY_ON_EXIT' ? 'text-emerald-400' : 'text-ds-text'}`}>
+                {effectivePaymentTiming === 'PAY_ON_EXIT' ? '₹0' : `₹${extensionFeeRupees}`}
               </span>
-              {paymentTiming === 'PAY_ON_EXIT' && (
+              {effectivePaymentTiming === 'PAY_ON_EXIT' && (
                 <span className="text-[10px] font-mono text-amber-400 block font-semibold">
                   +₹{extensionFeeRupees} added to exit bill
                 </span>
@@ -503,14 +501,14 @@ export function ExtendSessionModal({
               onClick={handleExtend}
               disabled={submitting}
               className={`text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md cursor-pointer font-heading font-bold ${
-                paymentTiming === 'PAY_ON_EXIT'
+                effectivePaymentTiming === 'PAY_ON_EXIT'
                   ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-black shadow-amber-500/20'
                   : 'shadow-ds-accent/20'
               }`}
             >
               {submitting ? (
                 'Extending...'
-              ) : paymentTiming === 'PAY_ON_EXIT' ? (
+              ) : effectivePaymentTiming === 'PAY_ON_EXIT' ? (
                 <>
                   <span className="sm:hidden">Add to Tab (₹0)</span>
                   <span className="hidden sm:inline">Confirm Extension & Add to Tab (₹0)</span>

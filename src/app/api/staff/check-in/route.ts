@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { z } from 'zod';
+import { isStaffReservation } from '@/lib/staffPaymentPolicy';
 
 const checkInSchema = z.object({
   identifier: z.string().min(1, 'Booking reference or QR token required'),
@@ -96,10 +97,11 @@ export async function POST(req: NextRequest) {
         // If paying at counter was pending or unpaid, record completed payment with staffId
         const pendingPayment = booking.payments.find((p) => p.status === 'PENDING' || p.status === 'FAILED');
         const hasCompletedPayment = booking.payments.some((p) => p.status === 'COMPLETED');
+        const payAfterSession = isStaffReservation(booking.notes);
         const recordedPaymentMethod =
           paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
-        if (pendingPayment) {
+        if (!payAfterSession && pendingPayment) {
           await tx.payment.update({
             where: { id: pendingPayment.id },
             data: {
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
               },
             });
           }
-        } else if (!hasCompletedPayment && booking.totalPricePaise > 0) {
+        } else if (!payAfterSession && !hasCompletedPayment && booking.totalPricePaise > 0) {
           // No payment record exists — create counter payment record
           await tx.payment.create({
             data: {

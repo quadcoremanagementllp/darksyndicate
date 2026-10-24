@@ -4,6 +4,7 @@ import { apiSuccess, ForbiddenError, handleApiError, NotFoundError, ValidationEr
 import { requireRole } from '@/lib/session';
 import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
 import { z } from 'zod';
+import { isPayAfterBooking } from '@/lib/staffPaymentPolicy';
 
 const extendSessionSchema = z.object({
   sessionId: z.string().optional(),
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
           sessionPlayerCount(session.booking?.notes, stationType)
         );
         const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
-        const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
+        const isPayOnExit = isPayAfterBooking(session.booking?.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -228,7 +229,7 @@ export async function POST(req: NextRequest) {
             sessionPlayerCount(booking.notes, booking.station?.stationType)
           );
           const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
-          const isPayOnExit = data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
+          const isPayOnExit = isPayAfterBooking(booking.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
           const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
           await prisma.$transaction(async (tx) => {

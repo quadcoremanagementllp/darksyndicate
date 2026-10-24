@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
-import { Gamepad2, Search, Monitor, AlertCircle, Crown, Clock, Check } from 'lucide-react';
+import { Gamepad2, Monitor, AlertCircle, Crown, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { ARENA_GAMES, lookupGame, type GameCatalogItem } from '@/lib/gameCatalog';
 import { sessionHourlyRatePaise } from '@/lib/staffSessionRules';
@@ -162,17 +162,6 @@ export function WalkInModal({
     availableStations[0] ||
     stations[0];
 
-  // Distinct category tabs ordered PS5 -> Snooker -> PC -> others
-  const availableCategories = Array.from(
-    new Set(stations.map((s) => s.stationType))
-  ).sort((a, b) => {
-    const order = ['PS5', 'POOL_TABLE', 'PC', 'VR', 'OTHER'];
-    return (
-      (order.indexOf(a) !== -1 ? order.indexOf(a) : 99) -
-      (order.indexOf(b) !== -1 ? order.indexOf(b) : 99)
-    );
-  });
-
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory || initialStation?.stationType || 'PS5');
   const [selectedStationId, setSelectedStationId] = useState<string>(initialStation?.id || '');
   const [selectedGameTitle, setSelectedGameTitle] = useState<string>('');
@@ -182,27 +171,6 @@ export function WalkInModal({
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const toast = useToast();
-
-  useEffect(() => {
-    if (isOpen) {
-      if (initialCustomerName) {
-        setCustomerName(initialCustomerName);
-      }
-      if (initialCustomerPhone) {
-        setCustomerPhone(initialCustomerPhone);
-      }
-      if (initialCategory) {
-        setActiveCategory(initialCategory);
-        const firstAvail =
-          stations.find(
-            (s) => s.stationType === initialCategory && getStationAvailabilityState(s, durationMinutes).isAvailable
-          ) || stations.find((s) => s.stationType === initialCategory);
-        if (firstAvail) {
-          setSelectedStationId(firstAvail.id);
-        }
-      }
-    }
-  }, [isOpen, initialCustomerName, initialCustomerPhone, initialCategory, stations, durationMinutes]);
 
   // Customer Autocomplete & Active Membership State
   const [searchResults, setSearchResults] = useState<Array<{
@@ -353,20 +321,18 @@ export function WalkInModal({
     prevIsOpenRef.current = isOpen;
 
     if (isOpen && !wasOpen) {
+      const targetCategory = initialCategory || stations.find((s) => s.id === preselectedStationId)?.stationType || activeCategory;
       const target =
-        stations.find((s) => s.id === preselectedStationId && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-        stations.find((s) => s.id === preselectedStationId) ||
-        stations.find((s) => s.stationType === activeCategory && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-        stations.find((s) => getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-        stations[0];
-      if (target) {
-        setSelectedStationId(target.id);
-        setActiveCategory(target.stationType);
-      }
+        stations.find((s) => s.id === preselectedStationId && s.stationType === targetCategory && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
+        stations.find((s) => s.id === preselectedStationId && s.stationType === targetCategory) ||
+        stations.find((s) => s.stationType === targetCategory && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
+        stations.find((s) => s.stationType === targetCategory);
+      setSelectedStationId(target?.id || '');
+      setActiveCategory(targetCategory);
       setDurationMinutes(60);
       setSelectedGameTitle('');
-      setCustomerName('');
-      setCustomerPhone('');
+      setCustomerName(initialCustomerName || '');
+      setCustomerPhone(initialCustomerPhone || '');
       setCustomerEmail('');
       setPlayerCount(1);
       setFormErrors({});
@@ -375,14 +341,16 @@ export function WalkInModal({
       setSearchResults([]);
       setShowSearchDropdown(false);
     }
-  }, [isOpen, preselectedStationId, stations, durationMinutes, activeCategory]);
+  }, [isOpen, preselectedStationId, initialCategory, initialCustomerName, initialCustomerPhone, stations, durationMinutes, activeCategory]);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   const categoryStations = stations.filter((s) => s.stationType === activeCategory);
   const isConsoleStation =
-    selectedStation?.stationType === 'PS5' ||
-    selectedStation?.stationType === 'PC' ||
-    Boolean(selectedStation?.games && selectedStation.games.length > 0);
+    selectedStation?.stationType !== 'POOL_TABLE' && (
+      selectedStation?.stationType === 'PS5' ||
+      selectedStation?.stationType === 'PC' ||
+      Boolean(selectedStation?.games && selectedStation.games.length > 0)
+    );
 
   const isPs5 =
     selectedStation?.stationType === 'PS5' ||
@@ -408,18 +376,6 @@ export function WalkInModal({
   const discountPercent = activeMembership?.discountPercent || 0;
   const discountPaise = discountPercent > 0 ? Math.round((subtotalPaise * discountPercent) / 100) : 0;
   const totalFeePaise = Math.max(0, subtotalPaise - discountPaise);
-
-  // Switch category and auto-select first available station
-  const handleCategoryChange = (catKey: string) => {
-    setActiveCategory(catKey);
-    const firstAvailable =
-      stations.find((s) => s.stationType === catKey && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-      stations.find((s) => s.stationType === catKey);
-    if (firstAvailable) {
-      setSelectedStationId(firstAvailable.id);
-    }
-    setSelectedGameTitle('');
-  };
 
   // Change duration and switch station if currently selected station has a conflict
   const handleDurationChange = (minutes: number) => {
@@ -560,7 +516,9 @@ export function WalkInModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Desk Walk-in Rapid Allocation"
-      description="Quickly assign available gaming consoles and snooker tables to walk-in players."
+      description={activeCategory === 'POOL_TABLE'
+        ? 'Assign an available snooker table to a walk-in player.'
+        : 'Assign an available PlayStation console to a walk-in player.'}
       size="full"
       footerClassName="bg-[#090f19] border-t border-cyan-500/30 shadow-[0_-12px_32px_rgba(0,0,0,0.85)] z-20 py-2.5 sm:py-3.5 px-3 sm:px-6"
       footer={
@@ -677,35 +635,9 @@ export function WalkInModal({
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">1</span>
                   <span>Choose {activeCategory === 'PS5' ? `PlayStation Console (${categoryStations.length} Units)` : `Snooker Table (${categoryStations.length} Units)`}</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-[#08101a] p-1 rounded-xl border border-cyan-950/80">
-                    <button
-                      type="button"
-                      onClick={() => handleCategoryChange('PS5')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-bold uppercase transition-all flex items-center gap-1 ${
-                        activeCategory === 'PS5'
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 shadow-sm'
-                          : 'text-ds-text-dim hover:text-white'
-                      }`}
-                    >
-                      <span>🎮 PS5</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleCategoryChange('POOL_TABLE')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-bold uppercase transition-all flex items-center gap-1 ${
-                        activeCategory === 'POOL_TABLE'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 shadow-sm'
-                          : 'text-ds-text-dim hover:text-white'
-                      }`}
-                    >
-                      <span>🎱 Snooker</span>
-                    </button>
-                  </div>
-                  <span className="text-[11px] font-mono text-cyan-400 font-bold hidden sm:inline">
-                    {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Ready
-                  </span>
-                </div>
+                <span className="text-[11px] font-mono text-cyan-400 font-bold hidden sm:inline">
+                  {categoryStations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable).length} / {categoryStations.length} Ready
+                </span>
               </div>
 
               {formErrors.station && (
@@ -757,9 +689,6 @@ export function WalkInModal({
                             <div className="font-heading font-black text-xs text-ds-ice group-hover:text-white truncate">
                               {st.name}
                             </div>
-                            <p className="text-[10px] text-ds-text-dim truncate">
-                              {st.specs || (st.stationType === 'PS5' ? '4K 120Hz OLED Display' : 'Championship Slate Bed')}
-                            </p>
                           </div>
                         </div>
 
@@ -815,9 +744,6 @@ export function WalkInModal({
                       <span>Select Game To Play</span>
                       <span className="text-[10px] text-ds-text-dim normal-case font-normal">(optional)</span>
                     </label>
-                    <p className="text-[11px] text-ds-text-dim mt-0.5">
-                      Choose from our popular games or search for your favorite.
-                    </p>
                   </div>
 
                   {selectedGameTitle && (
@@ -873,18 +799,6 @@ export function WalkInModal({
                       </button>
                     );
                   })}
-                </div>
-
-                {/* Search / Custom input for other games */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-ds-text-dim absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Or type other game title (e.g. Call of Duty, Mortal Kombat)..."
-                    value={selectedGameTitle}
-                    onChange={(e) => setSelectedGameTitle(e.target.value)}
-                    className="w-full bg-ds-dark border border-ds-border rounded-xl pl-9 pr-3 py-2 text-xs text-ds-text placeholder:text-ds-text-dim focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none transition-all"
-                  />
                 </div>
 
                 {/* Selected Game Confirmation Pill */}
@@ -1239,56 +1153,6 @@ export function WalkInModal({
               </div>
             </div>
 
-            {/* Desk Payment Policy (Pay After / Post-Paid Tab Only) */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono font-bold">
-                    {isConsoleStation ? '6' : '5'}
-                  </span>
-                  <span>Payment Policy</span>
-                </label>
-                <span className="text-[10px] font-mono font-bold uppercase text-cyan-400 flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Settle on Exit
-                </span>
-              </div>
-
-              {/* Post-Paid Open Tab Confirmation Card */}
-              <div className="p-3.5 rounded-2xl bg-[#08101a] border border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-400/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-heading font-black text-sm text-white">Pay After</span>
-                        <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
-                          Post-Paid Tab
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-ds-text-dim">Open tab. Gamer settles ₹{(totalFeePaise / 100).toFixed(0)} upon exit.</p>
-                    </div>
-                  </div>
-                  <Badge variant="info" size="sm" className="font-mono text-[10px]">
-                    Zero Upfront
-                  </Badge>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-black/50 border border-cyan-900/40 flex items-center justify-between font-mono text-xs">
-                  <span className="text-ds-text-dim">Pending Bill on Checkout:</span>
-                  <span className="text-cyan-300 font-bold font-heading text-sm">
-                    ₹{(totalFeePaise / 100).toFixed(0)}
-                    <span className="text-ds-text-dim font-normal text-[10px] ml-1">(+ overtime if any)</span>
-                  </span>
-                </div>
-
-                <div className="p-2 rounded-lg bg-cyan-950/30 border border-cyan-500/20 text-[11px] text-cyan-200/90 flex items-center gap-1.5">
-                  <span className="shrink-0">ℹ️</span>
-                  <span>Session starts immediately. No upfront collection at desk. Cashier settles payment at checkout.</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </form>

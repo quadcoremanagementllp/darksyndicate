@@ -17,9 +17,6 @@ import {
   ArrowRight,
   RotateCw,
   X,
-  CreditCard,
-  Banknote,
-  QrCode,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -121,7 +118,6 @@ export function StaffPreBookingModal({
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<'PAY_ON_ARRIVAL' | 'CASH_NOW' | 'UPI_NOW'>('PAY_ON_ARRIVAL');
 
   // Customer Autocomplete / Search History state
   const [searchResults, setSearchResults] = useState<Array<{
@@ -340,9 +336,7 @@ export function StaffPreBookingModal({
 
     setSubmitting(true);
     try {
-      const isSettled = paymentMode === 'CASH_NOW' || paymentMode === 'UPI_NOW';
-      const paymentMethod = paymentMode === 'UPI_NOW' ? 'UPI' : 'CASH';
-      const notesPayload = `[Front Desk Pre-Booking]${isSettled ? ' [SETTLED]' : ''} • Mode: ${paymentMode}${notes ? ` • Note: ${notes.trim()}` : ''}`;
+      const notesPayload = `[Front Desk Pre-Booking] [PAY ON EXIT]${notes ? ` • Note: ${notes.trim()}` : ''}`;
 
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -357,7 +351,6 @@ export function StaffPreBookingModal({
           customerEmail: customerEmail.trim() || undefined,
           playerCount,
           payAtCounter: true,
-          paymentMethod,
           notes: notesPayload,
         }),
       });
@@ -506,12 +499,8 @@ export function StaffPreBookingModal({
             </div>
             <div className="flex justify-between items-center pt-2 border-t border-ds-border/60">
               <span className="text-ds-text-dim">Payment Status</span>
-              <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${
-                paymentMode !== 'PAY_ON_ARRIVAL'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-              }`}>
-                {paymentMode !== 'PAY_ON_ARRIVAL' ? 'PAID AT COUNTER' : 'PAY ON ARRIVAL'} (₹{totalPayable})
+              <span className="font-bold px-2 py-0.5 rounded text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                PAY AFTER SESSION (₹{totalPayable})
               </span>
             </div>
           </div>
@@ -1094,55 +1083,6 @@ export function StaffPreBookingModal({
               />
             </div>
 
-            {/* 6. Payment Timing & Mode */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">7</span>
-                <span>Payment Settlement Mode</span>
-              </label>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  {
-                    id: 'PAY_ON_ARRIVAL',
-                    label: 'Pay on Arrival',
-                    sub: 'Unpaid Reservation',
-                    icon: CreditCard,
-                  },
-                  {
-                    id: 'CASH_NOW',
-                    label: 'Cash (Paid Now)',
-                    sub: 'Settled at Desk',
-                    icon: Banknote,
-                  },
-                  {
-                    id: 'UPI_NOW',
-                    label: 'UPI (Paid Now)',
-                    sub: 'Settled at Desk',
-                    icon: QrCode,
-                  },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const isChosen = paymentMode === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setPaymentMode(m.id as any)}
-                      className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center ${
-                        isChosen
-                          ? 'bg-ds-surface border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-md shadow-cyan-950/40'
-                          : 'bg-ds-surface/40 border-ds-border text-ds-text-dim hover:text-white hover:border-ds-border/80'
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 mb-1 ${isChosen ? 'text-cyan-400' : 'text-ds-text-dim'}`} />
-                      <span className="font-heading font-bold text-[11px] uppercase">{m.label}</span>
-                      <span className="text-[9px] text-ds-text-dim font-mono">{m.sub}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
       </Modal>
