@@ -137,13 +137,14 @@ function StaffSidebarNav({
                 aria-current={pathname === item.href ? 'page' : undefined}
                 title={collapsed ? item.name : undefined}
                 aria-label={item.name}
-                className={`${collapsed ? 'flex justify-center px-2' : 'block px-3'} py-2 rounded-lg text-xs font-heading font-bold transition-all ${
+                className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-3'} py-2 rounded-lg text-xs font-heading font-bold transition-all ${
                   pathname === item.href
                     ? 'bg-ds-accent text-white shadow-sm shadow-ds-accent/20'
                     : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
                 }`}
               >
-                {collapsed ? <item.icon className="w-4 h-4" /> : item.name}
+                <item.icon className="w-4 h-4 shrink-0" />
+                {!collapsed && <span>{item.name}</span>}
               </Link>
             ))}
           </div>
