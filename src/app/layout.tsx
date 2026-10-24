@@ -4,6 +4,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import { MobileBottomBar } from '@/components/layout/MobileBottomBar';
 import { PwaInstaller } from '@/components/pwa/PwaInstaller';
+import { ScrollRevealController } from '@/components/layout/ScrollRevealController';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -86,6 +87,7 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             {children}
+            <ScrollRevealController />
             <MobileBottomBar />
             <PwaInstaller />
           </ToastProvider>

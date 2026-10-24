@@ -76,7 +76,7 @@ export default function MembershipPlansPage() {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 md:pt-28 pb-24 md:pb-16 lg:pb-20 space-y-12 sm:space-y-16">
         {/* Hero Header */}
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
+        <div data-scroll-reveal="" className="text-center space-y-4 max-w-3xl mx-auto">
           <Badge variant="accent" size="sm" className="shadow-glow-sm">
             DARK SYNDICATE PASS
           </Badge>
@@ -131,7 +131,7 @@ export default function MembershipPlansPage() {
             <span>Loading Syndicate Passes...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pt-4 sm:pt-6">
+          <div data-scroll-reveal="" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pt-4 sm:pt-6">
             {plans.map((plan, idx) => {
               const isGold = plan.tier === 'GOLD';
               const isVip = plan.tier === 'VIP';

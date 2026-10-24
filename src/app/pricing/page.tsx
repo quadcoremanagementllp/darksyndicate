@@ -149,7 +149,7 @@ export default function PricingPage() {
       <main className="flex-1 pt-32 sm:pt-36 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
           {/* Page Header */}
-          <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div data-scroll-reveal="" className="text-center max-w-3xl mx-auto space-y-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ds-surface border border-ds-accent/30 text-xs font-heading font-bold uppercase tracking-[0.2em] text-ds-ice">
               <Tag className="w-3.5 h-3.5 text-ds-accent" />
               Transparent Rates
@@ -163,7 +163,7 @@ export default function PricingPage() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div data-scroll-reveal="" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
               <Card
                 key={plan.id}
@@ -229,7 +229,7 @@ export default function PricingPage() {
           </div>
 
           {/* ─── Interactive Price Calculator ──────────────────────── */}
-          <section className="p-8 sm:p-10 rounded-3xl bg-ds-surface/50 border border-ds-border relative overflow-hidden">
+          <section data-scroll-reveal="" className="p-8 sm:p-10 rounded-3xl bg-ds-surface/50 border border-ds-border relative overflow-hidden">
             <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
               <div className="space-y-6">
                 <div>
@@ -449,7 +449,7 @@ export default function PricingPage() {
           </section>
 
           {/* ─── FAQs ──────────────────────────────────────────────── */}
-          <section className="space-y-6 max-w-4xl mx-auto">
+          <section data-scroll-reveal="" className="space-y-6 max-w-4xl mx-auto">
             <div className="text-center space-y-2">
               <h3 className="text-2xl sm:text-3xl font-heading font-extrabold text-ds-text uppercase">
                 FREQUENTLY ASKED <span className="gradient-text">QUESTIONS</span>

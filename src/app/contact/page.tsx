@@ -78,7 +78,7 @@ export default function ContactPage() {
       <main className="flex-1 pt-32 sm:pt-36 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
           {/* Header */}
-          <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div data-scroll-reveal="" className="text-center max-w-3xl mx-auto space-y-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ds-surface border border-ds-accent/30 text-xs font-heading font-bold uppercase tracking-[0.2em] text-ds-ice">
               <Mail className="w-3.5 h-3.5 text-ds-accent" />
               Direct Communication
@@ -91,7 +91,7 @@ export default function ContactPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          <div data-scroll-reveal="" className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             {/* Left Column: Venue Info & Operating Hours */}
             <div className="lg:col-span-5 space-y-6">
               {/* Arena Info Card */}

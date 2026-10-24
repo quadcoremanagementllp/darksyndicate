@@ -108,7 +108,7 @@ export default function HomePage() {
         <LiveStatsBar />
 
         {/* ─── Featured Gaming Zones ───────────────────────────────── */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
+        <section data-scroll-reveal="" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
             <span className="text-xs font-heading font-bold uppercase tracking-[0.25em] text-ds-accent">
               World-Class Facilities
@@ -263,7 +263,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── Flagship Games Grid ─────────────────────────────────── */}
-        <section className="py-16 bg-ds-surface/30 border-y border-ds-border content-visibility-auto">
+        <section data-scroll-reveal="" className="py-16 bg-ds-surface/30 border-y border-ds-border content-visibility-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
               <div>
@@ -326,7 +326,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── How It Works ────────────────────────────────────────── */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
+        <section data-scroll-reveal="" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
             <span className="text-xs font-heading font-bold uppercase tracking-[0.25em] text-ds-accent">
               Frictionless Experience
@@ -382,7 +382,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── Customer Testimonials ──────────────────────────────── */}
-        <section className="py-20 bg-ds-surface/40 border-t border-ds-border content-visibility-auto">
+        <section data-scroll-reveal="" className="py-20 bg-ds-surface/40 border-t border-ds-border content-visibility-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
               <span className="text-xs font-heading font-bold uppercase tracking-[0.25em] text-ds-accent">
@@ -415,7 +415,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── Location & Hours Callout ────────────────────────────── */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
+        <section data-scroll-reveal="" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto content-visibility-auto">
           <div className="rounded-3xl bg-gradient-to-r from-ds-surface via-ds-surface/80 to-ds-dark border border-ds-accent/30 p-8 sm:p-12 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-96 h-96 bg-ds-accent/10 rounded-full blur-[100px] pointer-events-none" />
 

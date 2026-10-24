@@ -17,7 +17,7 @@ export function HeroSection() {
 
       {/* Main Content Container */}
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-8 lg:px-10">
-        <div className="max-w-2xl">
+        <div className="max-w-2xl hero-enter">
           {/* Eyebrow Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-ds-accent/10 border border-ds-accent/30 text-ds-ice text-xs font-heading font-semibold tracking-wider uppercase backdrop-blur-sm mb-3 sm:mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-ds-accent animate-pulse" />
