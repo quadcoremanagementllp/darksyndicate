@@ -12,7 +12,6 @@ import { Modal } from '@/components/ui/Modal';
 import {
   Gamepad2,
   Clock,
-  QrCode,
   UserPlus,
   Play,
   Square,
@@ -31,7 +30,6 @@ import {
   Zap,
   X,
 } from 'lucide-react';
-import { QrScannerModal } from '@/components/staff/QrScannerModal';
 import { WalkInModal } from '@/components/staff/WalkInModal';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -129,7 +127,6 @@ export default function StaffStationGridPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals state
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [selectedWalkInStationId, setSelectedWalkInStationId] = useState<string | undefined>(undefined);
   const [walkInInitialCustomerName, setWalkInInitialCustomerName] = useState<string | undefined>(undefined);
@@ -445,42 +442,6 @@ export default function StaffStationGridPage() {
         </Card>
       </div>
 
-      {/* 2. Operations Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-ds-surface/60 backdrop-blur-sm p-3 sm:p-4 rounded-2xl border border-ds-border shadow-lg">
-        {/* Left Side: Highlighted In-Session Button */}
-        <div className="flex items-center">
-          <Link href="/staff/bookings/in-session">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-ds-accent/20 via-ds-surface to-ds-surface border border-ds-accent/50 hover:border-ds-accent text-ds-ice hover:text-white font-heading font-black tracking-wider text-xs sm:text-sm uppercase shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_22px_rgba(6,182,212,0.45)] transition-all duration-200 group cursor-pointer"
-              title="View all active sessions"
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-              <Gamepad2 className="w-4 h-4 text-ds-accent group-hover:scale-110 transition-transform" />
-              <span>In-Session</span>
-              <span className="px-2 py-0.5 rounded-full font-mono text-xs font-black bg-ds-accent/20 border border-ds-accent/40 text-cyan-200 shadow-inner">
-                {stats.occupiedCount}
-              </span>
-            </button>
-          </Link>
-        </div>
-
-        {/* Right Side: Primary Desk Action */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 justify-start sm:justify-end">
-          <Button
-            variant="accent"
-            onClick={() => setScannerOpen(true)}
-            className="flex items-center gap-2 shadow-lg shadow-ds-accent/20"
-          >
-            <QrCode className="w-4 h-4" />
-            <span>Scan QR Pass</span>
-          </Button>
-        </div>
-      </div>
-
       {/* ─── ACTIVE GUEST TABS BAR (Unsettled tabs / Moving to next game) ─── */}
       {openGuestTabs.length > 0 && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-cyan-950/40 to-ds-surface border-2 border-amber-500/40 space-y-3 shadow-xl">
@@ -557,7 +518,7 @@ export default function StaffStationGridPage() {
         </div>
       )}
 
-      {/* 3. Live Station Matrix / Arenas View */}
+      {/* Live Station Matrix / Arenas View */}
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-2 border-ds-accent border-t-transparent rounded-full animate-spin" />
@@ -566,12 +527,25 @@ export default function StaffStationGridPage() {
       ) : isZoneView ? (
         /* Top Level Arena Cards with Single Hero Images matching User Booking Flow */
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-ds-border pb-3">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text">
-                Dark Syndicate Gaming Arenas
-              </h2>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ds-border pb-3">
+            <h2 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text">
+              Dark Syndicate Gaming World
+            </h2>
+            <Link
+              href="/staff/bookings/in-session"
+              title="View all active sessions"
+              className="self-start sm:self-auto inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-ds-accent/20 via-ds-surface to-ds-surface border border-ds-accent/50 hover:border-ds-accent text-ds-ice hover:text-white font-heading font-black tracking-wider text-xs sm:text-sm uppercase shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:shadow-[0_0_22px_rgba(6,182,212,0.45)] transition-all duration-200 group shrink-0"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              </span>
+              <Gamepad2 className="w-4 h-4 text-ds-accent group-hover:scale-110 transition-transform" />
+              <span>In-Session</span>
+              <span className="px-2 py-0.5 rounded-full font-mono text-xs font-black bg-ds-accent/20 border border-ds-accent/40 text-cyan-200 shadow-inner">
+                {stats.occupiedCount}
+              </span>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1100,12 +1074,6 @@ export default function StaffStationGridPage() {
       )}
 
       {/* MODALS */}
-      <QrScannerModal
-        isOpen={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onCheckInSuccess={loadData}
-      />
-
       <WalkInModal
         isOpen={walkInOpen}
         onClose={() => {

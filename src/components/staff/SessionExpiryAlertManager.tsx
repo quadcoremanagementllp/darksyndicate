@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -12,7 +12,6 @@ import {
   X,
   PlusCircle,
   Square,
-  Gamepad2,
   User,
   Minus,
   ChevronLeft,
@@ -28,6 +27,8 @@ import {
   playOverdueAlarm,
 } from '@/lib/soundAlarm';
 import { sendMobilePushNotification } from '@/lib/pushNotifications';
+import { useAuth } from '@/hooks/useAuth';
+import { canManageStaffSession, sessionHourlyRatePaise, visibleStaffSessions } from '@/lib/staffSessionRules';
 
 export interface ActiveSessionData {
   stationId: string;
@@ -42,6 +43,7 @@ export interface ActiveSessionData {
   paymentStatus?: string;
   paymentMethod?: string;
   totalPricePaise?: number;
+  staffId?: string | null;
 }
 
 export interface SessionAlert {
@@ -54,14 +56,18 @@ export interface SessionAlert {
 }
 
 export function SessionExpiryAlertManager() {
+  const { user } = useAuth();
+  const viewerId = user?.id;
+  const viewerRole = user?.role;
   const [activeSessions, setActiveSessions] = useState<ActiveSessionData[]>([]);
-  const [alerts, setAlerts] = useState<SessionAlert[]>([]);
+  const [storedAlerts, setAlerts] = useState<SessionAlert[]>([]);
+  const alerts = storedAlerts.filter((alert) => canManageStaffSession(viewerRole, viewerId, alert.session.staffId));
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(() => !isAlarmSoundEnabled());
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   // Modals controlled directly from alerts
-  const [extendStation, setExtendStation] = useState<any | null>(null);
+  const [extendStation, setExtendStation] = useState<React.ComponentProps<typeof ExtendSessionModal>['station']>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
 
   // Track which milestones have been triggered to prevent duplicate alerts
@@ -90,10 +96,14 @@ export function SessionExpiryAlertManager() {
     setAlarmSoundEnabled(!nextMuted);
   };
 
-  // Poll for active stations every 10 seconds
-  const fetchActiveSessions = async () => {
+  // Poll for active stations every 30 seconds
+  const fetchActiveSessions = useCallback(async () => {
+    if (!viewerId) {
+      setActiveSessions([]);
+      return;
+    }
     try {
-      const res = await fetch('/api/staff/overview');
+      const res = await fetch('/api/staff/overview?scope=alerts');
       const json = await res.json();
       if (json.success && json.data?.stations) {
         const list: ActiveSessionData[] = [];
@@ -102,8 +112,9 @@ export function SessionExpiryAlertManager() {
             list.push({
               stationId: st.id,
               stationName: st.name,
-              pricePerHourPaise: st.pricePerHourPaise || 15000,
+              pricePerHourPaise: sessionHourlyRatePaise(st.stationType, st.pricePerHourPaise || 15000, st.activeSession.playerCount || (st.stationType === 'POOL_TABLE' ? 4 : 1)),
               sessionId: st.activeSession.id,
+              staffId: st.activeSession.staffId,
               bookingId: st.activeSession.bookingId,
               bookingRef: st.activeSession.bookingRef,
               customerName: st.activeSession.customerName || 'Player',
@@ -115,27 +126,28 @@ export function SessionExpiryAlertManager() {
             });
           }
         }
-        setActiveSessions(list);
+        setActiveSessions(visibleStaffSessions(list, viewerRole, viewerId));
       }
     } catch {
       // Ignore background errors
     }
-  };
+  }, [viewerId, viewerRole]);
 
   useEffect(() => {
-    fetchActiveSessions();
-    const interval = setInterval(fetchActiveSessions, 30000);
-    const handleBookingUpdate = () => fetchActiveSessions();
+    const firstLoad = window.setTimeout(() => { void fetchActiveSessions(); }, 0);
+    const interval = setInterval(() => { void fetchActiveSessions(); }, 30000);
+    const handleBookingUpdate = () => { void fetchActiveSessions(); };
     if (typeof window !== 'undefined') {
       window.addEventListener('ds-booking-updated', handleBookingUpdate);
     }
     return () => {
+      clearTimeout(firstLoad);
       clearInterval(interval);
       if (typeof window !== 'undefined') {
         window.removeEventListener('ds-booking-updated', handleBookingUpdate);
       }
     };
-  }, []);
+  }, [fetchActiveSessions]);
 
   // 1-second live countdown evaluator
   useEffect(() => {
@@ -143,7 +155,7 @@ export function SessionExpiryAlertManager() {
       const now = Date.now();
       const newAlerts: SessionAlert[] = [];
 
-      for (const session of activeSessions) {
+      for (const session of visibleStaffSessions(activeSessions, viewerRole, viewerId)) {
         if (!session.scheduledEndAt) continue;
         const endTime = new Date(session.scheduledEndAt).getTime();
         const diffMs = endTime - now;
@@ -228,7 +240,7 @@ export function SessionExpiryAlertManager() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeSessions, isMuted]);
+  }, [activeSessions, isMuted, viewerId, viewerRole]);
 
   // Dismiss a specific alert
   const handleDismiss = (alertId: string) => {

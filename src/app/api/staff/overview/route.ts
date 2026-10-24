@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, handleApiError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { canManageStaffSession } from '@/lib/staffSessionRules';
 
 export async function GET(req: NextRequest) {
   try {
-    await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
+    const viewer = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     try {
       const istOffsetMs = 5.5 * 60 * 60 * 1000;
       const now = new Date();
@@ -404,6 +405,20 @@ export async function GET(req: NextRequest) {
           };
         });
 
+        if (req.nextUrl.searchParams.get('scope') === 'alerts') {
+          return apiSuccess({
+            stations: formattedStations
+              .filter((station) => station.activeSession && canManageStaffSession(viewer.role, viewer.userId, station.activeSession.staffId))
+              .map((station) => ({
+                id: station.id,
+                name: station.name,
+                stationType: station.stationType,
+                pricePerHourPaise: station.pricePerHourPaise,
+                activeSession: station.activeSession,
+              })),
+          });
+        }
+
         // Compute revenue today (checks both paidAt and createdAt for cash collected today)
         const todayPayments = await prisma.payment.findMany({
           where: {
@@ -453,6 +468,7 @@ export async function GET(req: NextRequest) {
     if (process.env.NODE_ENV === 'production') {
       return apiSuccess({ stats: { totalStations: 0, availableCount: 0, occupiedCount: 0, maintenanceCount: 0, todayRevenuePaise: 0 }, stations: [], openGuestTabs: [] });
     }
+    if (req.nextUrl.searchParams.get('scope') === 'alerts') return apiSuccess({ stations: [] });
     return apiSuccess(getDemoStaffOverview());
   } catch (error) {
     return handleApiError(error);
