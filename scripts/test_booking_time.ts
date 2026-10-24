@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bookingEndTime } from '../src/lib/bookingTime';
+import { bookingEndTime, to24HourTime } from '../src/lib/bookingTime';
+
+test('AM/PM custom time converts to the value used by availability and reservations', () => {
+  assert.equal(to24HourTime(4, 15, 'PM'), '16:15');
+  assert.equal(to24HourTime(12, 0, 'AM'), '00:00');
+  assert.equal(to24HourTime(12, 0, 'PM'), '12:00');
+  assert.equal(to24HourTime(11, 59, 'PM'), '23:59');
+  assert.equal(to24HourTime(0, 15, 'AM'), null);
+  assert.equal(to24HourTime(4, 60, 'PM'), null);
+});
 
 test('custom reservation end time follows the selected duration', () => {
   assert.deepEqual(bookingEndTime('16:15', 60), { time: '17:15', nextDay: false });

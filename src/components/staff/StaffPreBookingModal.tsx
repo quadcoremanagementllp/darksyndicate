@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
-import { bookingEndTime } from '@/lib/bookingTime';
+import { bookingEndTime, to24HourTime } from '@/lib/bookingTime';
 
 interface Station {
   id: string;
@@ -115,7 +115,9 @@ export function StaffPreBookingModal({
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [timeMode, setTimeMode] = useState<'SLOT' | 'CUSTOM'>('SLOT');
   const [selectedTime, setSelectedTime] = useState<string>('');
-  const [customTime, setCustomTime] = useState<string>('');
+  const [customHour, setCustomHour] = useState<string>('');
+  const [customMinute, setCustomMinute] = useState<string>('00');
+  const [customPeriod, setCustomPeriod] = useState<'AM' | 'PM'>('AM');
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -194,6 +196,7 @@ export function StaffPreBookingModal({
   const selectedSlotObj = useMemo(() => {
     return slots.find((s) => s.time === selectedTime);
   }, [slots, selectedTime]);
+  const customTime = customHour ? to24HourTime(Number(customHour), Number(customMinute), customPeriod) || '' : '';
   const bookingStartTime = timeMode === 'CUSTOM' ? customTime : selectedTime;
   const activeSlot = timeMode === 'CUSTOM' ? slots.find((slot) => slot.time === customTime) : selectedSlotObj;
   const selectedStationAvailable = stationId === 'ANY' || Boolean(activeSlot?.availableStationIds?.includes(stationId));
@@ -208,7 +211,9 @@ export function StaffPreBookingModal({
       setSuccessBooking(null);
       setReviewOpen(false);
       setSelectedTime('');
-      setCustomTime('');
+      setCustomHour('');
+      setCustomMinute('00');
+      setCustomPeriod('AM');
       setTimeMode('SLOT');
       setPlayerCount(initialCategory === 'POOL_TABLE' ? 2 : 1);
       setSearchResults([]);
@@ -529,7 +534,9 @@ export function StaffPreBookingModal({
               onClick={() => {
                 setSuccessBooking(null);
                 setSelectedTime('');
-                setCustomTime('');
+                setCustomHour('');
+                setCustomMinute('00');
+                setCustomPeriod('AM');
               }}
               className="font-heading font-bold uppercase text-xs"
             >
@@ -753,10 +760,22 @@ export function StaffPreBookingModal({
               {timeMode === 'CUSTOM' ? (
                 <div className="rounded-2xl border border-ds-border bg-ds-surface/30 p-4 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                    <label className="space-y-1.5 text-ds-text-muted font-mono">
-                      <span className="block">Start time</span>
-                      <input type="time" step="60" value={customTime} onChange={(event) => setCustomTime(event.target.value)} className="w-full rounded-xl border border-ds-border bg-ds-dark px-3 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none" />
-                    </label>
+                    <fieldset className="space-y-1.5 min-w-0">
+                      <legend className="text-ds-text-muted font-mono">Start time (12-hour)</legend>
+                      <div className="grid grid-cols-[1fr_1fr_1.15fr] gap-2">
+                        <select aria-label="Start hour" value={customHour} onChange={(event) => setCustomHour(event.target.value)} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
+                          <option value="" disabled>Hour</option>
+                          {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
+                        </select>
+                        <select aria-label="Start minute" value={customMinute} onChange={(event) => setCustomMinute(event.target.value)} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
+                          {Array.from({ length: 60 }, (_, index) => <option key={index} value={String(index).padStart(2, '0')}>{String(index).padStart(2, '0')}</option>)}
+                        </select>
+                        <select aria-label="AM or PM" value={customPeriod} onChange={(event) => setCustomPeriod(event.target.value as 'AM' | 'PM')} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
+                          <option value="AM">AM</option>
+                          <option value="PM">PM</option>
+                        </select>
+                      </div>
+                    </fieldset>
                     <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-3 py-2.5 font-mono">
                       <span className="block text-ds-text-muted">Ends automatically</span>
                       <span className="block mt-1 text-base font-bold text-cyan-300">{customEnd ? `${formatNormalTime(customEnd.time)}${customEnd.nextDay ? ' (next day)' : ''}` : 'Choose a start time'}</span>
