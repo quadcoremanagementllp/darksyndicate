@@ -21,6 +21,7 @@ import {
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
 import { WalkInModal } from '@/components/staff/WalkInModal';
+import { StaffArenaPickerModal } from '@/components/staff/StaffArenaPickerModal';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageStaffSession, sessionHourlyRatePaise } from '@/lib/staffSessionRules';
@@ -1151,13 +1152,13 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
         }}
       />
 
-      <Modal isOpen={liveCategoryPickerOpen} onClose={() => { if (!startingLive) setLiveCategoryPickerOpen(false); }} title="Start Live Session" size="md">
-        <p className="mb-4 text-sm text-ds-text-muted">Choose the arena for this walk-in session.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button type="button" disabled={startingLive} onClick={() => void startLiveSession('PS5')} className="rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-5 text-left font-heading font-bold text-white hover:bg-cyan-500/20 disabled:opacity-50">🎮 PlayStation 5</button>
-          <button type="button" disabled={startingLive} onClick={() => void startLiveSession('POOL_TABLE')} className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-left font-heading font-bold text-white hover:bg-emerald-500/20 disabled:opacity-50">🎱 Snooker Lounge</button>
-        </div>
-      </Modal>
+      <StaffArenaPickerModal
+        isOpen={liveCategoryPickerOpen}
+        onClose={() => setLiveCategoryPickerOpen(false)}
+        onSelect={(arena) => void startLiveSession(arena)}
+        accessibleTitle="Choose arena for live session"
+        busy={startingLive}
+      />
       <WalkInModal isOpen={walkInOpen} onClose={() => setWalkInOpen(false)} stations={walkInStations} initialCategory={walkInCategory} onSuccess={() => { void loadBookings(true); window.dispatchEvent(new Event('ds-booking-updated')); }} />
     </div>
   );

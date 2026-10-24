@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, ExternalLink, Info, Trash2 } from 'lucide-react';
 import { StaffPreBookingModal } from '@/components/staff/StaffPreBookingModal';
+import { StaffArenaPickerModal, type StaffArena } from '@/components/staff/StaffArenaPickerModal';
 import { useToast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
 
@@ -48,6 +49,8 @@ export function StaffReservationsView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [arenaPickerOpen, setArenaPickerOpen] = useState(false);
+  const [bookingArena, setBookingArena] = useState<StaffArena>('PS5');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [reservationToDelete, setReservationToDelete] = useState<Reservation | null>(null);
@@ -110,7 +113,7 @@ export function StaffReservationsView() {
         </span>
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() => setArenaPickerOpen(true)}
           className="ml-auto inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs sm:text-sm font-heading font-bold text-amber-300 transition-colors hover:border-amber-400 hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
         >
           <CalendarDays className="h-4 w-4" />
@@ -196,10 +199,22 @@ export function StaffReservationsView() {
         </div>}
       </Modal>
 
+      <StaffArenaPickerModal
+        isOpen={arenaPickerOpen}
+        onClose={() => setArenaPickerOpen(false)}
+        onSelect={(arena) => {
+          setBookingArena(arena);
+          setArenaPickerOpen(false);
+          setModalOpen(true);
+        }}
+        accessibleTitle="Choose arena for upcoming reservation"
+      />
+
       <StaffPreBookingModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         stations={stations}
+        initialCategory={bookingArena}
         onBookingCreated={() => {
           void loadReservations();
           window.dispatchEvent(new Event('ds-booking-updated'));
