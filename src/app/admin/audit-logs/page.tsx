@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Search,
   Filter,
-  RotateCw,
   Eye,
   Download,
   AlertCircle,
@@ -129,30 +128,18 @@ export default function AdminAuditLogsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
-              System Audit Trail & Security Ledger
-            </h1>
-            <Badge variant="accent" size="sm">
-              IMMUTABLE
-            </Badge>
-          </div>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            System Audit Trail & Security Ledger
+          </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Transparent security log tracking administrative actions, pricing edits, and access events.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>Export CSV</span>
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={() => loadAuditLogs(page)}>
-            <RotateCw className="w-3.5 h-3.5 mr-1.5" />
-            <span>Refresh</span>
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          <span>Export CSV</span>
+        </Button>
       </div>
 
       {/* Filter & Search Bar */}

@@ -1060,44 +1060,6 @@ export default function AdminStaffPage() {
             )}
           </div>
 
-          {/* Working hours summary */}
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-ds-surface/95 via-ds-dark/95 to-ds-surface/95 border border-ds-accent/40 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="space-y-1 text-center md:text-left">
-              <div className="text-[11px] font-mono uppercase tracking-widest text-ds-text-dim flex items-center justify-center md:justify-start gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-ds-accent" />
-                <span>Team Working Hours & Shift Totals</span>
-              </div>
-              <div className="text-xs text-ds-text-muted">
-                Showing <span className="font-bold text-ds-text">{shifts.length}</span> shifts across{' '}
-                <span className="font-bold text-ds-text">
-                  {selectedStaffFilter === 'ALL'
-                    ? 'all staff and admins'
-                    : shiftStaffList.find((s) => s.id === selectedStaffFilter)?.name || 'selected operator'}
-                </span>.
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-4 bg-ds-dark/80 px-5 py-3 rounded-2xl border border-ds-accent/30 shadow-lg shadow-ds-accent/10">
-              <div className="text-right">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-dim block">
-                  Total Accumulated Working Hours
-                </span>
-                <div className="text-2xl sm:text-3xl font-heading font-black text-ds-ice tracking-tight flex items-baseline justify-end gap-2">
-                  <span>{shiftSummary.totalWorkingHoursFormatted}</span>
-                  <span className="text-xs font-mono font-normal text-ds-text-dim">
-                    ({shiftSummary.totalWorkingHoursDecimal} hrs)
-                  </span>
-                </div>
-              </div>
-              <div className="h-8 w-[1px] bg-ds-border hidden sm:block" />
-              <div className="text-xs font-mono space-y-0.5 text-left text-ds-text-dim">
-                <div>Active: <span className="text-emerald-400 font-bold">{shiftSummary.activeShifts}</span></div>
-                <div>Manual: <span className="text-cyan-400 font-bold">{shiftSummary.manualLogouts}</span></div>
-                <div>Inactive: <span className="text-amber-400 font-bold">{shiftSummary.systemInactivityLogouts}</span></div>
-              </div>
-            </div>
-          </div>
-
           {/* Shifts & Hours Table */}
           <Card glass className="border-ds-border overflow-hidden p-0">
             {loadingShifts ? (
@@ -1252,7 +1214,7 @@ export default function AdminStaffPage() {
                   First Name <span className="text-rose-400">*</span>
                 </label>
                 <Input
-                  placeholder="hari"
+                  placeholder="First name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
@@ -1265,7 +1227,7 @@ export default function AdminStaffPage() {
                   Last Name
                 </label>
                 <Input
-                  placeholder="Balan"
+                  placeholder="Last name"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="text-xs py-2 bg-ds-dark border-ds-border"
@@ -1280,7 +1242,7 @@ export default function AdminStaffPage() {
                 </label>
                 <Input
                   type="email"
-                  placeholder="claudethreefree88@gmail.com"
+                  placeholder="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -1294,7 +1256,7 @@ export default function AdminStaffPage() {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="9940088776"
+                  placeholder="Primary mobile number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
@@ -1324,7 +1286,7 @@ export default function AdminStaffPage() {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="+91 98400 12345 (Family / Guardian)"
+                  placeholder="Emergency contact number"
                   value={emergencyContact}
                   onChange={(e) => setEmergencyContact(e.target.value)}
                   className="text-xs py-2 bg-ds-dark border-ds-border font-mono"
@@ -1338,7 +1300,7 @@ export default function AdminStaffPage() {
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Minimum 6 characters"
+                    placeholder="Temporary password (minimum 6 characters)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -1380,7 +1342,7 @@ export default function AdminStaffPage() {
               </label>
               <textarea
                 rows={2}
-                placeholder="Door No, Street, Apartment, City, State, PIN Code"
+                placeholder="Full residential address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-ds-dark border border-ds-border text-xs text-ds-text focus:outline-none focus:border-ds-accent transition-colors"
@@ -1394,7 +1356,7 @@ export default function AdminStaffPage() {
                   Aadhaar Card Number
                 </label>
                 <Input
-                  placeholder="XXXX XXXX XXXX (12 digits)"
+                  placeholder="12-digit Aadhaar card number"
                   value={aadhaarNumber}
                   onChange={(e) => handleAadhaarChange(e.target.value)}
                   className="text-xs py-2 bg-ds-dark border-ds-border font-mono tracking-widest"
@@ -1466,19 +1428,6 @@ export default function AdminStaffPage() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-
-          {/* Permission Guarantee Note */}
-          <div className="p-3 rounded-xl bg-ds-surface/60 border border-ds-accent/30 text-[11px] text-ds-text-muted flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-heading font-bold text-ds-text uppercase tracking-wider block">
-                Operator Access Permissions
-              </span>
-              <span>
-                Floor Operators receive access to the Live Station Grid, check-ins, walk-ins, and session extensions. Administrators also receive access to the Admin Portal.
-              </span>
             </div>
           </div>
 
