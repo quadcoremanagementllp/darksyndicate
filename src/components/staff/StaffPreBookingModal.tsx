@@ -9,6 +9,7 @@ import {
   Zap,
   ArrowRight,
   RotateCw,
+  X,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { BookingReviewDialog } from './BookingReviewDialog';
@@ -394,8 +395,8 @@ export function StaffPreBookingModal({
       isOpen={isOpen && !reviewOpen}
       onClose={onClose}
       size={successBooking ? 'lg' : 'full'}
-      showCloseButton={!submitting}
-      bodyClassName={successBooking ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : undefined}
+      showCloseButton={!submitting && !successBooking}
+      bodyClassName={successBooking ? 'relative !p-6 sm:!p-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : undefined}
       title={
         successBooking ? undefined : (
           <div className="flex items-center gap-3">
@@ -468,6 +469,14 @@ export function StaffPreBookingModal({
       {/* ─── SUCCESS SCREEN ─── */}
       {successBooking ? (
         <div className="space-y-4 text-center animate-in fade-in zoom-in-95 duration-200">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close reservation confirmation"
+            className="absolute right-6 top-6 sm:right-8 sm:top-8 rounded-lg p-1.5 text-ds-text-muted transition-colors hover:bg-ds-surface-2 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
             <CheckCircle2 className="w-6 h-6" />
           </div>

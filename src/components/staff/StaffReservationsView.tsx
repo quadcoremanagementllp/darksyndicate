@@ -188,11 +188,11 @@ export function StaffReservationsView() {
         </div>}
       </Modal>
 
-      <Modal isOpen={reservationToDelete !== null} onClose={() => { if (!deletingId) setReservationToDelete(null); }} title="Delete Reservation" size="sm">
-        {reservationToDelete && <div className="space-y-5">
+      <Modal isOpen={reservationToDelete !== null} onClose={() => { if (!deletingId) setReservationToDelete(null); }} title="Delete Reservation" size="sm" showCloseButton={false} bodyClassName="!pt-1 sm:!pt-1 !pb-5">
+        {reservationToDelete && <div className="space-y-2.5">
           <p className="text-sm text-ds-text">Delete reservation <strong className="text-white">{reservationToDelete.bookingRef}</strong> for {reservationToDelete.customerName}?</p>
           <p className="text-xs text-ds-text-muted">The slot will become available again.</p>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-3">
             <button type="button" disabled={Boolean(deletingId)} onClick={() => setReservationToDelete(null)} className="rounded-xl border border-ds-border px-4 py-2 text-sm font-bold text-white hover:bg-ds-surface-2 disabled:opacity-50">Cancel</button>
             <button type="button" disabled={Boolean(deletingId)} onClick={() => void deleteReservation(reservationToDelete)} className="rounded-xl border border-rose-500/40 bg-rose-500/20 px-4 py-2 text-sm font-bold text-rose-200 hover:bg-rose-500/30 disabled:opacity-50">{deletingId ? 'Deleting...' : 'Delete Reservation'}</button>
           </div>
