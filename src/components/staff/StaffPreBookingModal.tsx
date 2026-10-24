@@ -539,8 +539,8 @@ export function StaffPreBookingModal({
         </div>
       ) : (
         /* ─── BOOKING FORM ─── */
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start text-xs py-1">
-          <div className="xl:col-span-7 space-y-5 min-w-0">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 xl:gap-8 items-start text-xs py-1">
+          <div className="xl:col-span-5 space-y-6 min-w-0">
             {/* 1. Arena & Station Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
@@ -548,32 +548,153 @@ export function StaffPreBookingModal({
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center font-mono">1</span>
                   Choose {isPool ? 'Snooker Table' : 'PlayStation Console'} ({filteredCategoryStations.length} Units)
                 </label>
-                <span className="font-mono text-cyan-400 hidden sm:inline">{activeSlot?.availableStationIds?.length ?? '—'} Ready</span>
+                <span className="font-mono text-cyan-400 hidden sm:inline">{activeSlot ? `${activeSlot.availableStationIds?.length ?? 0} Ready` : 'Choose a time'}</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                <button type="button" onClick={() => setStationId('ANY')} className={`rounded-2xl border p-4 text-left min-h-24 transition-colors ${stationId === 'ANY' ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}>
-                  <span className="block font-heading font-bold text-white">Any Available</span>
-                  <span className="block mt-1 text-ds-text-muted">Assign a free {isPool ? 'table' : 'console'}</span>
-                  <span className="block mt-3 font-mono font-bold text-cyan-300">{stationId === 'ANY' ? 'Selected ✓' : 'Auto-allocate'}</span>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  aria-pressed={stationId === 'ANY'}
+                  onClick={() => setStationId('ANY')}
+                  className={`min-w-0 min-h-[68px] rounded-xl border px-3 py-2.5 text-left flex flex-col justify-between gap-1 transition-colors ${stationId === 'ANY' ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400/70' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}
+                >
+                  <span className="flex items-center justify-between gap-2 font-heading font-bold text-white">
+                    <span className="truncate">Any Available</span>
+                    {stationId === 'ANY' && <span className="shrink-0 text-cyan-300" aria-hidden="true">✓</span>}
+                  </span>
+                  <span className="text-[11px] text-ds-text-muted truncate">Auto-allocate a free {isPool ? 'table' : 'console'}</span>
                 </button>
                 {filteredCategoryStations.map((station) => {
                   const ready = Boolean(activeSlot?.availableStationIds?.includes(station.id));
                   const selected = stationId === station.id;
-                  return <button key={station.id} type="button" onClick={() => setStationId(station.id)} className={`rounded-2xl border p-4 text-left min-h-24 transition-colors ${selected ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}>
-                    <span className="block font-heading font-bold text-white truncate">{station.name}</span>
-                    <span className="block mt-1 font-mono text-cyan-300">{isPool ? '₹250/hr' : 'From ₹150/hr'}</span>
-                    <span className={`block mt-3 font-mono font-bold ${activeSlot && !ready ? 'text-rose-300' : 'text-emerald-300'}`}>{selected && activeSlot && !ready ? 'Selected · Booked' : selected ? 'Selected ✓' : activeSlot ? ready ? 'Available' : 'Booked' : 'Choose a time'}</span>
-                  </button>;
+                  return (
+                    <button
+                      key={station.id}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={Boolean(activeSlot && !ready)}
+                      onClick={() => setStationId(station.id)}
+                      className={`min-w-0 min-h-[68px] rounded-xl border px-3 py-2.5 text-left flex flex-col justify-between gap-1 transition-colors ${selected ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400/70' : activeSlot && !ready ? 'border-ds-border/60 bg-ds-surface/20 opacity-60 cursor-not-allowed' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}
+                    >
+                      <span className="flex items-center justify-between gap-2 font-heading font-bold text-white">
+                        <span className="truncate">{station.name}</span>
+                        {selected && <span className="shrink-0 text-cyan-300" aria-hidden="true">✓</span>}
+                      </span>
+                      <span className="flex items-center justify-between gap-2 text-[11px] font-mono">
+                        <span className="shrink-0 text-cyan-300">{isPool ? '₹250/hr' : 'From ₹150/hr'}</span>
+                        <span className={`truncate ${activeSlot && !ready ? 'text-rose-300' : 'text-emerald-300'}`}>{activeSlot ? ready ? 'Ready' : 'Booked' : 'Choose time'}</span>
+                      </span>
+                    </button>
+                  );
                 })}
               </div>
             </div>
 
-            {/* 2. Booking date */}
+            <div className="space-y-2">
+              <label className="text-xs font-heading font-black uppercase tracking-wider text-ds-ice flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center font-mono">2</span>
+                Session Duration
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { min: 30, label: '30m' },
+                  { min: 60, label: '1 Hour' },
+                  { min: 120, label: '2 Hours' },
+                  { min: 180, label: '3 Hours' },
+                ].map((option) => <button key={option.min} type="button" onClick={() => setDurationMinutes(option.min)} className={`rounded-xl border px-1 py-2.5 font-heading font-bold uppercase ${durationMinutes === option.min ? 'border-ds-accent bg-ds-accent text-white' : 'border-ds-border bg-ds-surface/40 text-ds-text-muted hover:text-white'}`}>{option.label}</button>)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">3</span>
+                  <span>Number of Players</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  {isPool && playerCount > 4 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                      +{playerCount - 4} Extra ({playerCount - 4} × ₹50/hr)
+                    </span>
+                  )}
+                  <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                    ₹{hourlyRate}/hr
+                  </span>
+                </div>
+              </div>
+
+              {/* Standard 1 - 4 Players */}
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { count: 1, label: '1 Player' },
+                  { count: 2, label: '2 Players' },
+                  { count: 3, label: '3 Players' },
+                  { count: 4, label: '4 Players' },
+                ].map(({ count, label }) => (
+                  <button
+                    type="button"
+                    key={count}
+                    onClick={() => setPlayerCount(count)}
+                    className={`py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
+                      playerCount === count
+                        ? 'bg-cyan-950/60 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-sm shadow-cyan-400/30'
+                        : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Extra Players: ONLY for Snookers / Pool Table AND ONLY when 4 or more players selected */}
+              {isPool && playerCount >= 4 && (
+                <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-amber-500/30 space-y-1.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
+                      <span>Add Extra Players (&gt; 4 Players)</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-amber-300 font-semibold">
+                      +₹50 / person per hour
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { count: 5, label: '5 Players', extra: '+₹50' },
+                      { count: 6, label: '6 Players', extra: '+₹100' },
+                      { count: 7, label: '7 Players', extra: '+₹150' },
+                      { count: 8, label: '8 Players', extra: '+₹200' },
+                    ].map(({ count, label, extra }) => (
+                      <button
+                        type="button"
+                        key={count}
+                        onClick={() => setPlayerCount(count)}
+                        className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
+                          playerCount === count
+                            ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
+                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
+                        }`}
+                      >
+                        <span className="text-[11px] font-bold">{label}</span>
+                        <span
+                          className={`text-[10px] font-mono font-bold mt-0.5 ${
+                            playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
+                          }`}
+                        >
+                          {extra}/hr
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="xl:col-span-7 space-y-6 min-w-0">
+            {/* 4. Booking date */}
             <div>
               {/* Date */}
               <div className="space-y-2">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">2</span>
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">4</span>
                   <span>Booking Date</span>
                 </label>
                 <div className="flex items-center gap-2">
@@ -613,11 +734,11 @@ export function StaffPreBookingModal({
 
             </div>
 
-            {/* 3. Booking start time */}
+            {/* 5. Booking start time */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">4</span>
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">5</span>
                   <span>{timeMode === 'SLOT' ? 'Select Upcoming Time Slot' : 'Choose Custom Start Time'}</span>
                 </label>
                 <span className="text-[11px] font-mono text-cyan-400 font-bold">
@@ -731,109 +852,7 @@ export function StaffPreBookingModal({
               )}
             </div>
 
-            {/* 4. Player Count (Strictly Snookers only for extra players >4, and only revealed when 4 players selected) */}
-          </div>
-          <div className="xl:col-span-5 space-y-5 min-w-0">
-            <div className="space-y-2">
-              <label className="text-xs font-heading font-black uppercase tracking-wider text-ds-ice flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center font-mono">3</span>
-                Session Duration
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { min: 30, label: '30m' },
-                  { min: 60, label: '1 Hour' },
-                  { min: 120, label: '2 Hours' },
-                  { min: 180, label: '3 Hours' },
-                ].map((option) => <button key={option.min} type="button" onClick={() => setDurationMinutes(option.min)} className={`rounded-xl border px-1 py-2.5 font-heading font-bold uppercase ${durationMinutes === option.min ? 'border-ds-accent bg-ds-accent text-white' : 'border-ds-border bg-ds-surface/40 text-ds-text-muted hover:text-white'}`}>{option.label}</button>)}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">5</span>
-                  <span>Number of Players</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  {isPool && playerCount > 4 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                      +{playerCount - 4} Extra ({playerCount - 4} × ₹50/hr)
-                    </span>
-                  )}
-                  <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                    ₹{hourlyRate}/hr
-                  </span>
-                </div>
-              </div>
-
-              {/* Standard 1 - 4 Players */}
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { count: 1, label: '1 Player' },
-                  { count: 2, label: '2 Players' },
-                  { count: 3, label: '3 Players' },
-                  { count: 4, label: '4 Players' },
-                ].map(({ count, label }) => (
-                  <button
-                    type="button"
-                    key={count}
-                    onClick={() => setPlayerCount(count)}
-                    className={`py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
-                      playerCount === count
-                        ? 'bg-cyan-950/60 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-sm shadow-cyan-400/30'
-                        : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Extra Players: ONLY for Snookers / Pool Table AND ONLY when 4 or more players selected */}
-              {isPool && playerCount >= 4 && (
-                <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-amber-500/30 space-y-1.5 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
-                      <span>Add Extra Players (&gt; 4 Players)</span>
-                    </span>
-                    <span className="font-mono text-[10px] text-amber-300 font-semibold">
-                      +₹50 / person per hour
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { count: 5, label: '5 Players', extra: '+₹50' },
-                      { count: 6, label: '6 Players', extra: '+₹100' },
-                      { count: 7, label: '7 Players', extra: '+₹150' },
-                      { count: 8, label: '8 Players', extra: '+₹200' },
-                    ].map(({ count, label, extra }) => (
-                      <button
-                        type="button"
-                        key={count}
-                        onClick={() => setPlayerCount(count)}
-                        className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
-                          playerCount === count
-                            ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
-                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold">{label}</span>
-                        <span
-                          className={`text-[10px] font-mono font-bold mt-0.5 ${
-                            playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
-                          }`}
-                        >
-                          {extra}/hr
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 5. Customer Information */}
+            {/* 6. Customer Information */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
@@ -945,7 +964,6 @@ export function StaffPreBookingModal({
                 className="text-xs py-2 bg-ds-dark border-ds-border focus:border-cyan-400"
               />
             </div>
-
           </div>
         </div>
         )}
