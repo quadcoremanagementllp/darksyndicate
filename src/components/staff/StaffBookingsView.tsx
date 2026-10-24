@@ -17,6 +17,7 @@ import {
   UserPlus,
   RotateCcw,
   X,
+  Download,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -25,6 +26,7 @@ import { StaffArenaPickerModal } from '@/components/staff/StaffArenaPickerModal'
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageStaffSession, sessionHourlyRatePaise } from '@/lib/staffSessionRules';
+import { serializeCsv } from '@/lib/csv';
 import {
   filterStaffBookings,
   isActiveStaffBooking,
@@ -291,6 +293,31 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
   const getIsToday = (booking: any) => staffBookingDateInIST(booking, 'UPCOMING') === todayIST;
   const getIsSessionActive = isActiveStaffBooking;
   const filteredBookings = filterStaffBookings(bookings, view, { kind: dateScope, date: selectedDate, from: rangeFrom, to: rangeTo, today: todayIST });
+  const downloadHistory = () => {
+    const rows: Array<Array<string | number | null | undefined>> = [
+      ['Booking Ref', 'Station', 'Facility', 'Customer', 'Phone', 'Start (IST)', 'Completed (IST)', 'Duration (minutes)', 'Amount (INR)', 'Payment Method'],
+      ...filteredBookings.map((booking) => [
+        booking.bookingRef || booking.id,
+        booking.stationName,
+        booking.facilityName,
+        booking.customerName,
+        booking.customerPhone || '',
+        new Date(booking.startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        new Date(booking.session?.endedAt || booking.updatedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        booking.durationMinutes,
+        (booking.totalPricePaise / 100).toFixed(2),
+        booking.paymentMethod || 'OTHER',
+      ]),
+    ];
+    const url = URL.createObjectURL(new Blob(['\uFEFF', serializeCsv(rows)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `session-history-${todayIST}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const nearUpcomingBookings = filterStaffBookings(bookings, 'UPCOMING', { kind: 'TODAY', today: todayIST }).filter((b) => {
     if (!b.startTime) return false;
     const diffMs = new Date(b.startTime).getTime() - currentTime;
@@ -454,7 +481,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             <Calendar className="h-4 w-4" />
             Today Only
           </button>
-          <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
+          {view !== 'COMPLETED' && <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
             Date
             <input
               type="date"
@@ -467,7 +494,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
               }}
               className="rounded-xl border border-ds-border bg-ds-dark px-3 py-2 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none"
             />
-          </label>
+          </label>}
           <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
             From
             <input
@@ -512,8 +539,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             }}
             aria-label="Clear date filters"
             title="Clear date filters"
-            className="ml-auto inline-flex items-center gap-1 rounded-lg border border-ds-border px-2 py-2 text-xs text-ds-text-muted hover:text-white hover:border-ds-accent disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1 rounded-lg border border-ds-border px-2 py-2 text-xs text-ds-text-muted hover:text-white hover:border-ds-accent disabled:opacity-40 disabled:cursor-not-allowed"
           ><X className="h-3.5 w-3.5" /> Clear</button>
+          {view === 'COMPLETED' && <button type="button" onClick={downloadHistory} disabled={loading || filteredBookings.length === 0} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-ds-accent/50 px-3 py-2 text-xs font-heading font-bold text-ds-ice hover:bg-ds-accent/10 disabled:opacity-40 disabled:cursor-not-allowed"><Download className="h-4 w-4" /> Download CSV</button>}
         </div>
       )}
 

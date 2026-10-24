@@ -9,7 +9,6 @@ import { Modal } from '@/components/ui/Modal';
 import {
   UserCog,
   Plus,
-  RotateCw,
   Search,
   Eye,
   EyeOff,
@@ -99,6 +98,9 @@ export default function AdminStaffPage() {
   const [onboardModalOpen, setOnboardModalOpen] = useState(false);
   const [dossierModalOpen, setDossierModalOpen] = useState(false);
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletingStaff, setDeletingStaff] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
 
   // Search & Filter
@@ -474,24 +476,29 @@ export default function AdminStaffPage() {
   };
 
   // Delete Staff Account
-  const handleDeleteStaff = async (member: StaffMember) => {
-    if (!confirm(`Are you sure you want to remove ${member.name} from the staff roster?`)) {
-      return;
-    }
-
+  const handleDeleteStaff = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!deleteTarget || !deletePassword || deletingStaff) return;
+    setDeletingStaff(true);
     try {
-      const res = await fetch(`/api/admin/staff?id=${member.id}`, {
+      const res = await fetch(`/api/admin/staff?id=${encodeURIComponent(deleteTarget.id)}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
       });
       const json = await res.json();
-      if (json.success) {
-        toast.success(json.data?.message || 'Staff account removed');
-        loadStaff();
+      if (res.ok && json.success) {
+        toast.success(json.data?.message || 'Staff account permanently deleted');
+        setDeleteTarget(null);
+        setDeletePassword('');
+        await loadStaff();
       } else {
         toast.error(json.error?.message || 'Failed to delete staff member');
       }
     } catch {
       toast.error('Network error deleting staff');
+    } finally {
+      setDeletingStaff(false);
     }
   };
 
@@ -531,16 +538,6 @@ export default function AdminStaffPage() {
         <div className="flex items-center gap-2">
           {activeTab === 'roster' ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadStaff}
-                className="border-ds-border hover:border-ds-accent/40"
-              >
-                <RotateCw className="w-3.5 h-3.5 mr-1.5 text-ds-accent" />
-                <span>Refresh</span>
-              </Button>
-
               <Button variant="accent" size="sm" onClick={() => setOnboardModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-1.5" />
                 <span>Onboard Staff</span>
@@ -548,16 +545,6 @@ export default function AdminStaffPage() {
             </>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadShifts}
-                className="border-ds-border hover:border-ds-accent/40"
-              >
-                <RotateCw className="w-3.5 h-3.5 mr-1.5 text-ds-accent" />
-                <span>Refresh</span>
-              </Button>
-
               <Button
                 variant="accent"
                 size="sm"
@@ -884,7 +871,10 @@ export default function AdminStaffPage() {
                           {!isSuperAdmin && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteStaff(s)}
+                              onClick={() => {
+                                setDeleteTarget(s);
+                                setDeletePassword('');
+                              }}
                               className="p-1.5 rounded-lg border border-ds-border text-ds-text-dim hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/10 transition-all"
                               title="Delete Staff Member"
                             >
@@ -1794,6 +1784,40 @@ export default function AdminStaffPage() {
             </Button>
             <Button variant="accent" type="submit" disabled={resetting} className="text-xs">
               {resetting ? 'Updating...' : 'Update Password'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!deletingStaff) {
+            setDeleteTarget(null);
+            setDeletePassword('');
+          }
+        }}
+        title={`Delete ${deleteTarget?.name || 'staff account'}?`}
+        description="This permanently removes the account. Historical bookings and payments remain in the ledger."
+        size="sm"
+      >
+        <form onSubmit={handleDeleteStaff} className="space-y-4 pt-2">
+          <Input
+            label="Your admin password"
+            type="password"
+            autoComplete="current-password"
+            value={deletePassword}
+            onChange={(event) => setDeletePassword(event.target.value)}
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingStaff}
+              onClick={() => { setDeleteTarget(null); setDeletePassword(''); }}
+            >Cancel</Button>
+            <Button type="submit" variant="danger" disabled={!deletePassword || deletingStaff}>
+              {deletingStaff ? 'Deleting...' : 'Delete permanently'}
             </Button>
           </div>
         </form>

@@ -457,12 +457,6 @@ export default function AdminMembershipsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-ds-accent animate-pulse" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-ds-accent font-bold">
-              SUBSCRIPTION & PASS OPS
-            </span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-heading font-black uppercase text-ds-text">
             Dark Syndicate Passes
           </h1>
@@ -472,10 +466,6 @@ export default function AdminMembershipsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-            <RotateCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </Button>
           <Button variant="outline" size="sm" onClick={handleOpenCreatePlan}>
             <PlusCircle className="w-4 h-4 mr-1.5 text-ds-accent" />
             <span>New Plan</span>

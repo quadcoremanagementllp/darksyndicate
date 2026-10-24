@@ -11,8 +11,6 @@ import {
   Users,
   Search,
   RotateCw,
-  UserX,
-  UserCheck,
   X,
   Calendar,
   CreditCard,
@@ -59,13 +57,15 @@ interface MembershipPlan {
   durationDays: number;
 }
 
+const displayCustomerName = (name: string) => name.replace(/\s+Gamer$/i, '').trim() || name;
+
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'ALL' | 'VIP' | 'GOLD' | 'SILVER' | 'STANDARD'>('ALL');
-  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Grant Membership form state inside modal
@@ -107,38 +107,29 @@ export default function AdminCustomersPage() {
     loadData();
   }, []);
 
-  const handleToggleStatus = async (customer: Customer) => {
-    const isCurrentlyActive = customer.status === 'ACTIVE';
-    const newStatus: 'ACTIVE' | 'SUSPENDED' = isCurrentlyActive ? 'SUSPENDED' : 'ACTIVE';
-    const actionWord = isCurrentlyActive ? 'suspend' : 'reactivate';
-
-    if (!window.confirm(`Are you sure you want to ${actionWord} ${customer.name}'s account?`)) {
-      return;
-    }
-
-    setTogglingId(customer.id);
+  const handleDeleteCustomer = async (customer: Customer) => {
+    if (!window.confirm(
+      `Permanently delete ${displayCustomerName(customer.name)}'s account? Completed bookings and payments will remain in the ledger.`
+    )) return;
+    setDeletingId(customer.id);
     try {
       const res = await fetch('/api/admin/customers', {
-        method: 'PUT',
+        method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: customer.id, status: newStatus }),
+        body: JSON.stringify({ userId: customer.id }),
       });
       const json = await res.json();
-      if (json.success) {
-        toast.success(`Customer ${customer.name} marked as ${newStatus}`);
-        setCustomers((prev) =>
-          prev.map((c) => (c.id === customer.id ? { ...c, status: newStatus } : c))
-        );
-        if (selectedCustomer?.id === customer.id) {
-          setSelectedCustomer((prev) => (prev ? { ...prev, status: newStatus } : null));
-        }
+      if (res.ok && json.success) {
+        toast.success(json.data?.message || 'Customer account deleted');
+        setCustomers((prev) => prev.filter((c) => c.id !== customer.id));
+        if (selectedCustomer?.id === customer.id) setSelectedCustomer(null);
       } else {
-        toast.error(json.error?.message || 'Failed to update status');
+        toast.error(json.error?.message || 'Failed to delete customer');
       }
     } catch {
-      toast.error('Failed to update status');
+      toast.error('Failed to delete customer');
     } finally {
-      setTogglingId(null);
+      setDeletingId(null);
     }
   };
 
@@ -228,10 +219,6 @@ export default function AdminCustomersPage() {
           </p>
         </div>
 
-        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-          <RotateCw className={`w-4 h-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </Button>
       </div>
 
       {/* KPI Stat Cards */}
@@ -379,7 +366,7 @@ export default function AdminCustomersPage() {
                   >
                     <td className="py-3.5 px-4">
                       <div className="font-heading font-bold text-ds-text group-hover:text-ds-ice transition-colors">
-                        {c.name}
+                        {displayCustomerName(c.name)}
                       </div>
                       <div className="text-[11px] text-ds-text-dim">{c.email}</div>
                     </td>
@@ -434,25 +421,16 @@ export default function AdminCustomersPage() {
                     </td>
                     <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <Button
-                        variant={c.status === 'ACTIVE' ? 'outline' : 'accent'}
+                        variant="outline"
                         size="sm"
-                        disabled={togglingId === c.id}
-                        onClick={() => handleToggleStatus(c)}
-                        className="text-[11px] py-1 px-2.5 whitespace-nowrap"
+                        disabled={deletingId === c.id}
+                        onClick={() => handleDeleteCustomer(c)}
+                        className="text-[11px] py-1 px-2.5 whitespace-nowrap text-rose-400"
                       >
-                        {togglingId === c.id ? (
-                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : c.status === 'ACTIVE' ? (
-                          <>
-                            <UserX className="w-3.5 h-3.5 mr-1 text-rose-400" />
-                            <span>Suspend</span>
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="w-3.5 h-3.5 mr-1" />
-                            <span>Activate</span>
-                          </>
-                        )}
+                        {deletingId === c.id
+                          ? <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          : <Trash2 className="w-3.5 h-3.5 mr-1" />}
+                        Delete
                       </Button>
                     </td>
                   </tr>
@@ -480,7 +458,7 @@ export default function AdminCustomersPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-heading font-bold text-base text-ds-text truncate">
-                    {selectedCustomer.name}
+                    {displayCustomerName(selectedCustomer.name)}
                   </h3>
                   <Badge
                     variant={selectedCustomer.status === 'ACTIVE' ? 'success' : 'danger'}
@@ -650,22 +628,13 @@ export default function AdminCustomersPage() {
               </Link>
 
               <Button
-                variant={selectedCustomer.status === 'ACTIVE' ? 'outline' : 'accent'}
+                variant="outline"
                 size="sm"
-                disabled={togglingId === selectedCustomer.id}
-                onClick={() => handleToggleStatus(selectedCustomer)}
+                disabled={deletingId === selectedCustomer.id}
+                onClick={() => handleDeleteCustomer(selectedCustomer)}
+                className="text-rose-400"
               >
-                {selectedCustomer.status === 'ACTIVE' ? (
-                  <>
-                    <UserX className="w-3.5 h-3.5 mr-1 text-rose-400" />
-                    <span>Suspend Gamer</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="w-3.5 h-3.5 mr-1" />
-                    <span>Reactivate Gamer</span>
-                  </>
-                )}
+                <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete Account
               </Button>
             </div>
           </div>

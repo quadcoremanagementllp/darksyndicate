@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Tag, Plus, RotateCw, CheckCircle2, XCircle, Sparkles, Edit2, Trash2 } from 'lucide-react';
+import { Tag, Plus, CheckCircle2, XCircle, Sparkles, Edit2, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 interface Coupon {
@@ -244,10 +244,6 @@ export default function AdminCouponsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadCoupons}>
-            <RotateCw className="w-4 h-4 mr-1.5" />
-            <span>Refresh</span>
-          </Button>
 
           <Button variant="accent" size="sm" onClick={openCreateModal}>
             <Plus className="w-4 h-4 mr-1.5" />

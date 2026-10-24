@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword, verifyPassword } from '@/lib/auth';
+import { deleteAccountRecords } from '@/lib/accountDeletion';
 import { apiSuccess, handleApiError, ConflictError, ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 
 const createStaffSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -229,7 +231,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // 1. Update User basic record
-    const userUpdateData: any = {};
+    const userUpdateData: Prisma.UserUpdateInput = {};
     if (status && ['ACTIVE', 'DEACTIVATED', 'BLOCKED'].includes(status)) {
       userUpdateData.status = status;
     }
@@ -356,6 +358,12 @@ export async function DELETE(req: NextRequest) {
       throw new ValidationError('Staff user ID is required');
     }
 
+    const { password } = z.object({ password: z.string().min(1, 'Your password is required') }).parse(await req.json());
+    const actor = await prisma.user.findUnique({ where: { id: adminSession.userId }, select: { passwordHash: true } });
+    if (!actor || !(await verifyPassword(password, actor.passwordHash))) {
+      throw new ForbiddenError('Incorrect password');
+    }
+
     if (id === adminSession.userId) {
       throw new ValidationError('You cannot delete your own account');
     }
@@ -363,6 +371,9 @@ export async function DELETE(req: NextRequest) {
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) {
       throw new NotFoundError('Staff member not found');
+    }
+    if (!['STAFF', 'ADMIN', 'SUPER_ADMIN'].includes(target.role)) {
+      throw new ForbiddenError('This endpoint only deletes staff accounts');
     }
 
     if (target.role === 'SUPER_ADMIN') {
@@ -373,9 +384,9 @@ export async function DELETE(req: NextRequest) {
       throw new ForbiddenError('Only Super Admin can delete or deactivate Administrator accounts');
     }
 
-    try {
-      await prisma.user.delete({ where: { id } });
-      await prisma.auditLog.create({
+    await prisma.$transaction(async (tx) => {
+      await deleteAccountRecords(tx, target);
+      await tx.auditLog.create({
         data: {
           userId: adminSession.userId,
           action: 'DELETE',
@@ -383,29 +394,9 @@ export async function DELETE(req: NextRequest) {
           entityId: id,
           oldValue: { name: `${target.firstName} ${target.lastName}`.trim(), email: target.email, role: target.role },
         },
-      }).catch(() => {});
-      return apiSuccess({
-        message: `Staff account for ${target.firstName} ${target.lastName} deleted successfully`,
       });
-    } catch {
-      await prisma.user.update({
-        where: { id },
-        data: { status: 'DEACTIVATED' },
-      });
-      await prisma.auditLog.create({
-        data: {
-          userId: adminSession.userId,
-          action: 'STATUS_CHANGE',
-          entityType: 'User',
-          entityId: id,
-          oldValue: { status: target.status },
-          newValue: { status: 'DEACTIVATED', note: 'Deactivated instead of deleted due to session records' },
-        },
-      }).catch(() => {});
-      return apiSuccess({
-        message: `Staff account has existing session records and was deactivated`,
-      });
-    }
+    }, { timeout: 20000 });
+    return apiSuccess({ message: `Staff account for ${target.firstName} ${target.lastName} permanently deleted` });
   } catch (error) {
     return handleApiError(error);
   }

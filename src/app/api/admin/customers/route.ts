@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, ConflictError, handleApiError, NotFoundError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { syncExpiredMemberships } from '@/lib/memberships';
+import { deleteAccountRecords } from '@/lib/accountDeletion';
 import { z } from 'zod';
 
 const updateCustomerStatusSchema = z.object({
@@ -207,6 +208,32 @@ export async function PUT(req: NextRequest) {
       }`,
       user: { id: user.id, status: user.status === 'BLOCKED' ? 'SUSPENDED' : user.status },
     });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await requireAdmin();
+    const { userId } = z.object({ userId: z.string().min(1) }).parse(await req.json());
+    const customer = await prisma.user.findUnique({ where: { id: userId } });
+    if (!customer || customer.role !== 'CUSTOMER') throw new NotFoundError('Customer account');
+    if (customer.email === 'guest@darksyndicate.in') throw new ConflictError('The system guest account cannot be deleted.');
+
+    await prisma.$transaction(async (tx) => {
+      await deleteAccountRecords(tx, customer);
+      await tx.auditLog.create({
+        data: {
+          userId: session.userId,
+          action: 'DELETE',
+          entityType: 'User',
+          entityId: customer.id,
+          oldValue: { name: `${customer.firstName} ${customer.lastName}`.trim(), email: customer.email, role: customer.role },
+        },
+      });
+    }, { timeout: 20000 });
+    return apiSuccess({ message: 'Customer account deleted. Historical financial records were retained.' });
   } catch (error) {
     return handleApiError(error);
   }
