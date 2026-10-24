@@ -11,57 +11,87 @@ const reservationMarker = '[Front Desk Pre-Booking]';
 export async function GET() {
   try {
     const viewer = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
-    const bookings = await prisma.booking.findMany({
-      where: { status: 'CONFIRMED', notes: { contains: reservationMarker } },
-      include: {
-        station: { include: { facility: true } },
-        user: { select: { firstName: true, lastName: true } },
-        payments: { select: { status: true, method: true, recordedByStaffId: true } },
+    // Read booking rows first so missing display relations cannot fail the list.
+    const candidates = await prisma.booking.findMany({
+      where: { status: 'CONFIRMED', isWalkIn: false },
+      select: {
+        id: true, bookingRef: true, userId: true, stationId: true,
+        customerName: true, customerPhone: true, notes: true,
+        startTime: true, endTime: true, durationMinutes: true, totalPricePaise: true,
       },
       orderBy: { startTime: 'asc' },
     });
+    const bookings = candidates.filter((booking) => booking.notes?.includes(reservationMarker));
+    if (bookings.length === 0) return apiSuccess([]);
     const ids = bookings.map((booking) => booking.id);
-    const creatorLogs = ids.length ? await prisma.staffActivityLog.findMany({
-      where: { entityType: 'booking', entityId: { in: ids }, action: 'CREATE_RESERVATION' },
-      select: { entityId: true, userId: true },
-      orderBy: { createdAt: 'asc' },
-    }) : [];
+    const [stations, payments, creatorLogs] = await Promise.all([
+      prisma.gamingStation.findMany({
+        where: { id: { in: [...new Set(bookings.map((booking) => booking.stationId))] } },
+        select: { id: true, name: true, facility: { select: { name: true } } },
+      }),
+      prisma.payment.findMany({
+        where: { bookingId: { in: ids } },
+        select: { bookingId: true, status: true, method: true, recordedByStaffId: true },
+        orderBy: { createdAt: 'desc' },
+      }).catch((error) => {
+        console.error('Staff reservation payment lookup failed:', error);
+        return [];
+      }),
+      prisma.staffActivityLog.findMany({
+        where: { entityType: 'booking', entityId: { in: ids }, action: 'CREATE_RESERVATION' },
+        select: { entityId: true, userId: true },
+        orderBy: { createdAt: 'asc' },
+      }).catch((error) => {
+        console.error('Staff reservation creator lookup failed:', error);
+        return [];
+      }),
+    ]);
+    const stationById = new Map(stations.map((station) => [station.id, station]));
+    const paymentsByBooking = new Map<string, typeof payments>();
+    for (const payment of payments) {
+      const group = paymentsByBooking.get(payment.bookingId) || [];
+      group.push(payment);
+      paymentsByBooking.set(payment.bookingId, group);
+    }
     const loggedCreators = new Map<string, string>();
     for (const log of creatorLogs) {
       if (log.entityId && !loggedCreators.has(log.entityId)) loggedCreators.set(log.entityId, log.userId);
     }
     const ownerIds = new Set(bookings.map((booking) => reservationCreatorId({
-      payments: booking.payments,
+      payments: paymentsByBooking.get(booking.id) || [],
     }, loggedCreators.get(booking.id) || null)).filter((id): id is string => Boolean(id)));
-    const owners = ownerIds.size ? await prisma.user.findMany({
-      where: { id: { in: [...ownerIds] } },
+    const people = await prisma.user.findMany({
+      where: { id: { in: [...new Set([...bookings.map((booking) => booking.userId), ...ownerIds])] } },
       select: { id: true, firstName: true, lastName: true },
-    }) : [];
-    const ownerNames = new Map(owners.map((owner) => [owner.id, `${owner.firstName} ${owner.lastName}`.trim()]));
+    });
+    const personNames = new Map(people.map((person) => [person.id, `${person.firstName} ${person.lastName}`.trim()]));
 
     return apiSuccess(bookings.map((booking) => {
+      const bookingPayments = paymentsByBooking.get(booking.id) || [];
       const creatorId = reservationCreatorId({
-        payments: booking.payments,
+        payments: bookingPayments,
       }, loggedCreators.get(booking.id) || null);
-      const payment = booking.payments.find((item) => item.status === 'COMPLETED') || booking.payments[0];
+      const payment = bookingPayments.find((item) => item.status === 'COMPLETED') || bookingPayments[0];
+      const station = stationById.get(booking.stationId);
       return {
         id: booking.id,
         bookingRef: booking.bookingRef,
-        customerName: booking.customerName || `${booking.user.firstName} ${booking.user.lastName}`.trim(),
+        customerName: booking.customerName || personNames.get(booking.userId) || 'Player',
         customerPhone: booking.customerPhone,
-        stationName: booking.station.name,
-        facilityName: booking.station.facility.name,
+        stationName: station?.name || 'Station',
+        facilityName: station?.facility.name || 'Arena',
         startTime: booking.startTime,
         endTime: booking.endTime,
         durationMinutes: booking.durationMinutes,
         totalPricePaise: booking.totalPricePaise,
         paymentStatus: payment?.status || 'UNPAID',
         paymentMethod: payment?.method || null,
-        creatorName: creatorId ? ownerNames.get(creatorId) || 'Staff member' : 'Unknown',
+        creatorName: creatorId ? personNames.get(creatorId) || 'Staff member' : 'Unknown',
         canDelete: canDeleteReservation(viewer.role, viewer.userId, creatorId),
       };
     }));
   } catch (error) {
+    console.error('Staff reservations GET failed:', error);
     return handleApiError(error);
   }
 }

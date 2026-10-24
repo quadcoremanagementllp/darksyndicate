@@ -590,9 +590,6 @@ export default function StaffStationGridPage() {
                       PlayStation 5 Arena
                     </h3>
                   </div>
-                  <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-1">
-                    {ps5Total} Consoles • 4K 120Hz OLED Displays • DualSense Edge
-                  </p>
                 </div>
               </div>
             </div>
@@ -637,9 +634,6 @@ export default function StaffStationGridPage() {
                       Snooker Lounge
                     </h3>
                   </div>
-                  <p className="text-xs text-white/80 line-clamp-1 drop-shadow mt-1">
-                    {poolTotal} Championship Tables • Slate Bed • Aramith Balls
-                  </p>
                 </div>
               </div>
             </div>

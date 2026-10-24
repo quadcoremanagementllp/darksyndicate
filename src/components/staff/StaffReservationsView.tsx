@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, CalendarDays, ExternalLink, Trash2 } from 'lucide-react';
+import { CalendarDays, ExternalLink, Trash2 } from 'lucide-react';
 import { StaffPreBookingModal } from '@/components/staff/StaffPreBookingModal';
 import { useToast } from '@/components/ui/Toast';
 
@@ -40,19 +40,24 @@ export function StaffReservationsView() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const toast = useToast();
   const notifyError = toast.error;
 
   const loadReservations = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch('/api/staff/reservations');
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json.error?.message || 'Could not load reservations');
       setReservations(json.data);
     } catch (error) {
-      notifyError(error instanceof Error ? error.message : 'Could not load reservations');
+      const message = error instanceof Error ? error.message : 'Could not load reservations';
+      setLoadError(message);
+      notifyError(message);
     } finally {
       setLoading(false);
     }
@@ -95,28 +100,24 @@ export function StaffReservationsView() {
         <span className="rounded-full border border-ds-accent/30 bg-ds-accent/10 px-3 py-1 font-mono text-xs font-bold text-ds-ice">
           {reservations.length} Confirmed
         </span>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="ml-auto inline-flex items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs sm:text-sm font-heading font-bold text-amber-300 transition-colors hover:border-amber-400 hover:bg-amber-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        >
+          <CalendarDays className="h-4 w-4" />
+          Book Upcoming Slot
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="w-full max-w-sm p-5 rounded-3xl border-2 border-ds-border hover:border-amber-400 bg-ds-surface/30 hover:bg-amber-950/20 text-left transition-all group space-y-5"
-      >
-        <div className="flex items-center justify-between">
-          <span className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-400 flex items-center justify-center">
-            <CalendarDays className="w-6 h-6" />
-          </span>
-          <span className="rounded-full px-3 py-1 text-[10px] font-mono font-bold uppercase text-amber-300 border border-amber-500/30 bg-amber-500/10">Reserve Ahead</span>
-        </div>
-        <h2 className="font-heading text-lg font-black uppercase text-white">Book Upcoming Slot</h2>
-        <div className="pt-3 border-t border-ds-border/60 flex items-center justify-between text-xs font-heading font-bold uppercase text-amber-400">
-          <span>Advance Reservation</span><ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </div>
-      </button>
 
       <section className="space-y-3" aria-label="Confirmed staff reservations">
         <h2 className="font-heading text-lg font-bold uppercase text-white">Confirmed Reservations</h2>
-        {loading ? <p className="text-sm text-ds-text-muted">Loading reservations...</p> : reservations.length === 0 ? (
+        {loading ? <p className="text-sm text-ds-text-muted">Loading reservations...</p> : loadError ? (
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-200">
+            <p>Reservations could not be loaded. {loadError}</p>
+            <button type="button" onClick={() => void loadReservations()} className="mt-3 rounded-lg border border-rose-400/50 px-3 py-1.5 font-bold hover:bg-rose-500/20">Retry</button>
+          </div>
+        ) : reservations.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ds-border p-8 text-sm text-ds-text-muted">No confirmed staff reservations found.</p>
         ) : reservations.map((reservation) => (
           <div key={reservation.id} className="rounded-2xl border border-ds-border bg-ds-surface/40 p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center gap-4">
