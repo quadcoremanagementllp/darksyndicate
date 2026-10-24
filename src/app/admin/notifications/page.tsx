@@ -96,23 +96,18 @@ export default function AdminNotificationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
-              Notification & Broadcast Center
-            </h1>
-            <Badge variant="accent" size="sm">
-              IN-APP ALERTS
-            </Badge>
-          </div>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            Notification & Broadcast Center
+          </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Compose and broadcast instant in-app alerts to gamers, floor operators, and administrative staff.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Compose Broadcast Form (1 Col) */}
-        <Card variant="glass" className="p-6 space-y-5 lg:col-span-1">
+      <div className="space-y-6">
+        {/* Full-width broadcast composer */}
+        <Card variant="glass" className="p-6 space-y-5">
           <div className="flex items-center gap-2 border-b border-ds-border pb-3">
             <Send className="w-4 h-4 text-ds-accent" />
             <h2 className="font-heading font-bold text-sm text-ds-text uppercase">
@@ -120,7 +115,7 @@ export default function AdminNotificationsPage() {
             </h2>
           </div>
 
-          <form onSubmit={handleSendBroadcast} className="space-y-4 text-xs">
+          <form onSubmit={handleSendBroadcast} className="grid grid-cols-1 lg:grid-cols-2 gap-5 text-xs">
             {/* Target Audience */}
             <div>
               <label className="text-ds-text-dim block mb-1.5 font-heading font-bold uppercase text-[10px]">
@@ -166,7 +161,7 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Title */}
-            <div>
+            <div className="lg:col-span-2">
               <label className="text-ds-text-dim block mb-1 font-heading font-bold uppercase text-[10px]">
                 Broadcast Headline
               </label>
@@ -179,7 +174,7 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Message */}
-            <div>
+            <div className="lg:col-span-2">
               <label className="text-ds-text-dim block mb-1 font-heading font-bold uppercase text-[10px]">
                 Notification Body
               </label>
@@ -193,20 +188,22 @@ export default function AdminNotificationsPage() {
               />
             </div>
 
-            <Button
-              variant="accent"
-              className="w-full shadow-glow-sm"
-              type="submit"
-              isLoading={sending}
-            >
-              <Send className="w-3.5 h-3.5 mr-1.5" />
-              <span>Dispatch Broadcast</span>
-            </Button>
+            <div className="lg:col-span-2 flex justify-end">
+              <Button
+                variant="accent"
+                className="w-full sm:w-auto sm:min-w-64 shadow-glow-sm"
+                type="submit"
+                isLoading={sending}
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                <span>Dispatch Broadcast</span>
+              </Button>
+            </div>
           </form>
         </Card>
 
-        {/* Broadcast History Ledger (2 Cols) */}
-        <Card variant="glass" className="p-6 space-y-4 lg:col-span-2">
+        {/* Broadcast history below the composer */}
+        <Card variant="glass" className="p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-ds-border pb-3">
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-ds-ice" />

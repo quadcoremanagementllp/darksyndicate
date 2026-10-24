@@ -27,9 +27,12 @@ import {
   X,
   LogOut,
   Disc3,
+  BriefcaseBusiness,
+  ChevronDown,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/shared/NotificationBell';
 import { SessionExpiryAlertManager } from '@/components/staff/SessionExpiryAlertManager';
+import type { AuthUser } from '@/types/auth';
 
 interface NavItem {
   name: string;
@@ -37,22 +40,53 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Financial Reports', href: '/admin/reports', icon: BarChart3 },
-  { name: 'Station Inventory', href: '/admin/stations', icon: Gamepad2 },
-  { name: 'Games Library', href: '/admin/games', icon: Disc3 },
-  { name: 'All Bookings', href: '/admin/bookings', icon: Calendar },
-  { name: 'Session History', href: '/admin/sessions', icon: Calendar },
-  { name: 'Customer Directory', href: '/admin/customers', icon: Users },
-  { name: 'Syndicate Passes', href: '/admin/memberships', icon: Sparkles },
-  { name: 'Promo Coupons', href: '/admin/coupons', icon: Tag },
-  { name: 'Payments Ledger', href: '/admin/payments', icon: CreditCard },
-  { name: 'Website CMS & Venue', href: '/admin/cms', icon: Globe },
-  { name: 'Broadcast Alerts', href: '/admin/notifications', icon: Bell },
-  { name: 'System Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
-  { name: 'Staff Accounts', href: '/admin/staff', icon: UserCog },
+interface NavGroup {
+  id: string;
+  name: string;
+  icon: NavItem['icon'];
+  items: NavItem[];
+}
+
+const dashboard: NavItem = { name: 'Dashboard', href: '/admin', icon: LayoutDashboard };
+const navigationGroups: NavGroup[] = [
+  {
+    id: 'operations', name: 'Operations', icon: BriefcaseBusiness,
+    items: [
+      { name: 'Station Inventory', href: '/admin/stations', icon: Gamepad2 },
+      { name: 'Games Library', href: '/admin/games', icon: Disc3 },
+      { name: 'All Bookings', href: '/admin/bookings', icon: Calendar },
+      { name: 'Session History', href: '/admin/sessions', icon: Calendar },
+      { name: 'Customer Directory', href: '/admin/customers', icon: Users },
+    ],
+  },
+  {
+    id: 'finance', name: 'Finance', icon: BarChart3,
+    items: [
+      { name: 'Financial Reports', href: '/admin/reports', icon: BarChart3 },
+      { name: 'Payments Ledger', href: '/admin/payments', icon: CreditCard },
+      { name: 'Syndicate Passes', href: '/admin/memberships', icon: Sparkles },
+      { name: 'Promo Coupons', href: '/admin/coupons', icon: Tag },
+    ],
+  },
+  {
+    id: 'communication', name: 'Website & Communication', icon: Globe,
+    items: [
+      { name: 'Website CMS & Venue', href: '/admin/cms', icon: Globe },
+      { name: 'Broadcast Alerts', href: '/admin/notifications', icon: Bell },
+    ],
+  },
+  {
+    id: 'administration', name: 'Administration', icon: Shield,
+    items: [
+      { name: 'System Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
+      { name: 'Staff Accounts', href: '/admin/staff', icon: UserCog },
+    ],
+  },
 ];
+
+function groupForPath(pathname: string): string | null {
+  return navigationGroups.find((group) => group.items.some((item) => pathname === item.href))?.id ?? null;
+}
 
 function SidebarNav({
   pathname,
@@ -63,12 +97,40 @@ function SidebarNav({
   collapsed = false,
 }: {
   pathname: string;
-  user: any;
+  user: AuthUser | null;
   onClose?: () => void;
   onLogout?: () => void;
   isMobile?: boolean;
   collapsed?: boolean;
 }) {
+  const [openGroup, setOpenGroup] = useState<string | null>(() => groupForPath(pathname));
+
+  const renderLink = (item: NavItem, nested = false) => {
+    const isActive = pathname === item.href;
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={isMobile ? onClose : undefined}
+        aria-label={item.name}
+        aria-current={isActive ? 'page' : undefined}
+        title={collapsed ? item.name : undefined}
+        className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} ${nested ? 'py-2' : 'py-2.5'} rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent ${
+          isActive
+            ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
+            : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
+        }`}
+      >
+        <span className="flex items-center gap-3 min-w-0">
+          <Icon className="w-4 h-4 shrink-0" />
+          {!collapsed && <span className="truncate">{item.name}</span>}
+        </span>
+        {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+      </Link>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full justify-between">
       <div className="flex flex-col flex-1 overflow-y-auto">
@@ -102,32 +164,38 @@ function SidebarNav({
 
         {/* Navigation Links */}
         <nav className={`${collapsed ? 'p-2' : 'p-4'} space-y-1.5 flex-1`}>
-          {!collapsed && <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
-            Management
-          </span>}
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
+          {renderLink(dashboard)}
+          {navigationGroups.map((group) => {
+            const GroupIcon = group.icon;
+            const isOpen = openGroup === group.id;
+            const isCurrentGroup = groupForPath(pathname) === group.id;
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={isMobile ? onClose : undefined}
-                aria-label={item.name}
-                aria-current={isActive ? 'page' : undefined}
-                title={collapsed ? item.name : undefined}
-                className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-                  isActive
-                    ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
-                    : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
-                }`}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {!collapsed && <span className="truncate">{item.name}</span>}
+              <div key={group.id} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setOpenGroup(isOpen ? null : group.id)}
+                  aria-label={group.name}
+                  aria-expanded={isOpen}
+                  aria-controls={`admin-nav-${group.id}`}
+                  title={collapsed ? group.name : undefined}
+                  className={`w-full flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent ${
+                    isCurrentGroup ? 'text-ds-ice bg-ds-accent/10' : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
+                  }`}
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <GroupIcon className="w-4 h-4 shrink-0" />
+                    {!collapsed && <span className="text-left leading-tight">{group.name}</span>}
+                  </span>
+                  {!collapsed && <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />}
+                </button>
+                <div
+                  id={`admin-nav-${group.id}`}
+                  hidden={!isOpen}
+                  className={`${collapsed ? 'space-y-1' : 'ml-4 pl-2 border-l border-ds-border space-y-1'}`}
+                >
+                  {group.items.map((item) => renderLink(item, true))}
                 </div>
-                {!collapsed && isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
-              </Link>
+              </div>
             );
           })}
         </nav>
@@ -260,6 +328,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }`}
       >
         <SidebarNav
+          key={pathname}
           pathname={pathname}
           user={user}
           onClose={() => setIsMobileOpen(false)}
@@ -276,6 +345,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div className="w-full h-full flex flex-col">
           <SidebarNav
+            key={pathname}
             pathname={pathname}
             user={user}
             onClose={toggleSidebar}
