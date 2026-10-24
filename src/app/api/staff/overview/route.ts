@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
                   include: {
                     user: { select: { firstName: true, lastName: true, phone: true } },
                     payments: {
-                      select: { id: true, amountPaise: true, status: true, method: true },
+                      select: { id: true, amountPaise: true, status: true, method: true, refunds: { where: { status: 'COMPLETED' }, select: { amountPaise: true } } },
                       orderBy: { createdAt: 'desc' },
                       take: 10,
                     },
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
               include: {
                 user: { select: { firstName: true, lastName: true, phone: true } },
                 payments: {
-                  select: { id: true, amountPaise: true, status: true, method: true },
+                  select: { id: true, amountPaise: true, status: true, method: true, refunds: { where: { status: 'COMPLETED' }, select: { amountPaise: true } } },
                   orderBy: { createdAt: 'desc' },
                   take: 10,
                 },
@@ -200,13 +200,16 @@ export async function GET(req: NextRequest) {
             Boolean(activeSession?.notes?.includes('[PAY ON EXIT]')) ||
             Boolean(activeSession?.booking?.notes?.includes('[PAY ON EXIT]'));
           const activePaidPaise = activePayments
-            .filter((p) => p.status === 'COMPLETED')
-            .reduce((sum, p) => sum + p.amountPaise, 0);
+            .filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(p.status))
+            .reduce((sum, p) => sum + p.amountPaise - p.refunds.reduce((refundSum, refund) => refundSum + refund.amountPaise, 0), 0);
           const activeTotalPaise = activeSession?.booking?.totalPricePaise || 0;
           const activeUnpaidPaise = activeHasPending
             ? Math.max(0, activeTotalPaise - activePaidPaise)
             : 0;
-          const activeLatestPayment = activePayments[0];
+          const activeLatestPayment = activePayments.find((payment) =>
+            ['RAZORPAY', 'CASHFREE'].includes(payment.method) &&
+            payment.amountPaise > payment.refunds.reduce((sum, refund) => sum + refund.amountPaise, 0)
+          ) || activePayments[0];
 
           // Sanitize gameTitle: strip any '[PAY ON EXIT]' tags so it is never displayed as a game title
           let activeGameTitle = activeSession?.booking?.gameTitle || null;
@@ -225,13 +228,16 @@ export async function GET(req: NextRequest) {
             currentPayments.some((p) => p.status === 'PENDING') ||
             Boolean(currentBooking?.notes?.includes('[PAY ON EXIT]'));
           const currentPaidPaise = currentPayments
-            .filter((p) => p.status === 'COMPLETED')
-            .reduce((sum, p) => sum + p.amountPaise, 0);
+            .filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(p.status))
+            .reduce((sum, p) => sum + p.amountPaise - p.refunds.reduce((refundSum, refund) => refundSum + refund.amountPaise, 0), 0);
           const currentTotalPaise = currentBooking?.totalPricePaise || 0;
           const currentUnpaidPaise = currentHasPending
             ? Math.max(0, currentTotalPaise - currentPaidPaise)
             : 0;
-          const currentLatestPayment = currentPayments[0];
+          const currentLatestPayment = currentPayments.find((payment) =>
+            ['RAZORPAY', 'CASHFREE'].includes(payment.method) &&
+            payment.amountPaise > payment.refunds.reduce((sum, refund) => sum + refund.amountPaise, 0)
+          ) || currentPayments[0];
 
           let currentGameTitle = currentBooking?.gameTitle || null;
           if (!currentGameTitle && currentBooking?.notes) {

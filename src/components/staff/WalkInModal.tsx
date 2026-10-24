@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Gamepad2, Search, Monitor, AlertCircle, Crown, Clock, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { ARENA_GAMES, lookupGame, type GameCatalogItem } from '@/lib/gameCatalog';
+import { sessionHourlyRatePaise } from '@/lib/staffSessionRules';
 
 interface StationGame {
   id: string;
@@ -391,17 +392,11 @@ export function WalkInModal({
     Boolean(selectedStation?.name?.toUpperCase().includes('SNOOKER')) ||
     Boolean(selectedStation?.name?.toUpperCase().includes('POOL'));
 
-  let dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
-  if (isPs5) {
-    if (playerCount === 2) dynamicHourlyRate = 20000;
-    else if (playerCount >= 3) dynamicHourlyRate = 25000;
-    else dynamicHourlyRate = 15000;
-  } else if (isPool) {
-    const basePoolRate = selectedStation ? selectedStation.pricePerHourPaise : 25000;
-    dynamicHourlyRate = basePoolRate + Math.max(0, playerCount - 4) * 5000;
-  } else {
-    dynamicHourlyRate = selectedStation ? selectedStation.pricePerHourPaise : 15000;
-  }
+  const dynamicHourlyRate = sessionHourlyRatePaise(
+    isPool ? 'POOL_TABLE' : isPs5 ? 'PS5' : selectedStation?.stationType,
+    selectedStation?.pricePerHourPaise ?? 15000,
+    playerCount
+  );
 
   // Safety clamp: if non-pool station is selected, clamp max players to 4
   useEffect(() => {

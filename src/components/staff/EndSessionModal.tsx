@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Square, AlertTriangle, AlertCircle, Clock, Gamepad2, CheckCircle2, User, Banknote, Sparkles, CreditCard, Maximize2, ArrowRight, Layers } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
+import { calculateSessionCheckout } from '@/lib/sessionCheckout';
 
 export interface EndSessionTarget {
   sessionId?: string;
@@ -23,6 +24,7 @@ export interface EndSessionTarget {
   paymentStatus?: string;
   paymentMethod?: string;
   totalPricePaise?: number;
+  paidPaise?: number;
   unpaidPaise?: number;
   isPayOnExit?: boolean;
   priorPendingTabs?: Array<{
@@ -63,6 +65,9 @@ export function EndSessionModal({
   const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI'>('CASH');
   const [cashTendered, setCashTendered] = useState<string>('');
   const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
+  const [priceMode, setPriceMode] = useState<'standard' | 'discount' | 'offered'>('standard');
+  const [priceInput, setPriceInput] = useState('');
+  const [refundConfirmed, setRefundConfirmed] = useState(false);
   const toast = useToast();
 
   const endDateTime = target?.scheduledEndAt ? new Date(target.scheduledEndAt) : null;
@@ -75,8 +80,8 @@ export function EndSessionModal({
   const extraSeconds = isOverdue && validEndTime
     ? Math.floor((now.getTime() - validEndTime.getTime()) / 1000) % 60
     : 0;
-  const overtimeCharge = target?.pricePerHourPaise && extraMinutes > 0
-    ? Math.max(10, Math.round((extraMinutes / 60) * (target.pricePerHourPaise / 100)))
+  const overtimeChargePaise = target?.pricePerHourPaise && extraMinutes > 0
+    ? Math.round((extraMinutes / 60) * target.pricePerHourPaise)
     : null;
   const isStalePreviousSession = extraMinutes > 180;
 
@@ -96,12 +101,31 @@ export function EndSessionModal({
       ? target?.totalPricePaise || 0
       : 0) - priorTabsPaise
   );
-  const overtimePaise = chargeOvertime && overtimeCharge ? overtimeCharge * 100 : 0;
-  const currentSessionTotalPaise = currentSessionBasePaise + overtimePaise;
-  const currentSessionTotalRupees = Math.round(currentSessionTotalPaise / 100);
+  const overtimePaise = chargeOvertime && overtimeChargePaise ? overtimeChargePaise : 0;
+  const originalPricePaise = (target?.totalPricePaise || 0) + overtimePaise;
+  const alreadyPaidPaise = target?.paidPaise ?? Math.max(0, (target?.totalPricePaise || 0) - currentSessionBasePaise);
+  const validPriceInput = /^\d+(?:\.\d{1,2})?$/.test(priceInput.trim());
+  const enteredPaise = validPriceInput ? Math.round(Number(priceInput) * 100) : null;
+  let priceError = '';
+  let checkout = calculateSessionCheckout(originalPricePaise, alreadyPaidPaise, {});
+  if (priceMode !== 'standard') {
+    if (enteredPaise === null) {
+      priceError = 'Enter a valid rupee amount (up to 2 decimal places).';
+    } else {
+      try {
+        checkout = calculateSessionCheckout(originalPricePaise, alreadyPaidPaise,
+          priceMode === 'discount' ? { discountPaise: enteredPaise } : { finalPricePaise: enteredPaise });
+      } catch (error) {
+        priceError = error instanceof Error ? error.message : 'Invalid price';
+      }
+    }
+  }
+  const gatewayRefundRequired = checkout.refundPaise > 0 && ['RAZORPAY', 'CASHFREE'].includes(target?.paymentMethod || '');
+  const currentSessionTotalPaise = checkout.duePaise;
+  const currentSessionTotalRupees = currentSessionTotalPaise / 100;
 
-  const totalCollectPaise = currentSessionBasePaise + overtimePaise + priorTabsPaise;
-  const totalCollectRupees = Math.round(totalCollectPaise / 100);
+  const totalCollectPaise = checkout.duePaise + priorTabsPaise;
+  const totalCollectRupees = totalCollectPaise / 100;
 
   const cashTenderedNum = parseFloat(cashTendered) || 0;
   const changeDue = Math.max(0, cashTenderedNum - totalCollectRupees);
@@ -114,12 +138,18 @@ export function EndSessionModal({
       setSettleMethod('CASH');
       setShowQrPopup(false);
       setTransferring(false);
+      setPriceMode('standard');
+      setPriceInput('');
+      setRefundConfirmed(false);
     }
   }, [isOpen, target?.sessionId, target?.bookingId, target?.stationId]);
 
   if (!isOpen || !target) return null;
 
   const handleConfirmEnd = async () => {
+    if (priceError) return toast.error(priceError);
+    if (gatewayRefundRequired) return toast.error('Ask an administrator to process the online payment refund first.');
+    if (checkout.refundPaise > 0 && !refundConfirmed) return toast.error('Confirm the refund was returned to the customer.');
     setSubmitting(true);
     try {
       const additionalBookingIds = priorTabs.map((t) => t.bookingId).filter(Boolean);
@@ -133,6 +163,9 @@ export function EndSessionModal({
           extraMinutes: chargeOvertime ? extraMinutes : 0,
           settlePaymentMethod: totalCollectPaise > 0 ? settleMethod : undefined,
           settleAdditionalBookingIds: additionalBookingIds.length > 0 ? additionalBookingIds : undefined,
+          ...(priceMode === 'discount' ? { discountPaise: enteredPaise } :
+            priceMode === 'offered' ? { finalPricePaise: enteredPaise } : {}),
+          refundConfirmed: checkout.refundPaise > 0 ? refundConfirmed : undefined,
         }),
       });
 
@@ -185,7 +218,7 @@ export function EndSessionModal({
             customerName: target.customerName,
             customerPhone: target.customerPhone,
             priorBookingId: target.bookingId || '',
-            carriedOverPaise: currentSessionTotalPaise + priorTabsPaise,
+            carriedOverPaise: originalPricePaise - alreadyPaidPaise + priorTabsPaise,
             stationName: target.stationName,
           });
         }
@@ -251,7 +284,7 @@ export function EndSessionModal({
               . Elapsed extra time: <strong className="text-white font-bold">+{extraMinutes} minutes</strong>.
             </p>
 
-            {overtimeCharge !== null && (
+            {overtimeChargePaise !== null && (
               <div className="pt-2 border-t border-rose-500/30 space-y-2">
                 <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-rose-200 block">
                   Overtime Billing Option:
@@ -286,10 +319,10 @@ export function EndSessionModal({
                   >
                     <div className="font-heading font-bold text-xs flex items-center justify-between">
                       <span>Charge Overtime</span>
-                      <span className="font-mono text-rose-300">+₹{overtimeCharge}</span>
+                      <span className="font-mono text-rose-300">+₹{(overtimeChargePaise / 100).toFixed(2)}</span>
                     </div>
                     <p className="text-[10px] text-white/60 mt-0.5">
-                      Record +₹{overtimeCharge} Cash overtime fee
+                      Record +₹{(overtimeChargePaise / 100).toFixed(2)} overtime fee
                     </p>
                   </button>
                 </div>
@@ -390,6 +423,44 @@ export function EndSessionModal({
           )}
         </div>
 
+        <div className="p-4 rounded-xl bg-ds-dark border border-ds-border space-y-3 text-xs">
+          <div className="flex items-center justify-between font-heading font-bold text-white">
+            <span>Session checkout price</span>
+            <span className="font-mono text-ds-ice">₹{(originalPricePaise / 100).toFixed(2)}</span>
+          </div>
+          <p className="text-ds-text-dim">Price played, including {overtimePaise > 0 ? 'charged overtime' : 'the booked duration'}. Apply a discount or enter an offered final price before ending.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['standard', 'discount', 'offered'] as const).map((mode) => (
+              <button key={mode} type="button" onClick={() => { setPriceMode(mode); setPriceInput(''); setRefundConfirmed(false); }}
+                className={`rounded-lg border px-2 py-2 font-bold ${priceMode === mode ? 'border-ds-ice bg-ds-ice/20 text-white' : 'border-ds-border text-ds-text-muted'}`}>
+                {mode === 'standard' ? 'Standard' : mode === 'discount' ? 'Discount' : 'Edit price'}
+              </button>
+            ))}
+          </div>
+          {priceMode !== 'standard' && (
+            <label className="block text-ds-text-muted">
+              {priceMode === 'discount' ? 'Discount amount (₹)' : 'Final offered price (₹)'}
+              <input type="number" min="0" step="0.01" inputMode="decimal" value={priceInput}
+                onChange={(event) => { setPriceInput(event.target.value); setRefundConfirmed(false); }}
+                placeholder="0.00"
+                className="mt-1 w-full rounded-lg border border-ds-border bg-ds-surface px-3 py-2 font-mono text-white focus:border-ds-ice focus:outline-none" />
+            </label>
+          )}
+          {priceError && <p className="text-rose-400" role="alert">{priceError}</p>}
+          <div className="flex items-center justify-between border-t border-ds-border pt-2 font-heading font-bold text-white">
+            <span>Final session price</span>
+            <span className="font-mono text-emerald-400">₹{(checkout.finalPricePaise / 100).toFixed(2)}</span>
+          </div>
+          {checkout.discountPaise > 0 && <p className="text-emerald-400">Discount: ₹{(checkout.discountPaise / 100).toFixed(2)}</p>}
+          {gatewayRefundRequired && <p className="text-rose-400" role="alert">Online payment refunds must be processed by an administrator before ending at a lower price.</p>}
+          {checkout.refundPaise > 0 && !priceError && !gatewayRefundRequired && (
+            <label className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-amber-200">
+              <input type="checkbox" checked={refundConfirmed} onChange={(event) => setRefundConfirmed(event.target.checked)} className="mt-0.5" />
+              <span>I returned ₹{(checkout.refundPaise / 100).toFixed(2)} to the customer. This refund will be recorded.</span>
+            </label>
+          )}
+        </div>
+
         {/* Payment Settlement Card (if Post-Paid Tab or Overtime Fee due) */}
         {totalCollectPaise > 0 && (
           <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border-2 border-amber-500/40 space-y-3 animate-in fade-in">
@@ -434,22 +505,22 @@ export function EndSessionModal({
                       <span className="truncate">{target.stationName} (Current Game)</span>
                     </span>
                     <span className="font-mono font-bold text-white shrink-0">
-                      ₹{(currentSessionBasePaise / 100).toFixed(0)}
+                      ₹{(checkout.duePaise / 100).toFixed(2)}
                     </span>
                   </div>
                 </div>
               )}
 
-              {priorTabs.length === 0 && isPostPaidPending && (
+              {priorTabs.length === 0 && checkout.duePaise > 0 && (
                 <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
-                  <span>Base Gaming Session:</span>
-                  <span className="font-mono font-bold text-white">₹{(currentSessionBasePaise / 100).toFixed(0)}</span>
+                  <span>Current Session Balance:</span>
+                  <span className="font-mono font-bold text-white">₹{(checkout.duePaise / 100).toFixed(2)}</span>
                 </div>
               )}
               {overtimePaise > 0 && (
                 <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
-                  <span>Overtime Charge (+{extraMinutes} mins):</span>
-                  <span className="font-mono font-bold text-rose-300">+₹{(overtimePaise / 100).toFixed(0)}</span>
+                  <span>Includes Overtime (+{extraMinutes} mins):</span>
+                  <span className="font-mono font-bold text-rose-300">₹{(overtimePaise / 100).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between pt-1 text-sm font-heading font-black text-amber-300">
@@ -584,7 +655,7 @@ export function EndSessionModal({
             <button
               type="button"
               onClick={handleTransferTab}
-              disabled={submitting || transferring}
+              disabled={submitting || transferring || priceMode !== 'standard'}
               className="w-full group p-2.5 rounded-xl bg-gradient-to-r from-cyan-950/70 via-ds-surface to-emerald-950/70 hover:from-cyan-900/80 hover:to-emerald-900/80 border border-cyan-500/40 hover:border-cyan-400 text-left transition-all cursor-pointer flex items-center justify-between gap-3 shadow-md"
               title="Free this console immediately and carry over unpaid tab to Snooker"
             >
@@ -625,7 +696,7 @@ export function EndSessionModal({
               size="sm"
               type="button"
               onClick={handleConfirmEnd}
-              disabled={submitting || transferring}
+              disabled={submitting || transferring || Boolean(priceError) || gatewayRefundRequired || (checkout.refundPaise > 0 && !refundConfirmed)}
               className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
                 totalCollectPaise > 0
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'

@@ -8,7 +8,7 @@ export function visibleStaffSessions<T extends { staffId?: string | null }>(sess
 
 export function sessionHourlyRatePaise(stationType: string | undefined, baseRatePaise: number, playerCount: number) {
   if (stationType === 'PS5') return playerCount >= 3 ? 25000 : playerCount === 2 ? 20000 : 15000;
-  if (stationType === 'POOL_TABLE') return baseRatePaise + Math.max(0, playerCount - 4) * 5000;
+  if (stationType === 'POOL_TABLE') return 25000 + Math.max(0, playerCount - 4) * 5000;
   return baseRatePaise;
 }
 

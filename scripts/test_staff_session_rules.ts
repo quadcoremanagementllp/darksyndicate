@@ -31,4 +31,7 @@ test('PlayStation extensions use the original player tier', () => {
   assert.equal(sessionHourlyRatePaise('PS5', 15000, 4), 25000);
   assert.equal(25000 + sessionHourlyRatePaise('PS5', 15000, 4), 50000);
   assert.equal(sessionHourlyRatePaise('POOL_TABLE', 25000, 5), 30000);
+  assert.equal(sessionHourlyRatePaise('POOL_TABLE', 30000, 4), 25000);
+  assert.equal(sessionHourlyRatePaise('POOL_TABLE', 30000, 5), 30000);
+  assert.equal(sessionHourlyRatePaise('POOL_TABLE', 30000, 6), 35000);
 });

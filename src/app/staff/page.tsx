@@ -240,6 +240,7 @@ export default function StaffStationGridPage() {
       paymentStatus: station.activeSession.paymentStatus,
       paymentMethod: station.activeSession.paymentMethod,
       totalPricePaise: station.activeSession.totalPricePaise,
+      paidPaise: station.activeSession.paidPaise,
       unpaidPaise: station.activeSession.unpaidPaise,
       isPayOnExit: station.activeSession.isPayOnExit,
       priorPendingTabs: station.activeSession.priorPendingTabs,

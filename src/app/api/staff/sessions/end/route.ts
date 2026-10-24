@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, ForbiddenError, handleApiError, NotFoundError } from '@/lib/errors';
+import { apiSuccess, ConflictError, ForbiddenError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
+import { calculateSessionCheckout } from '@/lib/sessionCheckout';
 import { z } from 'zod';
 
 const endSessionSchema = z.object({
@@ -13,6 +14,9 @@ const endSessionSchema = z.object({
   settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD']).optional(),
   transferTab: z.boolean().optional(),
   settleAdditionalBookingIds: z.array(z.string()).optional(),
+  discountPaise: z.number().int().min(0).max(100_000_000).optional(),
+  finalPricePaise: z.number().int().min(0).max(100_000_000).optional(),
+  refundConfirmed: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -20,7 +24,10 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, transferTab, settleAdditionalBookingIds } = endSessionSchema.parse(body);
+    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, transferTab, settleAdditionalBookingIds, discountPaise, finalPricePaise, refundConfirmed } = endSessionSchema.parse(body);
+    if (discountPaise !== undefined && finalPricePaise !== undefined) {
+      throw new ValidationError('Choose a discount or a final price, not both.');
+    }
     const chosenMethod: 'CASH' | 'UPI' | 'OTHER' =
       settlePaymentMethod === 'UPI' ? 'UPI' : settlePaymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
@@ -54,6 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (session) {
+      if (session.status === 'COMPLETED') throw new ConflictError('This session has already ended.');
       if (!canManageStaffSession(staffSession.role, staffSession.userId, session.staffId)) {
         throw new ForbiddenError('Only the staff member who started this session or an administrator can end it.');
       }
@@ -64,8 +72,62 @@ export async function POST(req: NextRequest) {
         sessionPlayerCount(session.booking?.notes, session.station?.stationType)
       );
       const overtimePaise = overtimeMinutes > 0 ? Math.round(hourlyRatePaise * (overtimeMinutes / 60)) : 0;
+      if (transferTab && (discountPaise !== undefined || finalPricePaise !== undefined)) {
+        throw new ValidationError('Settle the session to apply a checkout discount or offered price.');
+      }
 
-      await prisma.$transaction(async (tx) => {
+      const checkoutResult = await prisma.$transaction(async (tx) => {
+        const payments = session.bookingId ? await tx.payment.findMany({
+          where: { bookingId: session.bookingId },
+          include: { refunds: { where: { status: 'COMPLETED' } } },
+          orderBy: { createdAt: 'desc' },
+        }) : [];
+        const paidPaise = payments
+          .filter((payment) => ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(payment.status))
+          .reduce((sum, payment) => sum + payment.amountPaise - payment.refunds.reduce((refundSum, refund) => refundSum + refund.amountPaise, 0), 0);
+        const grossPaise = (session.booking?.totalPricePaise || 0) + overtimePaise;
+        let checkout;
+        try {
+          checkout = calculateSessionCheckout(grossPaise, paidPaise, { discountPaise, finalPricePaise });
+        } catch (error) {
+          throw new ValidationError(error instanceof Error ? error.message : 'Invalid checkout price');
+        }
+        if (checkout.refundPaise > 0 && !transferTab) {
+          if (!refundConfirmed) throw new ValidationError('Confirm the amount returned to the customer before ending this session.');
+          const refundable = payments
+            .filter((payment) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(payment.status))
+            .map((payment) => ({ payment, balance: payment.amountPaise - payment.refunds.reduce((sum, refund) => sum + refund.amountPaise, 0) }))
+            .filter(({ balance }) => balance > 0);
+          if (refundable.some(({ payment }) => payment.method === 'RAZORPAY' || payment.method === 'CASHFREE' || payment.gatewayPaymentId)) {
+            throw new ValidationError('Online payments need a gateway refund. Ask an administrator to process it before reducing the final price.');
+          }
+          if (refundable.reduce((sum, item) => sum + item.balance, 0) < checkout.refundPaise) {
+            throw new ValidationError('The prepaid amount cannot be refunded from available payment records.');
+          }
+          let remainingRefund = checkout.refundPaise;
+          for (const { payment, balance } of refundable) {
+            if (remainingRefund <= 0) break;
+            const refundAmount = Math.min(remainingRefund, balance);
+            await tx.refund.create({ data: {
+              paymentId: payment.id,
+              amountPaise: refundAmount,
+              reason: `Checkout price adjustment for ${session.booking?.bookingRef || session.id} by ${staffName}`,
+              status: 'COMPLETED',
+              processedById: staffSession.userId,
+              processedAt: new Date(),
+            } });
+            await tx.payment.update({ where: { id: payment.id }, data: {
+              status: refundAmount === balance ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
+            } });
+            remainingRefund -= refundAmount;
+          }
+          const profile = await tx.customerProfile.findUnique({ where: { userId: session.booking!.userId } });
+          if (profile) {
+            await tx.customerProfile.update({ where: { userId: session.booking!.userId }, data: {
+              totalSpent: Math.max(0, profile.totalSpent - checkout.refundPaise),
+            } });
+          }
+        }
         // End session & record overtime
         await tx.gamingSession.update({
           where: { id: session.id },
@@ -80,13 +142,17 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Mark booking completed and increment total price if overtime applied
+        // Store the final offered price and its discount with the completed booking.
         if (session.bookingId) {
           await tx.booking.update({
             where: { id: session.bookingId },
             data: {
               status: 'COMPLETED',
-              ...(overtimePaise > 0 ? { totalPricePaise: { increment: overtimePaise } } : {}),
+              totalPricePaise: checkout.finalPricePaise,
+              ...(checkout.discountPaise > 0 ? { discountPaise: { increment: checkout.discountPaise } } : {}),
+              ...((discountPaise !== undefined || finalPricePaise !== undefined) ? {
+                notes: `${session.booking?.notes || ''}\n[Checkout: original ₹${(grossPaise / 100).toFixed(2)}, final ₹${(checkout.finalPricePaise / 100).toFixed(2)}, discount ₹${(checkout.discountPaise / 100).toFixed(2)}, by ${staffName}]`.trim(),
+              } : {}),
             },
           });
 
@@ -108,59 +174,37 @@ export async function POST(req: NextRequest) {
               });
             }
           } else {
-            // FINAL SETTLEMENT FLOW:
-            // Settle pending payments for current booking (e.g. Pay-on-Exit walk-ins)
-            const pendingPayments = await tx.payment.findMany({
-              where: {
-                bookingId: session.bookingId,
-                status: 'PENDING',
-              },
-              select: { id: true, amountPaise: true, userId: true },
-            });
-
-            if (pendingPayments.length > 0) {
+            // Replace draft tab lines with one payment for the actual final balance.
+            if (payments.some((payment) => payment.status === 'PENDING')) {
               await tx.payment.updateMany({
                 where: {
                   bookingId: session.bookingId,
                   status: 'PENDING',
                 },
                 data: {
-                  status: 'COMPLETED',
-                  method: chosenMethod,
-                  paidAt: new Date(),
+                  status: 'FAILED',
                   recordedByStaffId: staffSession.userId,
-                  notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
+                  notes: `Draft tab replaced by final checkout price by ${staffName}`,
                 },
               });
-
-              for (const pp of pendingPayments) {
-                if (pp.amountPaise > 0) {
-                  await tx.customerProfile.updateMany({
-                    where: { userId: pp.userId },
-                    data: { totalSpent: { increment: pp.amountPaise } },
-                  });
-                }
-              }
             }
-
-            // Create overtime desk payment record if charged
-            if (overtimePaise > 0 && session.booking) {
+            if (checkout.duePaise > 0 && session.booking) {
               await tx.payment.create({
                 data: {
                   bookingId: session.bookingId,
                   userId: session.booking.userId,
-                  amountPaise: overtimePaise,
+                  amountPaise: checkout.duePaise,
                   method: chosenMethod,
                   status: 'COMPLETED',
                   paidAt: new Date(),
                   recordedByStaffId: staffSession.userId,
-                  notes: `Overtime payment (+${overtimeMinutes} mins) collected on checkout via ${chosenMethod} by ${staffName}`,
+                  notes: `Final session checkout collected via ${chosenMethod} by ${staffName}; final price ₹${(checkout.finalPricePaise / 100).toFixed(2)}`,
                 },
               });
 
               await tx.customerProfile.updateMany({
                 where: { userId: session.booking.userId },
-                data: { totalSpent: { increment: overtimePaise } },
+                data: { totalSpent: { increment: checkout.duePaise } },
               });
             }
 
@@ -221,23 +265,29 @@ export async function POST(req: NextRequest) {
               stationName: session.station?.name,
               overtimeMinutes,
               overtimePaise,
+              originalPricePaise: grossPaise,
+              finalPricePaise: checkout.finalPricePaise,
+              discountPaise: checkout.discountPaise,
+              refundedPaise: checkout.refundPaise,
               staffName,
               transferTab: Boolean(transferTab),
               settledAdditional: settleAdditionalBookingIds || [],
             },
           },
         }).catch(() => {});
+        return checkout;
       });
 
       return apiSuccess({
         transferred: Boolean(transferTab),
         message: transferTab
           ? `Session on ${session.station?.name || 'station'} ended and station is now Available! Open tab preserved for next game.`
-          : overtimeMinutes > 0
-          ? `Session on ${session.station?.name || 'station'} ended (+${overtimeMinutes}m extra time recorded: ₹${(overtimePaise / 100).toFixed(0)}). Station is now Available.`
-          : `Session on ${session.station?.name || 'station'} ended successfully. Station is now Available.`,
+          : `Session on ${session.station?.name || 'station'} ended at ₹${(checkoutResult.finalPricePaise / 100).toFixed(2)}. Station is now Available.`,
         extraMinutes: overtimeMinutes,
         overtimePaise,
+        finalPricePaise: checkoutResult.finalPricePaise,
+        discountPaise: checkoutResult.discountPaise,
+        refundedPaise: checkoutResult.refundPaise,
         bookingId: session.bookingId,
         bookingRef: session.booking?.bookingRef,
         customerName: session.booking?.customerName,
@@ -245,6 +295,9 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Fallback: If no GamingSession row was found, update Booking & GamingStation directly
+      if (discountPaise !== undefined || finalPricePaise !== undefined) {
+        throw new ValidationError('A live session record is required to adjust its final price.');
+      }
       if (staffSession.role === 'STAFF') {
         throw new ForbiddenError('Session ownership cannot be verified. Ask an administrator to end this booking.');
       }
