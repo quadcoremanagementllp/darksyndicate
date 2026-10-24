@@ -11,6 +11,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
+import { BookingReviewDialog } from './BookingReviewDialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -184,6 +185,7 @@ export function StaffPreBookingModal({
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [successBooking, setSuccessBooking] = useState<SuccessBooking | null>(null);
 
   const isPs5 = category === 'PS5';
@@ -204,6 +206,7 @@ export function StaffPreBookingModal({
       setStationId(initialStationId || 'ANY');
       setSelectedDate(getTodayKolkataDate());
       setSuccessBooking(null);
+      setReviewOpen(false);
       setSelectedTime('');
       setCustomTime('');
       setTimeMode('SLOT');
@@ -285,13 +288,27 @@ export function StaffPreBookingModal({
     if (!customerPhone) setCustomerPhone('');
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleReview = () => {
     if (!canBookTime) {
       toast.error('Please choose an available station and upcoming time.');
       return;
     }
     if (!customerName.trim()) {
+      toast.error('Please enter the customer name.');
+      return;
+    }
+    setReviewOpen(true);
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!canBookTime) {
+      setReviewOpen(false);
+      toast.error('Please choose an available station and upcoming time.');
+      return;
+    }
+    if (!customerName.trim()) {
+      setReviewOpen(false);
       toast.error('Please enter the customer name.');
       return;
     }
@@ -303,6 +320,7 @@ export function StaffPreBookingModal({
     }
 
     if (!targetStationId) {
+      setReviewOpen(false);
       toast.error('No station is available for this slot.');
       return;
     }
@@ -331,6 +349,7 @@ export function StaffPreBookingModal({
 
       const json = await res.json();
       if (json.success && json.data) {
+        setReviewOpen(false);
         toast.success(`Reserved! Ref: ${json.data.bookingRef}`);
         setSuccessBooking(json.data as SuccessBooking);
         if (onBookingCreated) {
@@ -348,10 +367,26 @@ export function StaffPreBookingModal({
 
   const todayStr = getTodayKolkataDate();
   const tomorrowStr = getTomorrowKolkataDate();
+  const reviewStationId = stationId === 'ANY' ? activeSlot?.availableStationIds?.[0] : stationId;
+  const reviewStationName = stations.find((station) => station.id === reviewStationId)?.name || 'Available station';
+  const reviewEnd = bookingEndTime(bookingStartTime, durationMinutes);
+  const reviewDetails = [
+    { label: 'Arena', value: isPool ? 'Snooker Lounge' : 'PlayStation 5 Arena' },
+    { label: 'Station', value: stationId === 'ANY' ? `${reviewStationName} (auto-allocated)` : reviewStationName },
+    { label: 'Date', value: selectedDate },
+    { label: 'Time', value: `${formatNormalTime(bookingStartTime)} – ${formatNormalTime(reviewEnd?.time || '')}${reviewEnd?.nextDay ? ' (next day)' : ''}` },
+    { label: 'Duration', value: `${durationMinutes} minutes` },
+    { label: 'Players', value: String(playerCount) },
+    { label: 'Gamer', value: customerName.trim() },
+    ...(customerPhone.trim() ? [{ label: 'Phone', value: customerPhone.trim() }] : []),
+    ...(customerEmail.trim() ? [{ label: 'Email', value: customerEmail.trim() }] : []),
+    ...(notes.trim() ? [{ label: 'Special request', value: notes.trim() }] : []),
+  ];
 
   return (
+    <>
     <Modal
-      isOpen={isOpen}
+      isOpen={isOpen && !reviewOpen}
       onClose={onClose}
       size={successBooking ? 'lg' : 'full'}
       showCloseButton={!submitting}
@@ -404,7 +439,7 @@ export function StaffPreBookingModal({
                 size="sm"
                 type="button"
                 disabled={submitting || !canBookTime || !customerName.trim()}
-                onClick={() => handleSubmit()}
+                onClick={handleReview}
                 className="flex-1 sm:flex-none font-heading font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-ds-accent/20 cursor-pointer"
               >
                 {submitting ? (
@@ -915,5 +950,16 @@ export function StaffPreBookingModal({
         </div>
         )}
       </Modal>
+      <BookingReviewDialog
+        isOpen={isOpen && reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        onConfirm={() => handleSubmit()}
+        title="Review Reservation"
+        details={reviewDetails}
+        amount={`₹${totalPayable}`}
+        confirmLabel="Book Reservation"
+        submitting={submitting}
+      />
+      </>
     );
   }

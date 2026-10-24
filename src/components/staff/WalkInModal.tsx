@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { BookingReviewDialog } from './BookingReviewDialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -156,20 +157,15 @@ export function WalkInModal({
   onSuccess,
 }: WalkInModalProps) {
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const availableStations = stations.filter((s) => getStationAvailabilityState(s, durationMinutes).isAvailable);
-  const initialStation =
-    stations.find((s) => s.id === preselectedStationId && getStationAvailabilityState(s, 60).isAvailable) ||
-    availableStations[0] ||
-    stations[0];
-
-  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || initialStation?.stationType || 'PS5');
-  const [selectedStationId, setSelectedStationId] = useState<string>(initialStation?.id || '');
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || stations.find((s) => s.id === preselectedStationId)?.stationType || 'PS5');
+  const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [selectedGameTitle, setSelectedGameTitle] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>(initialCustomerName || '');
   const [customerPhone, setCustomerPhone] = useState<string>(initialCustomerPhone || '');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const toast = useToast();
 
   // Customer Autocomplete & Active Membership State
@@ -322,12 +318,8 @@ export function WalkInModal({
 
     if (isOpen && !wasOpen) {
       const targetCategory = initialCategory || stations.find((s) => s.id === preselectedStationId)?.stationType || activeCategory;
-      const target =
-        stations.find((s) => s.id === preselectedStationId && s.stationType === targetCategory && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-        stations.find((s) => s.id === preselectedStationId && s.stationType === targetCategory) ||
-        stations.find((s) => s.stationType === targetCategory && getStationAvailabilityState(s, durationMinutes).isAvailable) ||
-        stations.find((s) => s.stationType === targetCategory);
-      setSelectedStationId(target?.id || '');
+      setSelectedStationId('');
+      setReviewOpen(false);
       setActiveCategory(targetCategory);
       setDurationMinutes(60);
       setSelectedGameTitle('');
@@ -345,20 +337,9 @@ export function WalkInModal({
 
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   const categoryStations = stations.filter((s) => s.stationType === activeCategory);
-  const isConsoleStation =
-    selectedStation?.stationType !== 'POOL_TABLE' && (
-      selectedStation?.stationType === 'PS5' ||
-      selectedStation?.stationType === 'PC' ||
-      Boolean(selectedStation?.games && selectedStation.games.length > 0)
-    );
-
-  const isPs5 =
-    selectedStation?.stationType === 'PS5' ||
-    Boolean(selectedStation?.name?.toUpperCase().includes('PS5'));
-  const isPool =
-    selectedStation?.stationType === 'POOL_TABLE' ||
-    Boolean(selectedStation?.name?.toUpperCase().includes('SNOOKER')) ||
-    Boolean(selectedStation?.name?.toUpperCase().includes('POOL'));
+  const isConsoleStation = activeCategory !== 'POOL_TABLE';
+  const isPs5 = activeCategory === 'PS5';
+  const isPool = activeCategory === 'POOL_TABLE';
 
   const dynamicHourlyRate = sessionHourlyRatePaise(
     isPool ? 'POOL_TABLE' : isPs5 ? 'PS5' : selectedStation?.stationType,
@@ -377,17 +358,12 @@ export function WalkInModal({
   const discountPaise = discountPercent > 0 ? Math.round((subtotalPaise * discountPercent) / 100) : 0;
   const totalFeePaise = Math.max(0, subtotalPaise - discountPaise);
 
-  // Change duration and switch station if currently selected station has a conflict
+  // A duration change may invalidate the selected station; staff must choose another one.
   const handleDurationChange = (minutes: number) => {
     setDurationMinutes(minutes);
     const curr = stations.find((s) => s.id === selectedStationId);
     if (curr && !getStationAvailabilityState(curr, minutes).isAvailable) {
-      const firstAvailableInCat = stations.find(
-        (s) => s.stationType === activeCategory && getStationAvailabilityState(s, minutes).isAvailable
-      );
-      if (firstAvailableInCat) {
-        setSelectedStationId(firstAvailableInCat.id);
-      }
+      setSelectedStationId('');
     }
   };
 
@@ -435,13 +411,11 @@ export function WalkInModal({
     return list.slice(0, 8);
   }, [platformGames, selectedStation]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-
+  const validateWalkIn = () => {
     const nameErr = validateName(customerName);
     const phoneErr = validatePhone(customerPhone);
     const emailErr = validateEmail(customerEmail);
-    const stationErr = !selectedStationId ? 'Please choose an available station to continue' : undefined;
+    const stationErr = !selectedStation ? 'Please choose an available station to continue' : undefined;
 
     setTouched({ customerName: true, customerPhone: true, customerEmail: true });
     setFormErrors({
@@ -453,19 +427,33 @@ export function WalkInModal({
 
     if (stationErr) {
       toast.error(stationErr);
-      return;
+      return false;
     }
 
     if (selectedStation) {
       const availState = getStationAvailabilityState(selectedStation, durationMinutes);
       if (!availState.isAvailable) {
         toast.error(`Selected station is ${availState.statusLabel}. Please choose an available station.`);
-        return;
+        return false;
       }
     }
 
     if (nameErr || phoneErr || emailErr) {
       toast.error(nameErr || phoneErr || emailErr || 'Please check the highlighted errors');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleReview = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (validateWalkIn()) setReviewOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!validateWalkIn()) {
+      setReviewOpen(false);
       return;
     }
 
@@ -495,6 +483,7 @@ export function WalkInModal({
 
       const json = await res.json();
       if (json.success) {
+        setReviewOpen(false);
         toast.success(`Walk-in tab opened for ${customerName}! (Pay on Exit)`);
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('ds-booking-updated'));
@@ -511,9 +500,153 @@ export function WalkInModal({
     }
   };
 
+  const sessionControls = (
+    <div className="space-y-5">
+      {/* Session Duration */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
+            {isConsoleStation ? '3' : '2'}
+          </span>
+          <span>Session Duration</span>
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { min: 30, label: '30 Mins' },
+            { min: 60, label: '1 Hour' },
+            { min: 120, label: '2 Hours' },
+            { min: 180, label: '3 Hours' },
+          ].map((d) => (
+            <button
+              type="button"
+              key={d.min}
+              onClick={() => handleDurationChange(d.min)}
+              className={`py-2.5 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
+                durationMinutes === d.min
+                  ? 'bg-ds-accent text-white border-ds-accent shadow-md shadow-ds-accent/20 ring-1 ring-ds-accent'
+                  : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Number of Players */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">
+              {isConsoleStation ? '4' : '3'}
+            </span>
+            <span>Number of Players</span>
+          </label>
+          <div className="flex items-center gap-2">
+            {isPool && playerCount > 4 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                +{playerCount - 4} Extra ({playerCount - 4} × ₹50/hr = +₹{(playerCount - 4) * 50}/hr)
+              </span>
+            )}
+            <span className="text-[11px] font-mono text-cyan-400 font-bold">
+              {isPs5
+                ? playerCount === 1
+                  ? '₹150/hr'
+                  : playerCount === 2
+                  ? '₹200/hr'
+                  : '₹250/hr'
+                : `₹${(dynamicHourlyRate / 100).toFixed(0)}/hr`}
+            </span>
+          </div>
+        </div>
+
+        {/* Standard 1 - 4 Players */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { count: 1, label: '1 Player' },
+            { count: 2, label: '2 Players' },
+            { count: 3, label: '3 Players' },
+            { count: 4, label: '4 Players' },
+          ].map(({ count, label }) => (
+            <button
+              type="button"
+              key={count}
+              onClick={() => setPlayerCount(count)}
+              className={`py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
+                playerCount === count
+                  ? 'bg-cyan-950/60 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-sm shadow-cyan-400/30'
+                  : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Extra Players: ONLY for Snookers / Pool Table AND ONLY when 4 or more players are selected */}
+        {isPool && playerCount >= 4 && (
+          <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-amber-500/30 space-y-1.5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
+                <span>Add Extra Players (&gt; 4 Players)</span>
+              </span>
+              <span className="font-mono text-[10px] text-amber-300/90 font-semibold">
+                +₹50 / person per hour
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { count: 5, label: '5 Players', extra: '+₹50' },
+                { count: 6, label: '6 Players', extra: '+₹100' },
+                { count: 7, label: '7 Players', extra: '+₹150' },
+                { count: 8, label: '8 Players', extra: '+₹200' },
+              ].map(({ count, label, extra }) => (
+                <button
+                  type="button"
+                  key={count}
+                  onClick={() => setPlayerCount(count)}
+                  className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
+                    playerCount === count
+                      ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
+                      : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
+                  }`}
+                >
+                  <span className="text-[11px] font-bold">{label}</span>
+                  <span
+                    className={`text-[10px] font-mono font-bold mt-0.5 ${
+                      playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
+                    }`}
+                  >
+                    {extra}/hr
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const reviewDetails = [
+    { label: 'Station', value: selectedStation?.name || 'No station selected' },
+    { label: 'Session', value: isPool ? 'Snooker' : 'PlayStation 5' },
+    { label: 'Starts', value: 'Now' },
+    ...(selectedGameTitle ? [{ label: 'Game', value: selectedGameTitle }] : []),
+    { label: 'Duration', value: `${durationMinutes} minutes` },
+    { label: 'Players', value: String(playerCount) },
+    { label: 'Gamer', value: customerName.trim() },
+    ...(customerPhone.trim() ? [{ label: 'Phone', value: customerPhone.trim() }] : []),
+    ...(customerEmail.trim() ? [{ label: 'Email', value: customerEmail.trim() }] : []),
+    ...(activeMembership ? [{ label: 'Membership', value: activeMembership.planName }] : []),
+    ...(linkedPriorTab ? [{ label: 'Linked tab', value: linkedPriorTab.stationName }] : []),
+  ];
+
   return (
+    <>
     <Modal
-      isOpen={isOpen}
+      isOpen={isOpen && !reviewOpen}
       onClose={onClose}
       title="Desk Walk-in Rapid Allocation"
       description={activeCategory === 'POOL_TABLE'
@@ -581,7 +714,7 @@ export function WalkInModal({
               size="sm"
               type="button"
               disabled={submitting}
-              onClick={() => handleSubmit()}
+              onClick={() => handleReview()}
               className="text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md shadow-ds-accent/20 cursor-pointer font-heading font-bold"
             >
               {submitting ? (
@@ -597,7 +730,7 @@ export function WalkInModal({
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col justify-between" noValidate>
+      <form onSubmit={handleReview} className="flex flex-col justify-between" noValidate>
         {/* Linked Multi-Game Open Tab Banner */}
         {linkedPriorTab && (
           <div className="mb-4 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-cyan-950/80 via-ds-surface to-emerald-950/80 border-2 border-cyan-400/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
@@ -821,137 +954,15 @@ export function WalkInModal({
                 )}
               </div>
             )}
+            {isPool && sessionControls}
           </div>
 
           {/* ─── RIGHT COLUMN: DURATION, CUSTOMER INFO, PAYMENT (5 COLS) ─── */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Session Duration */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
-                  {isConsoleStation ? '3' : '2'}
-                </span>
-                <span>Session Duration</span>
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { min: 30, label: '30 Mins' },
-                  { min: 60, label: '1 Hour' },
-                  { min: 120, label: '2 Hours' },
-                  { min: 180, label: '3 Hours' },
-                ].map((d) => (
-                  <button
-                    type="button"
-                    key={d.min}
-                    onClick={() => handleDurationChange(d.min)}
-                    className={`py-2.5 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
-                      durationMinutes === d.min
-                        ? 'bg-ds-accent text-white border-ds-accent shadow-md shadow-ds-accent/20 ring-1 ring-ds-accent'
-                        : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Number of Players */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[11px] flex items-center justify-center font-mono">
-                    {isConsoleStation ? '4' : '3'}
-                  </span>
-                  <span>Number of Players</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  {isPool && playerCount > 4 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                      +{playerCount - 4} Extra ({playerCount - 4} × ₹50/hr = +₹{(playerCount - 4) * 50}/hr)
-                    </span>
-                  )}
-                  <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                    {isPs5
-                      ? playerCount === 1
-                        ? '₹150/hr'
-                        : playerCount === 2
-                        ? '₹200/hr'
-                        : '₹250/hr'
-                      : `₹${(dynamicHourlyRate / 100).toFixed(0)}/hr`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Standard 1 - 4 Players */}
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { count: 1, label: '1 Player' },
-                  { count: 2, label: '2 Players' },
-                  { count: 3, label: '3 Players' },
-                  { count: 4, label: '4 Players' },
-                ].map(({ count, label }) => (
-                  <button
-                    type="button"
-                    key={count}
-                    onClick={() => setPlayerCount(count)}
-                    className={`py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all border ${
-                      playerCount === count
-                        ? 'bg-cyan-950/60 border-cyan-400 text-white ring-1 ring-cyan-400/80 shadow-sm shadow-cyan-400/30'
-                        : 'bg-ds-surface/60 border-ds-border text-ds-text-muted hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Extra Players: ONLY for Snookers / Pool Table AND ONLY when 4 or more players are selected */}
-              {isPool && playerCount >= 4 && (
-                <div className="p-2.5 rounded-xl bg-ds-dark/60 border border-amber-500/30 space-y-1.5 animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-heading font-bold text-amber-400 uppercase tracking-wide flex items-center gap-1">
-                      <span>Add Extra Players (&gt; 4 Players)</span>
-                    </span>
-                    <span className="font-mono text-[10px] text-amber-300/90 font-semibold">
-                      +₹50 / person per hour
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { count: 5, label: '5 Players', extra: '+₹50' },
-                      { count: 6, label: '6 Players', extra: '+₹100' },
-                      { count: 7, label: '7 Players', extra: '+₹150' },
-                      { count: 8, label: '8 Players', extra: '+₹200' },
-                    ].map(({ count, label, extra }) => (
-                      <button
-                        type="button"
-                        key={count}
-                        onClick={() => setPlayerCount(count)}
-                        className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase transition-all border flex flex-col items-center justify-center ${
-                          playerCount === count
-                            ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-1 ring-amber-400 shadow-sm shadow-amber-400/30'
-                            : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-amber-400/50 hover:text-amber-200'
-                        }`}
-                      >
-                        <span className="text-[11px] font-bold">{label}</span>
-                        <span
-                          className={`text-[10px] font-mono font-bold mt-0.5 ${
-                            playerCount === count ? 'text-amber-300' : 'text-amber-400/90'
-                          }`}
-                        >
-                          {extra}/hr
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="lg:col-span-5 space-y-6">
+            {!isPool && sessionControls}
 
             {/* Gamer Information (Name, Phone, optional Email) */}
-            <div className="space-y-1.5 relative">
+            <div className="space-y-3 relative">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-heading font-black text-ds-ice uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-ds-accent/20 border border-ds-accent text-ds-accent text-[11px] flex items-center justify-center font-mono">
@@ -1014,7 +1025,7 @@ export function WalkInModal({
               )}
 
               <div className="space-y-2.5 relative">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 relative">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 relative">
                   <div className="space-y-1 relative">
                     <span className="text-[10px] uppercase font-mono text-ds-text-muted block">
                       Gamer Name <span className="text-rose-400">*</span>
@@ -1157,5 +1168,16 @@ export function WalkInModal({
         </div>
       </form>
     </Modal>
+    <BookingReviewDialog
+      isOpen={isOpen && reviewOpen}
+      onClose={() => setReviewOpen(false)}
+      onConfirm={handleSubmit}
+      title="Review Live Session"
+      details={reviewDetails}
+      amount={`₹${((totalFeePaise + (linkedPriorTab?.amountPaise || 0)) / 100).toFixed(0)}`}
+      confirmLabel="Start Session Now"
+      submitting={submitting}
+    />
+    </>
   );
 }
