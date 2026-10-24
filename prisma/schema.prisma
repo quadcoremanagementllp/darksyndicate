@@ -345,6 +345,20 @@ model GamingSession {
   @@map("gaming_sessions")
 }
 
+/// Shared staff alert acknowledgements. A milestone is dismissed for everyone,
+/// while later milestones for the same booking or session can still appear.
+model StaffAlertDismissal {
+  id                String   @id
+  kind              String
+  resourceId        String   @map("resource_id")
+  stage             String
+  dismissedByUserId String   @map("dismissed_by_user_id")
+  dismissedAt       DateTime @default(now()) @map("dismissed_at")
+
+  @@index([kind, resourceId])
+  @@map("staff_alert_dismissals")
+}
+
 /// Payment records
 model Payment {
   id                 String        @id @default(uuid())

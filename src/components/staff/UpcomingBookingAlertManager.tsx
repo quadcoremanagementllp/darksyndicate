@@ -29,6 +29,8 @@ import {
   playEndingSoonAlarm,
 } from '@/lib/soundAlarm';
 import { sendMobilePushNotification } from '@/lib/pushNotifications';
+import { useStaffAlertDismissals } from '@/hooks/useStaffAlertDismissals';
+import { staffAlertDismissalKey } from '@/lib/staffAlertDismissals';
 
 export interface UpcomingSlotAlert {
   id: string; // `${bookingId}-${stage}`
@@ -48,6 +50,7 @@ export interface UpcomingSlotAlert {
 }
 
 export function UpcomingBookingAlertManager() {
+  const { dismissedIds, loaded: dismissalsLoaded, dismiss } = useStaffAlertDismissals();
   const pathname = usePathname();
   const isOnBookingsPage = pathname?.startsWith('/staff/bookings');
 
@@ -86,7 +89,7 @@ export function UpcomingBookingAlertManager() {
 
   const toast = useToast();
   const triggeredMilestones = useRef<Map<string, Set<string>>>(new Map());
-  const dismissedAlertIds = useRef<Set<string>>(new Set());
+  const snoozedUntil = useRef<Map<string, number>>(new Map());
   const rawBookingsRef = useRef<any[]>([]);
 
   // Toggle Mute
@@ -112,6 +115,7 @@ export function UpcomingBookingAlertManager() {
 
   // Evaluate alerts every second against current time
   const evaluateAlerts = () => {
+    if (!dismissalsLoaded) return;
     const now = Date.now();
     const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const currentAlerts: UpcomingSlotAlert[] = [];
@@ -142,7 +146,8 @@ export function UpcomingBookingAlertManager() {
       }
 
       const alertId = `${b.id}-${stage}`;
-      if (dismissedAlertIds.current.has(alertId)) continue;
+      if (dismissedIds.has(staffAlertDismissalKey('booking', b.id, stage))) continue;
+      if ((snoozedUntil.current.get(alertId) || 0) > now) continue;
 
       // Play audio chime once per milestone
       let milestones = triggeredMilestones.current.get(b.id);
@@ -206,7 +211,7 @@ export function UpcomingBookingAlertManager() {
       clearInterval(pollInterval);
       clearInterval(tickInterval);
     };
-  }, [isMuted]);
+  }, [isMuted, dismissedIds, dismissalsLoaded]);
 
   // Quick Check In from alert
   const handleQuickCheckIn = async (alert: UpcomingSlotAlert) => {
@@ -224,7 +229,6 @@ export function UpcomingBookingAlertManager() {
       const json = await res.json();
       if (json.success) {
         toast.success(`Session started for ${alert.customerName} on ${alert.stationName}!`);
-        dismissedAlertIds.current.add(alert.id);
         setAlerts((prev) => prev.filter((a) => a.bookingId !== alert.bookingId));
         // Remove from rawBookingsRef
         rawBookingsRef.current = rawBookingsRef.current.filter((b) => b.id !== alert.bookingId);
@@ -242,7 +246,8 @@ export function UpcomingBookingAlertManager() {
   };
 
   const handleDismiss = (alertId: string) => {
-    dismissedAlertIds.current.add(alertId);
+    const alert = alerts.find((item) => item.id === alertId);
+    if (alert) void dismiss('booking', alert.bookingId, alert.stage);
     setAlerts((prev) => {
       const remaining = prev.filter((a) => a.id !== alertId);
       if (currentIndex >= remaining.length) {
@@ -253,7 +258,7 @@ export function UpcomingBookingAlertManager() {
   };
 
   const handleSnooze = (alert: UpcomingSlotAlert) => {
-    dismissedAlertIds.current.add(alert.id);
+    snoozedUntil.current.set(alert.id, Date.now() + 5 * 60 * 1000);
     setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
     toast.info(`Alert for ${alert.stationName} snoozed`);
   };

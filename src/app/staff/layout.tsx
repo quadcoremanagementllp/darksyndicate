@@ -13,7 +13,6 @@ import {
   BookMarked,
   LogOut,
   ChevronRight,
-  ArrowUpRight,
   ShieldCheck,
   PanelLeftClose,
   PanelLeftOpen,
@@ -47,7 +46,6 @@ function StaffSidebarNav({
   isMobile?: boolean;
   collapsed?: boolean;
 }) {
-  const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const [sessionsExpanded, setSessionsExpanded] = useState<boolean | null>(null);
   const sessionsOpen = sessionsExpanded ?? pathname.startsWith('/staff/bookings');
 
@@ -150,26 +148,6 @@ function StaffSidebarNav({
             ))}
           </div>
 
-          {isAdminUser && (
-            <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
-              {!collapsed && <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
-                Cross Portals
-              </span>}
-              <Link
-                href="/admin"
-                onClick={isMobile ? onClose : undefined}
-                title={collapsed ? 'Admin Command Center' : undefined}
-                aria-label="Admin Command Center"
-                className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 rounded-xl text-xs text-amber-400 hover:bg-ds-surface/60 transition-colors`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-4 h-4 shrink-0" />
-                  {!collapsed && <span className="font-heading font-bold uppercase">Admin Command Center</span>}
-                </div>
-                {!collapsed && <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />}
-              </Link>
-            </div>
-          )}
         </nav>
 
         {/* User Profile Badge & Logout */}

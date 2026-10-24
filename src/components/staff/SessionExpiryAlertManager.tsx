@@ -29,6 +29,8 @@ import {
 import { sendMobilePushNotification } from '@/lib/pushNotifications';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageStaffSession, sessionHourlyRatePaise, visibleStaffSessions } from '@/lib/staffSessionRules';
+import { useStaffAlertDismissals } from '@/hooks/useStaffAlertDismissals';
+import { staffAlertDismissalKey } from '@/lib/staffAlertDismissals';
 
 export interface ActiveSessionData {
   stationId: string;
@@ -56,6 +58,7 @@ export interface SessionAlert {
 }
 
 export function SessionExpiryAlertManager() {
+  const { dismissedIds, loaded: dismissalsLoaded, dismiss } = useStaffAlertDismissals();
   const { user } = useAuth();
   const viewerId = user?.id;
   const viewerRole = user?.role;
@@ -73,7 +76,6 @@ export function SessionExpiryAlertManager() {
   // Track which milestones have been triggered to prevent duplicate alerts
   const triggeredMilestones = useRef<Map<string, Set<string>>>(new Map());
   const lastOverdueChimeTime = useRef<Map<string, number>>(new Map());
-  const dismissedAlertIds = useRef<Set<string>>(new Set());
 
   // Synchronize mute state with global sound alarm settings
   useEffect(() => {
@@ -151,6 +153,7 @@ export function SessionExpiryAlertManager() {
 
   // 1-second live countdown evaluator
   useEffect(() => {
+    if (!dismissalsLoaded) return;
     const timer = setInterval(() => {
       const now = Date.now();
       const newAlerts: SessionAlert[] = [];
@@ -177,7 +180,7 @@ export function SessionExpiryAlertManager() {
 
         if (stage) {
           const alertId = `${session.sessionId || session.stationId}-${stage}`;
-          const isDismissed = dismissedAlertIds.current.has(alertId);
+          const isDismissed = dismissedIds.has(staffAlertDismissalKey('session', session.sessionId, stage));
 
           if (!isDismissed) {
             // Check if we already played sound for this stage
@@ -240,11 +243,12 @@ export function SessionExpiryAlertManager() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeSessions, isMuted, viewerId, viewerRole]);
+  }, [activeSessions, isMuted, viewerId, viewerRole, dismissedIds, dismissalsLoaded]);
 
   // Dismiss a specific alert
   const handleDismiss = (alertId: string) => {
-    dismissedAlertIds.current.add(alertId);
+    const alert = alerts.find((item) => item.id === alertId);
+    if (alert) void dismiss('session', alert.session.sessionId, alert.stage);
     setAlerts((prev) => {
       const remaining = prev.filter((a) => a.id !== alertId);
       if (currentIndex >= remaining.length) {
@@ -256,7 +260,7 @@ export function SessionExpiryAlertManager() {
 
   // Dismiss all active alerts
   const handleDismissAll = () => {
-    alerts.forEach((a) => dismissedAlertIds.current.add(a.id));
+    alerts.forEach((alert) => { void dismiss('session', alert.session.sessionId, alert.stage); });
     setAlerts([]);
     setCurrentIndex(0);
   };

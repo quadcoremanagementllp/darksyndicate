@@ -31,7 +31,7 @@ npx prisma migrate resolve --applied 20261019_baseline
 npx prisma migrate status
 ```
 
-The diff command must exit **0**. Exit **2** means the imported schema differs from the app: stop and inspect the diff before resolving. If the imported dump already contains `_prisma_migrations`, inspect that history before baselining. Once the baseline is marked, future reviewed migrations use `npm run db:deploy`. The baseline SQL is for an **empty** database and must never be applied to the imported database.
+The diff command exits **0** when the imported schema already matches the current app. Exit **2** means the schemas differ: inspect the SQL with `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` before resolving anything. For an import from before the staff alert change, the only expected difference is creation of `staff_alert_dismissals`. Verify that no other tables or columns differ, mark the baseline as applied, then run `npm run db:deploy` to create the new table. If the imported dump already contains `_prisma_migrations`, inspect that history before baselining. The baseline SQL is for an **empty** database and must never be applied to the imported database.
 
 ## 2. Push the app to GitHub
 
@@ -40,6 +40,8 @@ Use a private GitHub repository. `.env`, database dumps, build output, and logs 
 ## 3. Connect Hostinger to GitHub
 
 In Hostinger: **Websites → Add Website → Deploy Web App → Import Git Repository**. Authorize the `quadcoremanagementllp/darksyndicate` repository and select the production branch. Set framework to **Next.js**, project root to the repository root, Node.js to **22.x**, build command to `npm run build`, and start command to `npm run start`. Hostinger installs dependencies from `package-lock.json` and builds on pushes. Add the domain and SSL in hPanel. Do not copy `node_modules` or `.next` into GitHub.
+
+The `20261024_staff_alert_dismissals` migration creates the shared staff alert acknowledgement table. On a database already tracked by Prisma migrations, run `npm run db:deploy` before starting the updated app. For an imported database without migration tracking, complete the baseline procedure in section 1 first. The new alert dismissal endpoint needs this table to persist acknowledgements across staff devices.
 
 ### Environment variables in Hostinger
 

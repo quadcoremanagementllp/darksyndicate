@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { bookingEndTime, to24HourTime } from '@/lib/bookingTime';
+import { TimePartInput } from './TimePartInput';
 
 interface Station {
   id: string;
@@ -197,7 +198,7 @@ export function StaffPreBookingModal({
   const selectedSlotObj = useMemo(() => {
     return slots.find((s) => s.time === selectedTime);
   }, [slots, selectedTime]);
-  const customTime = customHour ? to24HourTime(Number(customHour), Number(customMinute), customPeriod) || '' : '';
+  const customTime = customHour && customMinute ? to24HourTime(Number(customHour), Number(customMinute), customPeriod) || '' : '';
   const bookingStartTime = timeMode === 'CUSTOM' ? customTime : selectedTime;
   const activeSlot = timeMode === 'CUSTOM' ? slots.find((slot) => slot.time === customTime) : selectedSlotObj;
   const selectedStationAvailable = stationId === 'ANY' || Boolean(activeSlot?.availableStationIds?.includes(stationId));
@@ -772,13 +773,8 @@ export function StaffPreBookingModal({
                     <fieldset className="space-y-1.5 min-w-0">
                       <legend className="text-ds-text-muted font-mono">Start time (12-hour)</legend>
                       <div className="grid grid-cols-[1fr_1fr_1.15fr] gap-2">
-                        <select aria-label="Start hour" value={customHour} onChange={(event) => setCustomHour(event.target.value)} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
-                          <option value="" disabled>Hour</option>
-                          {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
-                        </select>
-                        <select aria-label="Start minute" value={customMinute} onChange={(event) => setCustomMinute(event.target.value)} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
-                          {Array.from({ length: 60 }, (_, index) => <option key={index} value={String(index).padStart(2, '0')}>{String(index).padStart(2, '0')}</option>)}
-                        </select>
+                        <TimePartInput label="Start hour" value={customHour} onChange={setCustomHour} values={Array.from({ length: 12 }, (_, index) => String(index + 1))} />
+                        <TimePartInput label="Start minute" value={customMinute} onChange={setCustomMinute} values={Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))} />
                         <select aria-label="AM or PM" value={customPeriod} onChange={(event) => setCustomPeriod(event.target.value as 'AM' | 'PM')} className="min-w-0 rounded-xl border border-ds-border bg-ds-dark px-2 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none">
                           <option value="AM">AM</option>
                           <option value="PM">PM</option>
@@ -786,8 +782,9 @@ export function StaffPreBookingModal({
                       </div>
                     </fieldset>
                     <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-3 py-2.5 font-mono">
-                      <span className="block text-ds-text-muted">Ends automatically</span>
+                      <span className="block text-ds-text-muted">Estimated end time (start + duration)</span>
                       <span className="block mt-1 text-base font-bold text-cyan-300">{customEnd ? `${formatNormalTime(customEnd.time)}${customEnd.nextDay ? ' (next day)' : ''}` : 'Choose a start time'}</span>
+                      <span className="block mt-1 text-[11px] text-ds-text-muted">This is a booking estimate; it does not end a live session.</span>
                     </div>
                   </div>
                   {customTime && !loadingSlots && <p className={`font-mono ${canBookTime ? 'text-emerald-300' : 'text-rose-300'}`}>{canBookTime ? `${activeSlot?.availableStationIds?.length} station(s) available for this exact time` : 'This station or time is unavailable. Choose another.'}</p>}
