@@ -13,7 +13,6 @@ import {
   Wrench,
   Trash2,
   Edit2,
-  RotateCw,
   Search,
   CheckCircle2,
   AlertTriangle,
@@ -74,7 +73,7 @@ export default function AdminStationsPage() {
     setFormName('');
     setFormType('PS5');
     setFormPriceINR('200');
-    setFormSpecs('Sony Bravia XR 65" 4K 120Hz OLED, DualSense Edge Wireless');
+    setFormSpecs('');
     setFormCapacity('2');
     setFormStatus('AVAILABLE');
     setModalOpen(true);
@@ -218,11 +217,6 @@ export default function AdminStationsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadStations}>
-            <RotateCw className="w-4 h-4 mr-1.5" />
-            <span>Refresh</span>
-          </Button>
-
           <Link href="/admin/games">
             <Button variant="outline" size="sm" className="border-ds-accent/40 text-ds-ice hover:bg-ds-accent/10">
               <Gamepad2 className="w-4 h-4 mr-1.5 text-ds-accent" />
@@ -399,8 +393,9 @@ export default function AdminStationsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ds-text-muted uppercase">Hardware & Display Specs</label>
+            <label htmlFor="station-specs" className="text-xs font-semibold text-ds-text-muted uppercase">Hardware & Display Specs <span className="normal-case font-normal text-ds-text-dim">(optional)</span></label>
             <textarea
+              id="station-specs"
               rows={2}
               value={formSpecs}
               onChange={(e) => setFormSpecs(e.target.value)}

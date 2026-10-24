@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { apiSuccess, handleApiError } from '@/lib/errors';
+import { apiSuccess, handleApiError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
+import { parseReportCustomRange } from '@/lib/reportDateRange';
 
 const OFFSET_MINUTES = 330;
 const ACTIVE_BOOKING_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED'] as const;
@@ -38,32 +39,41 @@ export async function GET(req: NextRequest) {
     await requireRole('ADMIN', 'SUPER_ADMIN');
     const { searchParams } = new URL(req.url);
     const requestedTimeframe = searchParams.get('timeframe') || '30d';
-    const timeframe = ['7d', '30d', 'month', 'year'].includes(requestedTimeframe)
+    const timeframe = ['7d', '30d', 'month', 'year', 'custom'].includes(requestedTimeframe)
       ? requestedTimeframe
       : '30d';
     const now = new Date();
     const localNow = new Date(now.getTime() + OFFSET_MINUTES * 60_000);
     let startDate: Date;
+    let endDate: Date;
+    let calendarStartDate: Date;
+    let calendarEndDate: Date;
 
-    if (timeframe === '7d') startDate = businessDateStart(now, 6);
-    else if (timeframe === '30d') startDate = businessDateStart(now, 29);
-    else if (timeframe === 'month') {
-      const monthStart = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1));
-      startDate = new Date(monthStart.getTime() - OFFSET_MINUTES * 60_000);
+    if (timeframe === 'custom') {
+      const range = parseReportCustomRange(searchParams.get('from'), searchParams.get('to'));
+      if (!range) throw new ValidationError('Choose a valid From and To date, with From on or before To.');
+      ({ startDate, endDate, calendarStartDate, calendarEndDate } = range);
     } else {
-      const yearStart = new Date(Date.UTC(localNow.getUTCFullYear(), 0, 1));
-      startDate = new Date(yearStart.getTime() - OFFSET_MINUTES * 60_000);
-    }
-    const endDate = businessDateStart(now, -1);
-    const calendarStartDate = businessCalendarDateStart(
-      now,
-      timeframe === '7d' ? 6 : timeframe === '30d' ? 29 : 0,
-    );
-    const calendarEndDate = businessCalendarDateStart(now, -1);
-    if (timeframe === 'month') {
-      calendarStartDate.setUTCDate(1);
-    } else if (timeframe === 'year') {
-      calendarStartDate.setUTCMonth(0, 1);
+      if (timeframe === '7d') startDate = businessDateStart(now, 6);
+      else if (timeframe === '30d') startDate = businessDateStart(now, 29);
+      else if (timeframe === 'month') {
+        const monthStart = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1));
+        startDate = new Date(monthStart.getTime() - OFFSET_MINUTES * 60_000);
+      } else {
+        const yearStart = new Date(Date.UTC(localNow.getUTCFullYear(), 0, 1));
+        startDate = new Date(yearStart.getTime() - OFFSET_MINUTES * 60_000);
+      }
+      endDate = businessDateStart(now, -1);
+      calendarStartDate = businessCalendarDateStart(
+        now,
+        timeframe === '7d' ? 6 : timeframe === '30d' ? 29 : 0,
+      );
+      calendarEndDate = businessCalendarDateStart(now, -1);
+      if (timeframe === 'month') {
+        calendarStartDate.setUTCDate(1);
+      } else if (timeframe === 'year') {
+        calendarStartDate.setUTCMonth(0, 1);
+      }
     }
 
     const [bookings, payments, paidMemberships, refunds, facilities, stations, staffUsers] = await Promise.all([

@@ -5,6 +5,7 @@ import { apiSuccess, ForbiddenError, handleApiError, NotFoundError } from '@/lib
 import { requireRole } from '@/lib/session';
 import { canManageStaffSession } from '@/lib/staffSessionRules';
 import { staffAlertDismissalKey } from '@/lib/staffAlertDismissals';
+import { readAlertDismissalIds, saveAlertDismissal } from '@/lib/staffAlertDismissalStorage';
 
 const dismissalSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('booking'), resourceId: z.uuid(), stage: z.enum(['15m', '5m', 'due']) }),
@@ -14,8 +15,20 @@ const dismissalSchema = z.discriminatedUnion('kind', [
 export async function GET() {
   try {
     await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
-    const records = await prisma.staffAlertDismissal.findMany({ select: { id: true } });
-    return apiSuccess(records.map((record) => record.id), 200, { 'Cache-Control': 'no-store' });
+    const ids = await readAlertDismissalIds(
+      async () => {
+        const records = await prisma.staffAlertDismissal.findMany({ select: { id: true } });
+        return records.map((record) => record.id);
+      },
+      async () => {
+        const logs = await prisma.staffActivityLog.findMany({
+          where: { action: 'DISMISS_ALERT', entityType: 'StaffAlertDismissal' },
+          select: { entityId: true },
+        });
+        return logs.flatMap((log) => log.entityId ? [log.entityId] : []);
+      },
+    );
+    return apiSuccess(ids, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
     return handleApiError(error);
   }
@@ -44,17 +57,38 @@ export async function POST(req: NextRequest) {
     }
 
     const id = staffAlertDismissalKey(input.kind, input.resourceId, input.stage);
-    await prisma.staffAlertDismissal.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        kind: input.kind,
-        resourceId: input.resourceId,
-        stage: input.stage,
-        dismissedByUserId: viewer.userId,
+    await saveAlertDismissal(
+      async () => {
+        await prisma.staffAlertDismissal.upsert({
+          where: { id },
+          update: {},
+          create: {
+            id,
+            kind: input.kind,
+            resourceId: input.resourceId,
+            stage: input.stage,
+            dismissedByUserId: viewer.userId,
+          },
+        });
       },
-    });
+      async () => {
+        const existing = await prisma.staffActivityLog.findFirst({
+          where: { action: 'DISMISS_ALERT', entityType: 'StaffAlertDismissal', entityId: id },
+          select: { id: true },
+        });
+        if (!existing) {
+          await prisma.staffActivityLog.create({
+            data: {
+              userId: viewer.userId,
+              action: 'DISMISS_ALERT',
+              entityType: 'StaffAlertDismissal',
+              entityId: id,
+              details: { kind: input.kind, stage: input.stage },
+            },
+          });
+        }
+      },
+    );
     return apiSuccess({ id });
   } catch (error) {
     return handleApiError(error);

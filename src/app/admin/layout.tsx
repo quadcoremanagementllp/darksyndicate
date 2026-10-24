@@ -15,7 +15,6 @@ import {
   Shield,
   UserCog,
   MonitorPlay,
-  ArrowUpRight,
   ChevronRight,
   Sparkles,
   BarChart3,
@@ -39,7 +38,7 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Executive Overview', href: '/admin', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Financial Reports', href: '/admin/reports', icon: BarChart3 },
   { name: 'Station Inventory', href: '/admin/stations', icon: Gamepad2 },
   { name: 'Games Library', href: '/admin/games', icon: Disc3 },
@@ -126,35 +125,6 @@ function SidebarNav({
               </Link>
             );
           })}
-
-          <div className="pt-4 mt-4 border-t border-ds-border/60 space-y-1.5">
-            <span className="px-3 text-[10px] font-mono uppercase tracking-widest text-ds-text-dim block mb-2">
-              Operations & Front
-            </span>
-            <Link
-              href="/staff"
-              onClick={isMobile ? onClose : undefined}
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-ds-ice hover:bg-ds-surface/60 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <MonitorPlay className="w-4 h-4 shrink-0" />
-                <span className="font-heading font-bold uppercase">Staff Console Grid</span>
-              </div>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
-            </Link>
-
-            <Link
-              href="/"
-              onClick={isMobile ? onClose : undefined}
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-ds-text-dim hover:text-white hover:bg-ds-surface/60 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Public Arena Website</span>
-              </div>
-              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
-            </Link>
-          </div>
         </nav>
 
         {/* User Profile Badge */}
@@ -349,12 +319,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="md:hidden font-heading font-black text-xs uppercase tracking-wider text-ds-text">
               DARK SYNDICATE
             </span>
-
-            {/* Live Network Pulse */}
-            <div className="hidden sm:flex items-center gap-2 pl-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-mono text-ds-text-dim">LIVE SYNDICATE NETWORK</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-3">

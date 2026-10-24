@@ -49,10 +49,13 @@ export function useStaffAlertDismissals() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind, resourceId, stage }),
       });
-      if (!response.ok) throw new Error('Could not save alert dismissal');
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error?.message || 'Could not save alert dismissal');
+      }
     } catch (error) {
       console.error('Could not save staff alert dismissal:', error);
-      showError('Could not dismiss alert', 'Please try again.');
+      showError('Could not dismiss alert', error instanceof Error ? error.message : 'Please try again.');
       setDismissedIds((previous) => {
         const restored = new Set(previous);
         restored.delete(id);

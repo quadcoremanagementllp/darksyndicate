@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         facilityName: st.facility?.name || 'Main Facility',
         stationType: st.stationType,
         pricePerHourPaise: st.pricePerHourPaise,
-        specs: (st.metadata as any)?.specs || st.description || 'Pro Battle Station',
+        specs: (st.metadata as any)?.specs ?? st.description ?? '',
         capacity: (st.metadata as any)?.capacity || (st.stationType === 'PS5' ? 2 : 4),
         status: st.status,
         displayOrder: st.displayOrder,

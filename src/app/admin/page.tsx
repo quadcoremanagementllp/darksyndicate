@@ -13,8 +13,6 @@ import {
   TrendingUp,
   Percent,
   ArrowRight,
-  Sparkles,
-  RotateCw,
 } from 'lucide-react';
 import {
   BarChart,
@@ -64,33 +62,13 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-ds-accent/10 border border-ds-accent/30 text-ds-ice mb-2">
-            <Sparkles className="w-3 h-3 text-ds-accent" />
-            <span>Executive Business Analytics</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight uppercase text-ds-text">
-            Arena Performance Overview
-          </h1>
-          <p className="text-xs text-ds-text-muted mt-0.5">
-            Real-time financial metrics, station occupancy, and gaming activity logs.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Button variant="outline" size="sm" onClick={loadStats} disabled={loading}>
-            <RotateCw className="w-4 h-4 mr-1.5" />
-            <span>Refresh Data</span>
-          </Button>
-
-          <Link href="/staff">
-            <Button variant="accent" size="sm">
-              <span>Open Staff Operations</span>
-              <ArrowRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          </Link>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight uppercase text-ds-text">
+          Arena Performance Overview
+        </h1>
+        <p className="text-xs text-ds-text-muted mt-0.5">
+          Real-time financial metrics, station occupancy, and gaming activity logs.
+        </p>
       </div>
 
       {error && (

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import {
   Download,
-  RotateCw,
   Printer,
 } from 'lucide-react';
 import {
@@ -24,7 +23,9 @@ import {
 import { useToast } from '@/components/ui/Toast';
 
 export default function AdminReportsPage() {
-  const [timeframe, setTimeframe] = useState<'7d' | '30d' | 'month' | 'year'>('30d');
+  const [timeframe, setTimeframe] = useState<'7d' | '30d' | 'month' | 'year' | 'custom'>('30d');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const [loadError, setLoadError] = useState('');
@@ -34,8 +35,22 @@ export default function AdminReportsPage() {
     setLoading(true);
     setLoadError('');
     setReportData(null);
+    if (timeframe === 'custom' && (!fromDate || !toDate)) {
+      setLoading(false);
+      return;
+    }
+    if (timeframe === 'custom' && fromDate > toDate) {
+      setLoadError('From date must be on or before To date.');
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch(`/api/admin/reports?timeframe=${timeframe}`);
+      const params = new URLSearchParams({ timeframe });
+      if (timeframe === 'custom') {
+        params.set('from', fromDate);
+        params.set('to', toDate);
+      }
+      const res = await fetch(`/api/admin/reports?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.success || !json.data) {
         throw new Error(json.error?.message || 'Could not load reports.');
@@ -52,7 +67,7 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     loadReports();
-  }, [timeframe]);
+  }, [timeframe, fromDate, toDate]);
 
   const handleExportCSV = () => {
     if (!reportData?.trend) return;
@@ -64,26 +79,11 @@ export default function AdminReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `dark_syndicate_report_${timeframe}_${Date.now()}.csv`);
+    link.setAttribute('download', `dark_syndicate_report_${timeframe === 'custom' ? `${fromDate}_to_${toDate}` : timeframe}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     toast.success('Report CSV exported successfully');
-  };
-
-  const handleExportJSON = () => {
-    if (!reportData) return;
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `dark_syndicate_report_${timeframe}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('JSON export downloaded');
   };
 
   const summary = reportData?.summary || {
@@ -98,64 +98,65 @@ export default function AdminReportsPage() {
     onlineCount: 0,
     refundsPaise: 0,
   };
-  const reportCurrency = (paise: number) => loading ? '—' : `₹${(paise / 100).toLocaleString('en-IN')}`;
+  const reportCurrency = (paise: number) => loading || !reportData ? '—' : `₹${(paise / 100).toLocaleString('en-IN')}`;
 
   return (
     <div className="space-y-8 print:p-0">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
-              Business Intelligence & Reports
-            </h1>
-            <Badge variant="accent" size="sm">
-              EXECUTIVE
-            </Badge>
-          </div>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            Business Intelligence & Reports
+          </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Settled payments, reservation volume, facility mix, and booked hours from your records.
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          {/* Timeframe selector */}
-          <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold">
-            {(['7d', '30d', 'month', 'year'] as const).map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                onClick={() => setTimeframe(tf)}
-                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors ${
-                  timeframe === tf
-                    ? 'bg-ds-accent text-white shadow-glow-sm'
-                    : 'text-ds-text-muted hover:text-white'
-                }`}
-              >
-                {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === 'month' ? 'Month' : 'YTD'}
-              </button>
-            ))}
+        <div className="flex flex-col gap-2 xl:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Timeframe selector */}
+            <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold">
+              {(['7d', '30d', 'month', 'year'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => { setTimeframe(tf); setFromDate(''); setToDate(''); }}
+                  className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors ${
+                    timeframe === tf
+                      ? 'bg-ds-accent text-white shadow-glow-sm'
+                      : 'text-ds-text-muted hover:text-white'
+                  }`}
+                >
+                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === 'month' ? 'Month' : 'YTD'}
+                </button>
+              ))}
+            </div>
+
+            <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!reportData || loading}>
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              <span>CSV</span>
+            </Button>
+
+            <Button variant="ghost" size="sm" onClick={() => window.print()}>
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              <span>Print</span>
+            </Button>
           </div>
-
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!reportData || loading}>
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>CSV</span>
-          </Button>
-
-          <Button variant="outline" size="sm" onClick={handleExportJSON} disabled={!reportData || loading}>
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>JSON</span>
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={() => window.print()}>
-            <Printer className="w-3.5 h-3.5 mr-1.5" />
-            <span>Print</span>
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={loadReports} disabled={loading} aria-label="Refresh reports">
-            <RotateCw className="w-3.5 h-3.5" />
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-ds-text-muted">
+            <label className="flex items-center gap-2">
+              <span>From</span>
+              <input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => { setFromDate(event.target.value); setTimeframe('custom'); }} className="rounded-lg border border-ds-border bg-ds-surface px-2.5 py-1.5 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none" />
+            </label>
+            <label className="flex items-center gap-2">
+              <span>To</span>
+              <input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => { setToDate(event.target.value); setTimeframe('custom'); }} className="rounded-lg border border-ds-border bg-ds-surface px-2.5 py-1.5 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none" />
+            </label>
+          </div>
+          {timeframe === 'custom' && (!fromDate || !toDate) && (
+            <p className="text-xs text-ds-text-muted">Choose both dates to view the report.</p>
+          )}
         </div>
       </div>
 

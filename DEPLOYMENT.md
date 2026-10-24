@@ -41,7 +41,7 @@ Use a private GitHub repository. `.env`, database dumps, build output, and logs 
 
 In Hostinger: **Websites → Add Website → Deploy Web App → Import Git Repository**. Authorize the `quadcoremanagementllp/darksyndicate` repository and select the production branch. Set framework to **Next.js**, project root to the repository root, Node.js to **22.x**, build command to `npm run build`, and start command to `npm run start`. Hostinger installs dependencies from `package-lock.json` and builds on pushes. Add the domain and SSL in hPanel. Do not copy `node_modules` or `.next` into GitHub.
 
-The `20261024_staff_alert_dismissals` migration creates the shared staff alert acknowledgement table. On a database already tracked by Prisma migrations, run `npm run db:deploy` before starting the updated app. For an imported database without migration tracking, complete the baseline procedure in section 1 first. The new alert dismissal endpoint needs this table to persist acknowledgements across staff devices.
+The `20261024_staff_alert_dismissals` migration creates the shared staff alert acknowledgement table. On a database already tracked by Prisma migrations, run `npm run db:deploy` before starting the updated app. For an imported database without migration tracking, complete the baseline procedure in section 1 first. Until this table is available, alert dismissals use the existing `staff_activity_logs` table so they still persist across staff devices.
 
 ### Environment variables in Hostinger
 
