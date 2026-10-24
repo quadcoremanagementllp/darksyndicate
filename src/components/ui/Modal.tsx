@@ -16,6 +16,7 @@ export interface ModalProps {
   closeOnOverlay?: boolean;
   showCloseButton?: boolean;
   className?: string;
+  bodyClassName?: string;
   footer?: ReactNode;
   footerClassName?: string;
 }
@@ -39,6 +40,7 @@ export function Modal({
   closeOnOverlay = true,
   showCloseButton = true,
   className,
+  bodyClassName,
   footer,
   footerClassName,
 }: ModalProps) {
@@ -123,7 +125,8 @@ export function Modal({
           className={cn(
             'p-4 sm:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0',
             // If header was rendered, reduce top padding
-            (title || showCloseButton) && 'pt-3 sm:pt-4'
+            (title || showCloseButton) && 'pt-3 sm:pt-4',
+            bodyClassName
           )}
         >
           {children}

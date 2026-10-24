@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { StationType } from '@prisma/client';
+import type { Prisma, StationType } from '@prisma/client';
 
 export interface TimeSlot {
   time: string; // '10:00'
@@ -54,9 +54,9 @@ export async function getStationAvailability(
   stationId?: string | null,
   dateStr: string = new Date().toISOString().split('T')[0],
   durationMinutes: number = 60,
-  zone?: string | null
+  zone?: string | null,
+  requestedStartTime?: string | null
 ): Promise<AvailabilityResult> {
-  const durationHours = Math.ceil(durationMinutes / 60);
   const istOffsetMs = 5.5 * 60 * 60 * 1000;
 
   // Determine stations to check
@@ -75,7 +75,7 @@ export async function getStationAvailability(
       }
     } else {
       // Query stations by zone or all active stations (exclude maintenance and deactivated)
-      const whereClause: any = {
+      const whereClause: Prisma.GamingStationWhereInput = {
         status: { notIn: ['MAINTENANCE', 'DEACTIVATED'] },
       };
 
@@ -149,6 +149,7 @@ export async function getStationAvailability(
       activeSessions = sessions;
     }
   } catch (err) {
+    if (requestedStartTime) throw err;
     console.warn('Availability service running with fallback demo data:', err);
   }
 
@@ -159,8 +160,6 @@ export async function getStationAvailability(
   const nowIst = new Date(now.getTime() + istOffsetMs);
   const todayIstStr = nowIst.toISOString().split('T')[0];
   const isToday = dateStr === todayIstStr;
-  const currentHourIst = nowIst.getUTCHours();
-  const currentMinIst = nowIst.getUTCMinutes();
 
   const [dateYear, dateMonth, dateDay] = dateStr.split('-').map(Number);
 
@@ -170,7 +169,11 @@ export async function getStationAvailability(
   const totalMinutesStart = OPERATING_START_HOUR * 60; // 00:00 (12:00 AM)
   const totalMinutesEnd = OPERATING_END_HOUR * 60; // 24:00 (12:00 AM Next Day)
 
-  for (let currentMinute = totalMinutesStart; currentMinute < totalMinutesEnd; currentMinute += stepMinutes) {
+  const candidateMinutes = requestedStartTime
+    ? [Number(requestedStartTime.slice(0, 2)) * 60 + Number(requestedStartTime.slice(3, 5))]
+    : Array.from({ length: (totalMinutesEnd - totalMinutesStart) / stepMinutes }, (_, index) => totalMinutesStart + index * stepMinutes);
+
+  for (const currentMinute of candidateMinutes) {
     const startHour = Math.floor(currentMinute / 60);
     const startMin = currentMinute % 60;
 
@@ -209,7 +212,8 @@ export async function getStationAvailability(
         endTime: endTimeStr,
         label,
         period,
-        available: true,
+        available: false,
+        reason: 'No station available',
         availableStationIds: [],
       });
       continue;

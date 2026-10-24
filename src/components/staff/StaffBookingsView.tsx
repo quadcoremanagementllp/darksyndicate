@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type ComponentProps } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
+import { WalkInModal } from '@/components/staff/WalkInModal';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageStaffSession, sessionHourlyRatePaise } from '@/lib/staffSessionRules';
@@ -46,6 +47,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
   const [extendStation, setExtendStation] = useState<any | null>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
   const [updatingPlayerBookingId, setUpdatingPlayerBookingId] = useState<string | null>(null);
+  const [liveCategoryPickerOpen, setLiveCategoryPickerOpen] = useState(false);
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [walkInCategory, setWalkInCategory] = useState<'PS5' | 'POOL_TABLE'>('PS5');
+  const [walkInStations, setWalkInStations] = useState<ComponentProps<typeof WalkInModal>['stations']>([]);
+  const [startingLive, setStartingLive] = useState(false);
 
   // Live real-time ticker
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -224,6 +230,25 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
     }
   };
 
+  const startLiveSession = async (category: 'PS5' | 'POOL_TABLE') => {
+    setStartingLive(true);
+    try {
+      const response = await fetch('/api/staff/overview');
+      const json = await response.json();
+      if (!response.ok || !json.success || !Array.isArray(json.data?.stations)) throw new Error(json.error?.message || 'Could not load stations');
+      const stations = json.data.stations as ComponentProps<typeof WalkInModal>['stations'];
+      if (!stations.some((station) => station.stationType === category)) throw new Error('No stations are configured for this arena');
+      setWalkInStations(stations);
+      setWalkInCategory(category);
+      setLiveCategoryPickerOpen(false);
+      setWalkInOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not start a session');
+    } finally {
+      setStartingLive(false);
+    }
+  };
+
   const handleEndSession = (booking: any) => {
     setEndSessionTarget({
       sessionId: booking.session?.id,
@@ -303,6 +328,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             )}
           </div>
         </div>
+        {view === 'ACTIVE' && <button type="button" onClick={() => setLiveCategoryPickerOpen(true)} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-500/15 px-3 py-2 text-xs sm:text-sm font-heading font-bold text-cyan-300 hover:bg-cyan-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><Play className="h-4 w-4" /> Start Live Session</button>}
       </div>
 
       {view === 'UPCOMING' && nearUpcomingBookings.length > 0 && dateScope !== 'DATE' && (
@@ -1124,6 +1150,15 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
           loadBookings(true);
         }}
       />
+
+      <Modal isOpen={liveCategoryPickerOpen} onClose={() => { if (!startingLive) setLiveCategoryPickerOpen(false); }} title="Start Live Session" size="md">
+        <p className="mb-4 text-sm text-ds-text-muted">Choose the arena for this walk-in session.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button type="button" disabled={startingLive} onClick={() => void startLiveSession('PS5')} className="rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-5 text-left font-heading font-bold text-white hover:bg-cyan-500/20 disabled:opacity-50">🎮 PlayStation 5</button>
+          <button type="button" disabled={startingLive} onClick={() => void startLiveSession('POOL_TABLE')} className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-left font-heading font-bold text-white hover:bg-emerald-500/20 disabled:opacity-50">🎱 Snooker Lounge</button>
+        </div>
+      </Modal>
+      <WalkInModal isOpen={walkInOpen} onClose={() => setWalkInOpen(false)} stations={walkInStations} initialCategory={walkInCategory} onSuccess={() => { void loadBookings(true); window.dispatchEvent(new Event('ds-booking-updated')); }} />
     </div>
   );
 }

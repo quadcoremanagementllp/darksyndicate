@@ -4,25 +4,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Calendar,
   Clock,
-  User,
-  Phone,
-  Mail,
-  Gamepad2,
-  Check,
   CheckCircle2,
-  AlertCircle,
   ExternalLink,
-  Sparkles,
   Zap,
   ArrowRight,
   RotateCw,
-  X,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
+import { bookingEndTime } from '@/lib/bookingTime';
 
 interface Station {
   id: string;
@@ -50,6 +43,13 @@ interface Slot {
   available: boolean;
   reason?: string;
   availableStationIds?: string[];
+}
+
+interface SuccessBooking {
+  id: string;
+  bookingRef: string;
+  customerName?: string | null;
+  station?: { name: string } | null;
 }
 
 function getTodayKolkataDate(): string {
@@ -108,11 +108,13 @@ export function StaffPreBookingModal({
 }: StaffPreBookingModalProps) {
   const toast = useToast();
 
-  const [category, setCategory] = useState<'PS5' | 'POOL_TABLE'>(initialCategory);
+  const category = initialCategory;
   const [stationId, setStationId] = useState<string>(initialStationId || 'ANY');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKolkataDate());
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
+  const [timeMode, setTimeMode] = useState<'SLOT' | 'CUSTOM'>('SLOT');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [customTime, setCustomTime] = useState<string>('');
   const [playerCount, setPlayerCount] = useState<number>(1);
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -180,45 +182,31 @@ export function StaffPreBookingModal({
   };
 
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [periodFilter, setPeriodFilter] = useState<'ALL' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT'>('ALL');
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [successBooking, setSuccessBooking] = useState<any | null>(null);
+  const [successBooking, setSuccessBooking] = useState<SuccessBooking | null>(null);
 
   const isPs5 = category === 'PS5';
   const isPool = category === 'POOL_TABLE';
 
-  const filteredSlots = useMemo(() => {
-    if (periodFilter === 'ALL') return slots;
-    return slots.filter((s) => s.period === periodFilter);
-  }, [slots, periodFilter]);
-
-  const periodCounts = useMemo(() => {
-    return {
-      ALL: slots.length,
-      MORNING: slots.filter((s) => s.period === 'MORNING').length,
-      AFTERNOON: slots.filter((s) => s.period === 'AFTERNOON').length,
-      EVENING: slots.filter((s) => s.period === 'EVENING').length,
-      NIGHT: slots.filter((s) => s.period === 'NIGHT').length,
-    };
-  }, [slots]);
-
-  const firstAvailableSlot = useMemo(() => {
-    return slots.find((s) => s.available);
-  }, [slots]);
-
   const selectedSlotObj = useMemo(() => {
     return slots.find((s) => s.time === selectedTime);
   }, [slots, selectedTime]);
+  const bookingStartTime = timeMode === 'CUSTOM' ? customTime : selectedTime;
+  const activeSlot = timeMode === 'CUSTOM' ? slots.find((slot) => slot.time === customTime) : selectedSlotObj;
+  const selectedStationAvailable = stationId === 'ANY' || Boolean(activeSlot?.availableStationIds?.includes(stationId));
+  const canBookTime = Boolean(bookingStartTime && activeSlot?.available && selectedStationAvailable && !loadingSlots);
+  const customEnd = bookingEndTime(customTime, durationMinutes);
 
   // Synchronize category with initialCategory when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCategory(initialCategory || 'PS5');
       setStationId(initialStationId || 'ANY');
       setSelectedDate(getTodayKolkataDate());
       setSuccessBooking(null);
       setSelectedTime('');
+      setCustomTime('');
+      setTimeMode('SLOT');
       setPlayerCount(initialCategory === 'POOL_TABLE' ? 2 : 1);
       setSearchResults([]);
       setShowSearchDropdown(false);
@@ -237,12 +225,17 @@ export function StaffPreBookingModal({
     return stations.filter((s) => s.stationType === category && s.status !== 'DEACTIVATED');
   }, [stations, category]);
 
-  // Fetch slot availability when category, stationId, date, or duration changes
+  // Check the whole arena so every station card reflects availability for the chosen time.
   useEffect(() => {
     if (!isOpen) return;
     let isCancelled = false;
 
     const fetchAvailability = async () => {
+      if (timeMode === 'CUSTOM' && !bookingEndTime(customTime, durationMinutes)) {
+        setSlots([]);
+        setLoadingSlots(false);
+        return;
+      }
       setLoadingSlots(true);
       try {
         const queryParams = new URLSearchParams({
@@ -250,24 +243,16 @@ export function StaffPreBookingModal({
           date: selectedDate,
           duration: String(durationMinutes),
         });
-        if (stationId && stationId !== 'ANY') {
-          queryParams.set('stationId', stationId);
-        }
+        if (timeMode === 'CUSTOM') queryParams.set('startTime', customTime);
 
         const res = await fetch(`/api/bookings/availability?${queryParams.toString()}`);
         const json = await res.json();
         if (!isCancelled && json.success && json.data?.slots) {
           setSlots(json.data.slots);
-          // Auto deselect if selected slot is now unavailable
-          if (selectedTime) {
-            const matched = json.data.slots.find((s: Slot) => s.time === selectedTime);
-            if (!matched || !matched.available) {
-              setSelectedTime('');
-            }
-          }
         }
       } catch {
         if (!isCancelled) {
+          setSlots([]);
           toast.error('Could not load time slot availability.');
         }
       } finally {
@@ -279,7 +264,7 @@ export function StaffPreBookingModal({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, category, stationId, selectedDate, durationMinutes]);
+  }, [isOpen, category, selectedDate, durationMinutes, timeMode, customTime]);
 
   // Calculate pricing
   const hourlyRate = useMemo(() => {
@@ -300,17 +285,10 @@ export function StaffPreBookingModal({
     if (!customerPhone) setCustomerPhone('');
   };
 
-  const handleCategorySwitch = (newCat: 'PS5' | 'POOL_TABLE') => {
-    setCategory(newCat);
-    setStationId('ANY');
-    setSelectedTime('');
-    setPlayerCount(newCat === 'POOL_TABLE' ? 2 : 1);
-  };
-
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!selectedTime) {
-      toast.error('Please select an available upcoming time slot.');
+    if (!canBookTime) {
+      toast.error('Please choose an available station and upcoming time.');
       return;
     }
     if (!customerName.trim()) {
@@ -321,12 +299,7 @@ export function StaffPreBookingModal({
     // Resolve station ID
     let targetStationId = stationId;
     if (targetStationId === 'ANY') {
-      const selectedSlotObj = slots.find((s) => s.time === selectedTime);
-      if (selectedSlotObj?.availableStationIds && selectedSlotObj.availableStationIds.length > 0) {
-        targetStationId = selectedSlotObj.availableStationIds[0];
-      } else {
-        targetStationId = filteredCategoryStations[0]?.id;
-      }
+      targetStationId = activeSlot?.availableStationIds?.[0] || '';
     }
 
     if (!targetStationId) {
@@ -344,13 +317,14 @@ export function StaffPreBookingModal({
         body: JSON.stringify({
           stationId: targetStationId,
           date: selectedDate,
-          startTime: selectedTime,
+          startTime: bookingStartTime,
           durationMinutes,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim() || undefined,
           customerEmail: customerEmail.trim() || undefined,
           playerCount,
           payAtCounter: true,
+          autoAllocate: stationId === 'ANY',
           notes: notesPayload,
         }),
       });
@@ -358,7 +332,7 @@ export function StaffPreBookingModal({
       const json = await res.json();
       if (json.success && json.data) {
         toast.success(`Reserved! Ref: ${json.data.bookingRef}`);
-        setSuccessBooking(json.data);
+        setSuccessBooking(json.data as SuccessBooking);
         if (onBookingCreated) {
           onBookingCreated();
         }
@@ -379,8 +353,9 @@ export function StaffPreBookingModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      size="xl"
+      size={successBooking ? 'lg' : 'full'}
       showCloseButton={!submitting}
+      bodyClassName={successBooking ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : undefined}
       title={
         successBooking ? undefined : (
           <div className="flex items-center gap-3">
@@ -392,12 +367,9 @@ export function StaffPreBookingModal({
                 <span className="font-heading font-black text-base sm:text-lg text-white uppercase tracking-wide">
                   Pre-Book Upcoming Slot
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  24/7 Advance
-                </span>
               </div>
               <p className="text-[11px] text-ds-text-dim mt-0.5">
-                24 Hours Open (Round-the-Clock) • Schedule upcoming slots even when current stations are busy.
+                {isPool ? 'Choose a snooker table, date, and time.' : 'Choose a PlayStation console, date, and time.'}
               </p>
             </div>
           </div>
@@ -407,12 +379,12 @@ export function StaffPreBookingModal({
         successBooking ? undefined : (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
             <div className="flex items-baseline gap-2 text-xs">
-              <span className="text-ds-text-dim uppercase font-heading font-bold">Total Payable:</span>
+              <span className="text-ds-text-dim uppercase font-heading font-bold">Due after session:</span>
               <span className="text-2xl font-heading font-black text-ds-ice font-mono">
                 ₹{totalPayable}
               </span>
               <span className="text-[10px] text-ds-text-dim font-mono">
-                ({durationMinutes}m • {playerCount}P{selectedTime ? ` • ${formatNormalTime(selectedTime)}` : ''})
+                ({durationMinutes}m • {playerCount}P{bookingStartTime ? ` • ${formatNormalTime(bookingStartTime)}` : ''})
               </span>
             </div>
 
@@ -431,7 +403,7 @@ export function StaffPreBookingModal({
                 variant="accent"
                 size="sm"
                 type="button"
-                disabled={submitting || !selectedTime || !customerName.trim()}
+                disabled={submitting || !canBookTime || !customerName.trim()}
                 onClick={() => handleSubmit()}
                 className="flex-1 sm:flex-none font-heading font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-ds-accent/20 cursor-pointer"
               >
@@ -455,9 +427,9 @@ export function StaffPreBookingModal({
     >
       {/* ─── SUCCESS SCREEN ─── */}
       {successBooking ? (
-        <div className="p-4 sm:p-6 space-y-6 text-center animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-            <CheckCircle2 className="w-8 h-8" />
+        <div className="space-y-4 text-center animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
 
           <div className="space-y-1">
@@ -488,7 +460,7 @@ export function StaffPreBookingModal({
             <div className="flex justify-between items-center">
               <span className="text-ds-text-dim">Scheduled Date &amp; Time</span>
               <span className="font-bold text-emerald-400 font-mono">
-                {selectedTime ? formatNormalTime(selectedTime) : ''} ({selectedDate})
+                {bookingStartTime ? formatNormalTime(bookingStartTime) : ''} ({selectedDate})
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -505,7 +477,7 @@ export function StaffPreBookingModal({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
             <a
               href={`/booking/confirmation/${successBooking.bookingRef || successBooking.id}`}
               target="_blank"
@@ -522,106 +494,47 @@ export function StaffPreBookingModal({
               onClick={() => {
                 setSuccessBooking(null);
                 setSelectedTime('');
+                setCustomTime('');
               }}
               className="font-heading font-bold uppercase text-xs"
             >
               Book Another Slot
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="font-heading font-bold uppercase text-xs"
-            >
-              Close
-            </Button>
           </div>
         </div>
       ) : (
-        /* ─── BOOKING FORM (Single scrollbar, NO duplicate X, NO inner header) ─── */
-        <div className="space-y-5 text-xs py-1">
+        /* ─── BOOKING FORM ─── */
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start text-xs py-1">
+          <div className="xl:col-span-7 space-y-5 min-w-0">
             {/* 1. Arena & Station Selection */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                  <span className={`w-5 h-5 rounded-full ${isPool ? 'bg-emerald-500/20 text-emerald-300' : 'bg-cyan-500/20 text-cyan-300'} text-[10px] flex items-center justify-center font-mono font-bold`}>
-                    1
-                  </span>
-                  <span>{isPool ? 'Snooker Lounge Arena' : 'PlayStation 5 Arena'}</span>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-xs font-heading font-black uppercase tracking-wider text-ds-ice flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center font-mono">1</span>
+                  Choose {isPool ? 'Snooker Table' : 'PlayStation Console'} ({filteredCategoryStations.length} Units)
                 </label>
-                <button
-                  type="button"
-                  onClick={() => handleCategorySwitch(isPool ? 'PS5' : 'POOL_TABLE')}
-                  className="text-[10px] font-mono text-ds-text-dim hover:text-white underline transition-colors"
-                >
-                  Switch to {isPool ? 'PlayStation 5' : 'Snooker Lounge'}
-                </button>
+                <span className="font-mono text-cyan-400 hidden sm:inline">{activeSlot?.availableStationIds?.length ?? '—'} Ready</span>
               </div>
-
-              {/* Chosen Arena Display: ONLY show the selected arena! */}
-              {isPool ? (
-                <div className="p-3 sm:p-3.5 rounded-2xl border bg-emerald-950/40 border-emerald-400 text-white shadow-md shadow-emerald-950/50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 flex items-center justify-center text-xl shrink-0">
-                      🎱
-                    </div>
-                    <div>
-                      <div className="font-heading font-black text-xs sm:text-sm uppercase text-white flex items-center gap-2">
-                        <span>Snooker Lounge</span>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                          Selected Arena
-                        </span>
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] text-emerald-300/90 font-mono mt-0.5">
-                        ₹250 / hr (up to 4 Players • +₹50/extra for &gt; 4)
-                      </div>
-                    </div>
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                </div>
-              ) : (
-                <div className="p-3 sm:p-3.5 rounded-2xl border bg-cyan-950/40 border-cyan-400 text-white shadow-md shadow-cyan-950/50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-400 flex items-center justify-center text-xl shrink-0">
-                      🎮
-                    </div>
-                    <div>
-                      <div className="font-heading font-black text-xs sm:text-sm uppercase text-white flex items-center gap-2">
-                        <span>PlayStation 5 Arena</span>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">
-                          Selected Arena
-                        </span>
-                      </div>
-                      <div className="text-[10px] sm:text-[11px] text-cyan-300/90 font-mono mt-0.5">
-                        From ₹150 / hr (1P: ₹150 • 2P: ₹200 • 3–4P: ₹250)
-                      </div>
-                    </div>
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0" />
-                </div>
-              )}
-
-              {/* Specific Station Dropdown */}
-              <div className="pt-1">
-                <select
-                  value={stationId}
-                  onChange={(e) => setStationId(e.target.value)}
-                  className="w-full bg-ds-dark border border-ds-border rounded-xl px-3 py-2 text-xs text-ds-text font-mono focus:border-cyan-400 focus:outline-none"
-                >
-                  <option value="ANY">
-                    ✨ Any Available {isPool ? 'Snooker Table' : 'PS5 Console'} (Auto-Allocate)
-                  </option>
-                  {filteredCategoryStations.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      {st.name} — ({st.facilityName})
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <button type="button" onClick={() => setStationId('ANY')} className={`rounded-2xl border p-4 text-left min-h-24 transition-colors ${stationId === 'ANY' ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}>
+                  <span className="block font-heading font-bold text-white">Any Available</span>
+                  <span className="block mt-1 text-ds-text-muted">Assign a free {isPool ? 'table' : 'console'}</span>
+                  <span className="block mt-3 font-mono font-bold text-cyan-300">{stationId === 'ANY' ? 'Selected ✓' : 'Auto-allocate'}</span>
+                </button>
+                {filteredCategoryStations.map((station) => {
+                  const ready = Boolean(activeSlot?.availableStationIds?.includes(station.id));
+                  const selected = stationId === station.id;
+                  return <button key={station.id} type="button" onClick={() => setStationId(station.id)} className={`rounded-2xl border p-4 text-left min-h-24 transition-colors ${selected ? 'border-cyan-400 bg-cyan-950/60 ring-1 ring-cyan-400' : 'border-ds-border bg-ds-surface/40 hover:border-cyan-400/60'}`}>
+                    <span className="block font-heading font-bold text-white truncate">{station.name}</span>
+                    <span className="block mt-1 font-mono text-cyan-300">{isPool ? '₹250/hr' : 'From ₹150/hr'}</span>
+                    <span className={`block mt-3 font-mono font-bold ${activeSlot && !ready ? 'text-rose-300' : 'text-emerald-300'}`}>{selected && activeSlot && !ready ? 'Selected · Booked' : selected ? 'Selected ✓' : activeSlot ? ready ? 'Available' : 'Booked' : 'Choose a time'}</span>
+                  </button>;
+                })}
               </div>
             </div>
 
-            {/* 2. Date & Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 2. Booking date */}
+            <div>
               {/* Date */}
               <div className="space-y-2">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
@@ -663,112 +576,39 @@ export function StaffPreBookingModal({
                 </div>
               </div>
 
-              {/* Duration */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">3</span>
-                  <span>Duration</span>
-                </label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { min: 30, label: '30m' },
-                    { min: 60, label: '1 Hour' },
-                    { min: 120, label: '2 Hours' },
-                    { min: 180, label: '3 Hours' },
-                  ].map((d) => (
-                    <button
-                      key={d.min}
-                      type="button"
-                      onClick={() => setDurationMinutes(d.min)}
-                      className={`py-2 px-1 rounded-xl text-xs font-heading font-bold uppercase border transition-all text-center ${
-                        durationMinutes === d.min
-                          ? 'bg-ds-accent text-white border-ds-accent shadow-sm'
-                          : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:text-white'
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* 3. Upcoming Time Slot Selection (24 Hours Open) */}
+            {/* 3. Booking start time */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
                   <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] flex items-center justify-center font-mono">4</span>
-                  <span>Select Upcoming Time Slot</span>
+                  <span>{timeMode === 'SLOT' ? 'Select Upcoming Time Slot' : 'Choose Custom Start Time'}</span>
                 </label>
                 <span className="text-[11px] font-mono text-cyan-400 font-bold">
-                  {selectedSlotObj?.label ? `Selected: ${selectedSlotObj.label}` : selectedTime ? `Selected: ${formatNormalTime(selectedTime)}` : 'Pick a time'}
+                  {bookingStartTime ? `Selected: ${formatNormalTime(bookingStartTime)}` : 'Pick a time'}
                 </span>
               </div>
-
-              {/* 24-Hour Chronological Period Filter Chips with live counts */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { id: 'ALL', label: 'All 24 Hours', count: slots.length },
-                  { id: 'MORNING', label: 'Morning (6AM – 12PM)', count: periodCounts.MORNING },
-                  { id: 'AFTERNOON', label: 'Afternoon (12PM – 5PM)', count: periodCounts.AFTERNOON },
-                  { id: 'EVENING', label: 'Evening (5PM – 9PM)', count: periodCounts.EVENING },
-                  { id: 'NIGHT', label: 'Night (9PM – 6AM)', count: periodCounts.NIGHT },
-                ].map((p) => {
-                  const isZero = p.count === 0 && p.id !== 'ALL';
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      disabled={isZero}
-                      onClick={() => setPeriodFilter(p.id as any)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all border flex items-center gap-1 ${
-                        periodFilter === p.id
-                          ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 font-bold shadow-sm'
-                          : isZero
-                          ? 'bg-ds-surface/20 border-ds-border/40 text-ds-text-dim/40 cursor-not-allowed'
-                          : 'bg-ds-surface/40 border-ds-border/60 text-ds-text-dim hover:text-white cursor-pointer'
-                      }`}
-                    >
-                      <span>{p.label}</span>
-                      <span className={`text-[9px] font-bold ${periodFilter === p.id ? 'text-cyan-300' : 'text-ds-text-dim'}`}>
-                        ({p.count})
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setTimeMode('SLOT'); setSelectedTime(''); }} className={`rounded-xl border px-4 py-2.5 font-heading font-bold uppercase ${timeMode === 'SLOT' ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300' : 'border-ds-border text-ds-text-muted hover:text-white'}`}>Time Slot</button>
+                <button type="button" onClick={() => { setTimeMode('CUSTOM'); setSelectedTime(''); }} className={`rounded-xl border px-4 py-2.5 font-heading font-bold uppercase ${timeMode === 'CUSTOM' ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300' : 'border-ds-border text-ds-text-muted hover:text-white'}`}>Custom Time</button>
               </div>
 
-              {/* Earliest Slot Quick-Select Banner */}
-              {!loadingSlots && firstAvailableSlot && slots.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <span className="text-cyan-400 font-bold flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Earliest Open Slot:</span>
-                    </span>
-                    <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                      {formatNormalTime(firstAvailableSlot.time)}
-                    </span>
-                    <span className="text-ds-text-dim text-[11px] hidden sm:inline">
-                      ({firstAvailableSlot.label})
-                    </span>
+              {timeMode === 'CUSTOM' ? (
+                <div className="rounded-2xl border border-ds-border bg-ds-surface/30 p-4 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <label className="space-y-1.5 text-ds-text-muted font-mono">
+                      <span className="block">Start time</span>
+                      <input type="time" step="60" value={customTime} onChange={(event) => setCustomTime(event.target.value)} className="w-full rounded-xl border border-ds-border bg-ds-dark px-3 py-2.5 text-white [color-scheme:dark] focus:border-cyan-400 focus:outline-none" />
+                    </label>
+                    <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 px-3 py-2.5 font-mono">
+                      <span className="block text-ds-text-muted">Ends automatically</span>
+                      <span className="block mt-1 text-base font-bold text-cyan-300">{customEnd ? `${formatNormalTime(customEnd.time)}${customEnd.nextDay ? ' (next day)' : ''}` : 'Choose a start time'}</span>
+                    </div>
                   </div>
-                  {selectedTime !== firstAvailableSlot.time && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTime(firstAvailableSlot.time);
-                        setPeriodFilter('ALL');
-                      }}
-                      className="text-[11px] font-heading font-bold text-cyan-300 hover:text-white uppercase transition-colors underline cursor-pointer"
-                    >
-                      Select Earliest Slot →
-                    </button>
-                  )}
+                  {customTime && !loadingSlots && <p className={`font-mono ${canBookTime ? 'text-emerald-300' : 'text-rose-300'}`}>{canBookTime ? `${activeSlot?.availableStationIds?.length} station(s) available for this exact time` : 'This station or time is unavailable. Choose another.'}</p>}
                 </div>
-              )}
-
-              {loadingSlots ? (
+              ) : loadingSlots ? (
                 <div className="p-8 text-center bg-ds-surface/30 rounded-2xl border border-ds-border flex flex-col items-center justify-center gap-2 text-ds-text-dim font-mono text-xs">
                   <RotateCw className="w-5 h-5 animate-spin text-cyan-400" />
                   <span>Checking live station availability for {selectedDate}...</span>
@@ -799,7 +639,6 @@ export function StaffPreBookingModal({
                         type="button"
                         onClick={() => {
                           setSelectedDate(tomorrowStr);
-                          setPeriodFilter('ALL');
                           setSelectedTime('');
                         }}
                         className="text-xs flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
@@ -810,24 +649,10 @@ export function StaffPreBookingModal({
                     </div>
                   )}
                 </div>
-              ) : filteredSlots.length === 0 ? (
-                /* Empty state when a specific period chip has 0 slots, but other periods have slots */
-                <div className="p-6 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-2.5">
-                  <p className="text-xs text-ds-text-muted">
-                    No slots available in the <span className="font-bold text-cyan-300 uppercase">{periodFilter}</span> period.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setPeriodFilter('ALL')}
-                    className="px-3 py-1 rounded-lg bg-ds-surface border border-ds-border hover:border-cyan-400 text-xs font-mono text-cyan-300 transition-all cursor-pointer"
-                  >
-                    Show All {slots.length} Open Slots
-                  </button>
-                </div>
               ) : (
                 <div className="p-3 rounded-2xl bg-ds-surface/20 border border-ds-border space-y-3">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-1">
-                    {filteredSlots.map((slot) => {
+                    {slots.map((slot) => {
                       const isSelected = selectedTime === slot.time;
                       const readyCount = slot.availableStationIds?.length ?? (slot.available ? 3 : 0);
                       const arenaUnit = isPool
@@ -867,24 +692,27 @@ export function StaffPreBookingModal({
                       );
                     })}
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-between text-[10px] text-ds-text-dim font-mono gap-1.5 pt-1 border-t border-ds-border/40">
-                    <span className="text-amber-400 font-bold flex items-center gap-1">
-                      <span>⚡ Operating Hours: 24 Hours Open (Round-the-Clock 24/7)</span>
-                    </span>
-                    <span className="flex items-center gap-2.5">
-                      <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Available
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-rose-400/80">
-                        <span className="w-2 h-2 rounded-full bg-rose-400/60" /> Booked
-                      </span>
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
 
             {/* 4. Player Count (Strictly Snookers only for extra players >4, and only revealed when 4 players selected) */}
+          </div>
+          <div className="xl:col-span-5 space-y-5 min-w-0">
+            <div className="space-y-2">
+              <label className="text-xs font-heading font-black uppercase tracking-wider text-ds-ice flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400 text-cyan-300 flex items-center justify-center font-mono">3</span>
+                Session Duration
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { min: 30, label: '30m' },
+                  { min: 60, label: '1 Hour' },
+                  { min: 120, label: '2 Hours' },
+                  { min: 180, label: '3 Hours' },
+                ].map((option) => <button key={option.min} type="button" onClick={() => setDurationMinutes(option.min)} className={`rounded-xl border px-1 py-2.5 font-heading font-bold uppercase ${durationMinutes === option.min ? 'border-ds-accent bg-ds-accent text-white' : 'border-ds-border bg-ds-surface/40 text-ds-text-muted hover:text-white'}`}>{option.label}</button>)}
+              </div>
+            </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-heading font-bold uppercase tracking-wider text-ds-text flex items-center gap-1.5">
@@ -1084,6 +912,7 @@ export function StaffPreBookingModal({
             </div>
 
           </div>
+        </div>
         )}
       </Modal>
     );

@@ -30,6 +30,7 @@ const createBookingSchema = z.object({
   playerCount: z.number().int().min(1).max(10).default(1),
   couponCode: z.string().optional(),
   payAtCounter: z.boolean().default(false),
+  autoAllocate: z.boolean().default(true),
   paymentMethod: z.enum(['RAZORPAY', 'CASHFREE', 'UPI', 'CASH', 'OTHER']).default('UPI'),
 });
 
@@ -259,12 +260,12 @@ export async function POST(req: NextRequest) {
       let discountPaise = 0;
 
       // Multi-hour discount: 3+ hours gives 10% off
-      if (data.durationMinutes >= 180) {
+      if (!staffReservation && data.durationMinutes >= 180) {
         discountPaise += Math.round(subtotalPaise * 0.1);
       }
 
       // Happy Hour discount: 10 AM to 3 PM gives 15% off if not already discounted
-      if (hours >= 10 && hours < 15 && data.durationMinutes < 180) {
+      if (!staffReservation && hours >= 10 && hours < 15 && data.durationMinutes < 180) {
         discountPaise += Math.round(subtotalPaise * 0.15);
       }
 
@@ -303,7 +304,7 @@ export async function POST(req: NextRequest) {
       let membershipDiscountPaise = 0;
       let membershipPlanName: string | null = null;
       try {
-        if (session?.userId && session.userId === userId) {
+        if (!staffReservation && session?.userId && session.userId === userId) {
           const activeMembership = await getActiveUserMembership(userId);
           if (activeMembership && activeMembership.discountPercent > 0) {
             membershipPlanName = activeMembership.planNameSnapshot;
@@ -360,7 +361,7 @@ export async function POST(req: NextRequest) {
         // Smart Arena Auto-Reallocation:
         // If the initially selected station is reserved for this time, check if another station
         // in the SAME zone/stationType is completely free so the player's booking is never rejected unfairly!
-        if (hasConflict) {
+        if (hasConflict && data.autoAllocate) {
           const alternateStations = await tx.gamingStation.findMany({
             where: {
               stationType: station.stationType,

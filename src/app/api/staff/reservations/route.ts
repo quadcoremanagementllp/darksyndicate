@@ -16,7 +16,7 @@ export async function GET() {
       where: { status: 'CONFIRMED', isWalkIn: false },
       select: {
         id: true, bookingRef: true, userId: true, stationId: true,
-        customerName: true, customerPhone: true, notes: true,
+        customerName: true, customerPhone: true, notes: true, createdAt: true,
         startTime: true, endTime: true, durationMinutes: true, totalPricePaise: true,
       },
       orderBy: { startTime: 'asc' },
@@ -62,9 +62,10 @@ export async function GET() {
     }, loggedCreators.get(booking.id) || null)).filter((id): id is string => Boolean(id)));
     const people = await prisma.user.findMany({
       where: { id: { in: [...new Set([...bookings.map((booking) => booking.userId), ...ownerIds])] } },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, email: true },
     });
     const personNames = new Map(people.map((person) => [person.id, `${person.firstName} ${person.lastName}`.trim()]));
+    const personEmails = new Map(people.map((person) => [person.id, person.email]));
 
     return apiSuccess(bookings.map((booking) => {
       const bookingPayments = paymentsByBooking.get(booking.id) || [];
@@ -78,6 +79,12 @@ export async function GET() {
         bookingRef: booking.bookingRef,
         customerName: booking.customerName || personNames.get(booking.userId) || 'Player',
         customerPhone: booking.customerPhone,
+        customerEmail: creatorId === booking.userId || personEmails.get(booking.userId)?.endsWith('@darksyndicate.in')
+          ? null
+          : personEmails.get(booking.userId) || null,
+        playerCount: Number(booking.notes?.match(/\[Players:\s*(\d+)\]/i)?.[1] || 1),
+        staffNote: booking.notes?.split('• Note:')[1]?.split('• [Players:')[0]?.trim() || null,
+        createdAt: booking.createdAt,
         stationName: station?.name || 'Station',
         facilityName: station?.facility.name || 'Arena',
         startTime: booking.startTime,

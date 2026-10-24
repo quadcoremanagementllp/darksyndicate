@@ -2,15 +2,20 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, ExternalLink, Trash2 } from 'lucide-react';
+import { CalendarDays, ExternalLink, Info, Trash2 } from 'lucide-react';
 import { StaffPreBookingModal } from '@/components/staff/StaffPreBookingModal';
 import { useToast } from '@/components/ui/Toast';
+import { Modal } from '@/components/ui/Modal';
 
 type Reservation = {
   id: string;
   bookingRef: string;
   customerName: string;
   customerPhone: string | null;
+  customerEmail: string | null;
+  playerCount: number;
+  staffNote: string | null;
+  createdAt: string;
   stationName: string;
   facilityName: string;
   startTime: string;
@@ -18,6 +23,7 @@ type Reservation = {
   durationMinutes: number;
   totalPricePaise: number;
   paymentStatus: string;
+  paymentMethod: string | null;
   creatorName: string;
   canDelete: boolean;
 };
@@ -43,6 +49,8 @@ export function StaffReservationsView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [reservationToDelete, setReservationToDelete] = useState<Reservation | null>(null);
   const toast = useToast();
   const notifyError = toast.error;
 
@@ -74,7 +82,6 @@ export function StaffReservationsView() {
   }, [loadReservations]);
 
   const deleteReservation = async (reservation: Reservation) => {
-    if (!window.confirm(`Delete reservation ${reservation.bookingRef} for ${reservation.customerName}?`)) return;
     setDeletingId(reservation.id);
     try {
       const response = await fetch('/api/staff/reservations', {
@@ -84,6 +91,7 @@ export function StaffReservationsView() {
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json.error?.message || 'Could not delete reservation');
       setReservations((current) => current.filter((item) => item.id !== reservation.id));
+      setReservationToDelete(null);
       toast.success(json.data.paymentRefundRequired ? 'Reservation removed. Review the payment for a refund.' : 'Reservation removed.');
       window.dispatchEvent(new Event('ds-booking-updated'));
     } catch (error) {
@@ -135,19 +143,58 @@ export function StaffReservationsView() {
             </div>
             <div className="xl:text-right text-sm">
               <p className="font-bold text-white">₹{(reservation.totalPricePaise / 100).toFixed(0)}</p>
-              <p className="text-xs text-ds-text-muted">{reservation.paymentStatus}</p>
+              <p className="text-xs text-ds-text-muted">{reservation.paymentStatus === 'PENDING' ? 'Pay after session' : reservation.paymentStatus === 'COMPLETED' ? 'Paid' : reservation.paymentStatus}</p>
             </div>
             <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setSelectedReservation(reservation)} aria-label={`Information for ${reservation.bookingRef}`} className="rounded-xl border border-ds-border p-2.5 text-ds-ice hover:border-ds-accent">
+                <Info className="h-4 w-4" />
+              </button>
               <Link href={`/booking/confirmation/${reservation.bookingRef}`} target="_blank" aria-label={`View pass for ${reservation.bookingRef}`} className="rounded-xl border border-ds-border p-2.5 text-ds-ice hover:border-ds-accent">
                 <ExternalLink className="h-4 w-4" />
               </Link>
-              {reservation.canDelete && <button type="button" onClick={() => void deleteReservation(reservation)} disabled={deletingId === reservation.id} className="inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50">
+              {reservation.canDelete && <button type="button" onClick={() => setReservationToDelete(reservation)} disabled={deletingId === reservation.id} className="inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-50">
                 <Trash2 className="h-4 w-4" /> {deletingId === reservation.id ? 'Deleting...' : 'Delete'}
               </button>}
             </div>
           </div>
         ))}
       </section>
+
+      <Modal isOpen={selectedReservation !== null} onClose={() => setSelectedReservation(null)} title="Reservation Details" size="md">
+        {selectedReservation && <div className="space-y-4 text-sm">
+          <div className="rounded-xl border border-ds-accent/30 bg-ds-accent/10 p-4">
+            <p className="font-heading text-lg font-bold text-white">{selectedReservation.stationName}</p>
+            <p className="font-mono text-xs text-ds-ice">{selectedReservation.facilityName} · {selectedReservation.bookingRef}</p>
+          </div>
+          <dl className="divide-y divide-ds-border rounded-xl border border-ds-border px-4">
+            {([
+              ['Player', selectedReservation.customerName],
+              ['Phone', selectedReservation.customerPhone || 'Not provided'],
+              ['Email', selectedReservation.customerEmail || 'Not provided'],
+              ['Players', String(selectedReservation.playerCount)],
+              ['Starts', dateTime(selectedReservation.startTime)],
+              ['Ends', dateTime(selectedReservation.endTime)],
+              ['Duration', `${selectedReservation.durationMinutes} minutes`],
+              ['Price', `₹${(selectedReservation.totalPricePaise / 100).toFixed(0)}`],
+              ['Payment', selectedReservation.paymentStatus === 'PENDING' ? 'Pay after session' : selectedReservation.paymentStatus],
+              ['Booked by', selectedReservation.creatorName],
+              ['Created', dateTime(selectedReservation.createdAt)],
+              ...(selectedReservation.staffNote ? [['Staff note', selectedReservation.staffNote]] : []),
+            ] as string[][]).map(([label, value]) => <div key={label} className="flex justify-between gap-4 py-2.5"><dt className="text-ds-text-muted">{label}</dt><dd className="text-right font-semibold text-white break-words">{value}</dd></div>)}
+          </dl>
+        </div>}
+      </Modal>
+
+      <Modal isOpen={reservationToDelete !== null} onClose={() => { if (!deletingId) setReservationToDelete(null); }} title="Delete Reservation" size="sm">
+        {reservationToDelete && <div className="space-y-5">
+          <p className="text-sm text-ds-text">Delete reservation <strong className="text-white">{reservationToDelete.bookingRef}</strong> for {reservationToDelete.customerName}?</p>
+          <p className="text-xs text-ds-text-muted">The slot will become available again.</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={Boolean(deletingId)} onClick={() => setReservationToDelete(null)} className="rounded-xl border border-ds-border px-4 py-2 text-sm font-bold text-white hover:bg-ds-surface-2 disabled:opacity-50">Cancel</button>
+            <button type="button" disabled={Boolean(deletingId)} onClick={() => void deleteReservation(reservationToDelete)} className="rounded-xl border border-rose-500/40 bg-rose-500/20 px-4 py-2 text-sm font-bold text-rose-200 hover:bg-rose-500/30 disabled:opacity-50">{deletingId ? 'Deleting...' : 'Delete Reservation'}</button>
+          </div>
+        </div>}
+      </Modal>
 
       <StaffPreBookingModal
         isOpen={modalOpen}
