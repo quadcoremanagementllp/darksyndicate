@@ -78,8 +78,8 @@ const navigationGroups: NavGroup[] = [
   {
     id: 'administration', name: 'Administration', icon: Shield,
     items: [
-      { name: 'System Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
       { name: 'Staff Accounts', href: '/admin/staff', icon: UserCog },
+      { name: 'System Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
     ],
   },
 ];

@@ -305,9 +305,12 @@ export default function AdminBookingsPage() {
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight">
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
             <span>All Reservations Ledger</span>
           </h1>
+          <p className="text-xs text-ds-text-muted mt-0.5">
+            Review reservations, player details, payment status, and station assignments.
+          </p>
         </div>
 
         <Button

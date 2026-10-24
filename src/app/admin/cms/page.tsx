@@ -326,14 +326,9 @@ export default function AdminCmsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
-              Website CMS & Venue Controls
-            </h1>
-            <Badge variant="accent" size="sm">
-              LIVE PORTAL
-            </Badge>
-          </div>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            Website CMS & Venue Controls
+          </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Manage customer testimonials, arena photo showcase, operating hours, and top announcement alerts.
           </p>

@@ -333,7 +333,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight">
+            <h1 className={view === 'COMPLETED'
+              ? 'text-2xl font-heading font-black uppercase text-ds-text'
+              : 'text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight'}>
               {view === 'ACTIVE' ? 'In Sessions' : view === 'UPCOMING' ? 'Online Booking' : 'History'}
             </h1>
             <Badge variant="accent" size="sm" className="font-mono whitespace-nowrap shrink-0">
@@ -355,6 +357,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
               </Badge>
             )}
           </div>
+          {view === 'COMPLETED' && (
+            <p className="text-xs text-ds-text-muted mt-0.5">
+              Review completed sessions, player details, and booking history.
+            </p>
+          )}
         </div>
         {view === 'ACTIVE' && <button type="button" onClick={() => setLiveCategoryPickerOpen(true)} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-500/15 px-3 py-2 text-xs sm:text-sm font-heading font-bold text-cyan-300 hover:bg-cyan-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><Play className="h-4 w-4" /> Start Live Session</button>}
       </div>

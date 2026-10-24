@@ -263,10 +263,10 @@ export default function AdminGamesPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-black uppercase text-ds-text">
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
             Arena Games Library
           </h1>
-          <p className="text-xs text-ds-text-muted mt-1">
+          <p className="text-xs text-ds-text-muted mt-0.5">
             Configure titles, box arts, and specific station installations visible to users and staff.
           </p>
         </div>

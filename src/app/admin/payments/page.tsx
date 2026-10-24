@@ -305,9 +305,8 @@ export default function AdminPaymentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-black uppercase text-ds-text tracking-wide flex items-center gap-2.5">
-            <CreditCard className="w-6 h-6 text-ds-accent" />
-            <span>Financial & Payments Ledger</span>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            Financial & Payments Ledger
           </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Comprehensive audit logs of online gateway collections, pass purchases, front-desk receipts, and refunds.

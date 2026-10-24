@@ -525,9 +525,8 @@ export default function AdminStaffPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-black uppercase text-ds-text flex items-center gap-2.5">
-            <UserCog className="w-6 h-6 text-ds-accent" />
-            <span>Staff & Operator Accounts</span>
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
+            Staff & Operator Accounts
           </h1>
           <p className="text-xs text-ds-text-muted mt-0.5">
             Manage floor operators, KYC identification (Aadhaar & Address), and arena shift access.

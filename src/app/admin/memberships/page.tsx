@@ -457,10 +457,10 @@ export default function AdminMembershipsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-black uppercase text-ds-text">
+          <h1 className="text-2xl font-heading font-black uppercase text-ds-text">
             Dark Syndicate Passes
           </h1>
-          <p className="text-xs text-ds-text-muted mt-1">
+          <p className="text-xs text-ds-text-muted mt-0.5">
             Manage player memberships, configure pass plans, and grant privileges.
           </p>
         </div>
