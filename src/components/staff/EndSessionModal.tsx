@@ -684,42 +684,7 @@ export function EndSessionModal({
                     </div>
                   </div>
 
-                  {/* Cash Change Helper inside Split */}
-                  {splitCashNum > 0 && (
-                    <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-ds-text-dim uppercase font-mono">Cash Change Helper:</span>
-                        {cashTenderedNum >= splitCashNum && cashTenderedNum > 0 && (
-                          <Badge variant="success" size="sm" className="font-mono text-[10px]">
-                            Change to return: ₹{changeDue}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder={`₹ Received for ₹${splitCashNum} cash`}
-                          value={cashTendered}
-                          onChange={(e) => setCashTendered(e.target.value)}
-                          className="w-full bg-ds-dark border border-ds-border rounded-lg px-2.5 py-1 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCashTendered(splitCashNum.toString())}
-                          className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500 text-emerald-400 shrink-0 cursor-pointer"
-                        >
-                          Exact
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCashTendered('500')}
-                          className="px-2 py-1 text-[10px] font-mono font-bold rounded bg-ds-surface border border-ds-border hover:border-emerald-500 text-white shrink-0 cursor-pointer"
-                        >
-                          ₹500
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               )}
 
