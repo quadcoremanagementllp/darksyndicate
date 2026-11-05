@@ -44,11 +44,21 @@ export function ScrollRevealController() {
       });
     };
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedPrepare = () => {
+      if (debounceTimer) return;
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        prepare();
+      }, 150);
+    };
+
     prepare();
-    const mutations = new MutationObserver(prepare);
+    const mutations = new MutationObserver(debouncedPrepare);
     mutations.observe(document.body, { childList: true, subtree: true });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       mutations.disconnect();
       observer.disconnect();
       pending.forEach((element) => { element.dataset.revealState = 'shown'; });

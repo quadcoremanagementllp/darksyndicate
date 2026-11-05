@@ -1,10 +1,9 @@
 // Dark Syndicate Gaming World - Progressive Web App (PWA) Service Worker
-// Version: 1.3.0
+// Version: 1.4.0
 // Features: Offline Caching, Cache-First Static Assets, Network-First Pages, Web Push & Mobile Vibration
 
-const CACHE_NAME = 'ds-pwa-v1.3.0';
+const CACHE_NAME = 'ds-pwa-v1.4.0';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/logo-1024.png',
   '/icon-512.png',
@@ -24,7 +23,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     body {
       margin: 0;
       padding: 0;
-      background: #070a13;
+      background: #0A111C;
       color: #e2e8f0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
@@ -39,7 +38,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
       max-width: 420px;
       width: 100%;
       background: #0f172a;
-      border: 1px solid rgba(6, 182, 212, 0.3);
+      border: 1px solid rgba(97, 173, 223, 0.3);
       border-radius: 24px;
       padding: 32px 24px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.8);
@@ -49,7 +48,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
       height: 64px;
       margin: 0 auto 16px;
       border-radius: 16px;
-      box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+      box-shadow: 0 0 20px rgba(97, 173, 223, 0.4);
     }
     h1 {
       font-size: 20px;
@@ -71,8 +70,8 @@ const OFFLINE_HTML = `<!DOCTYPE html>
       box-sizing: border-box;
       padding: 12px 20px;
       border-radius: 12px;
-      background: #06b6d4;
-      color: #000;
+      background: #61ADDF;
+      color: #060A10;
       font-weight: 800;
       font-size: 13px;
       text-transform: uppercase;
@@ -108,13 +107,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 2. Activate Event: Clean up legacy caches
+// 2. Activate Event: Clean up legacy caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[PWA SW] Deleting obsolete cache:', key);
             return caches.delete(key);
           }
         })
@@ -123,10 +123,18 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. Fetch Strategy:
+// 3. Message Event: Support immediate skipWaiting & Ping
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// 4. Fetch Strategy:
 // - API calls & mutations: Network-only
-// - Static assets (images, icons, fonts): Cache-first
-// - Navigation (HTML pages): Network-first with offline fallback
+// - Static images & fonts: Cache-First
+// - Next.js script chunks & CSS: Cache-First with clean network fallback (NEVER return image for script!)
+// - Navigation (HTML pages): Network-First with 2.5s timeout, cache fallback & offline shell
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -137,48 +145,84 @@ self.addEventListener('fetch', (event) => {
   }
 
   // A. Static Image & Font Assets: Cache-First
-  if (
-    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff|woff2)$/i) ||
-    url.pathname.startsWith('/_next/static/')
-  ) {
+  if (url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff|woff2)$/i)) {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) return cached;
         return fetch(req).then((res) => {
-          if (res.ok) {
+          if (res && res.status === 200) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }
           return res;
-        }).catch(() => caches.match('/icon-192.png'));
+        }).catch(() => {
+          // Only fallback to icon for images
+          if (url.pathname.match(/\.(png|jpg|jpeg|webp)$/i)) {
+            return caches.match('/icon-192.png');
+          }
+          return new Response('', { status: 404 });
+        });
       })
     );
     return;
   }
 
-  // B. HTML Navigation Requests: Network-First with Offline Fallback
-  if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
+  // B. Next.js Static Chunks & CSS: Cache-First with Network Fallback
+  // CRITICAL: Must NEVER return an image fallback for JavaScript or CSS
+  if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
+      caches.match(req).then((cached) => {
+        if (cached) return cached;
+        return fetch(req).then((res) => {
+          if (res && res.status === 200) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }
           return res;
-        })
-        .catch(async () => {
-          const cachedPage = await caches.match(req);
-          if (cachedPage) return cachedPage;
-          return new Response(OFFLINE_HTML, {
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-          });
-        })
+        });
+      })
     );
+    return;
+  }
+
+  // C. HTML Navigation Requests: Network-First with 2.5s Timeout & Offline Fallback
+  if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      (async () => {
+        try {
+          // Set a 2.5s network timeout so iOS WebKit never hangs indefinitely on wake-up
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+          const networkResponse = await fetch(req, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            return networkResponse;
+          }
+        } catch {
+          // Network failed or timed out — fall back to cache below
+        }
+
+        // Try serving cached version of the page if network was slow or offline
+        const cachedPage = await caches.match(req);
+        if (cachedPage) {
+          return cachedPage;
+        }
+
+        // Final fallback: Return branded offline HTML page
+        return new Response(OFFLINE_HTML, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      })()
+    );
+    return;
   }
 });
 
-// 4. Notification Click Event: Focus or Open Staff Portal
+// 5. Notification Click Event: Focus or Open Staff Portal
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = (event.notification.data && event.notification.data.url) || '/staff';
@@ -197,7 +241,7 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// 5. Mobile Push Event: Display System Lock-Screen Banner with Vibration
+// 6. Mobile Push Event: Display System Lock-Screen Banner with Vibration
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'Dark Syndicate Alert',

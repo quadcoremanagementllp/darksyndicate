@@ -5,6 +5,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { MobileBottomBar } from '@/components/layout/MobileBottomBar';
 import { PwaInstaller } from '@/components/pwa/PwaInstaller';
 import { ScrollRevealController } from '@/components/layout/ScrollRevealController';
+import { PwaSplashScreen } from '@/components/pwa/PwaSplashScreen';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -84,6 +85,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
+        <PwaSplashScreen />
         <AuthProvider>
           <ToastProvider>
             {children}

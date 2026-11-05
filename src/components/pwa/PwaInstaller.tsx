@@ -16,7 +16,8 @@ export function PwaInstaller() {
   const [isIos, setIsIos] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Register PWA Service Worker
+    // 1. Register PWA Service Worker & Resume Sync
+    let handleVisibilityChange: (() => void) | null = null;
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
@@ -27,11 +28,20 @@ export function PwaInstaller() {
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New content is available
+                  // Tell new worker to skip waiting so fixes apply immediately
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
                 }
               });
             }
           });
+
+          // Watchdog: When returning from background on iPhone, check for updates
+          handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+              reg.update().catch(() => {});
+            }
+          };
+          document.addEventListener('visibilitychange', handleVisibilityChange);
         })
         .catch((err) => {
           console.warn('[PWA] Service worker registration failed:', err);
@@ -84,6 +94,9 @@ export function PwaInstaller() {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      if (handleVisibilityChange) {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, []);
 

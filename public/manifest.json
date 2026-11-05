@@ -8,7 +8,7 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#070a13",
+  "background_color": "#0A111C",
   "theme_color": "#0A111C",
   "categories": ["games", "entertainment", "sports"],
   "icons": [
