@@ -35,9 +35,6 @@ export async function GET(req: NextRequest) {
     const [payments, paidMemberships, allStaffUsers] = await Promise.all([
       prisma.payment.findMany({
         where: {
-          NOT: {
-            notes: { startsWith: 'Draft tab replaced' },
-          },
           ...(parsedMethod.success ? { method: parsedMethod.data } : {}),
           ...(parsedStatus.success ? { status: parsedStatus.data } : {}),
           ...(dateBounds ? { OR: [{ paidAt: dateBounds }, { paidAt: null, createdAt: dateBounds }] } : {}),
@@ -98,7 +95,9 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const formattedBookings = payments.map((p) => {
+    const formattedBookings = payments
+      .filter((p) => !p.notes || !p.notes.startsWith('Draft tab replaced'))
+      .map((p) => {
       const isDesk = Boolean(
         p.recordedByStaffId ||
         p.booking?.isWalkIn ||
