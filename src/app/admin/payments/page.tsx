@@ -517,6 +517,20 @@ export default function AdminPaymentsPage() {
             <button
               type="button"
               onClick={() => {
+                setDateFrom('');
+                setDateTo('');
+              }}
+              className={`px-2.5 py-1 rounded-lg uppercase transition-all whitespace-nowrap cursor-pointer ${
+                !dateFrom && !dateTo
+                  ? 'bg-ds-accent text-white shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
                 setDateFrom(todayStr);
                 setDateTo(todayStr);

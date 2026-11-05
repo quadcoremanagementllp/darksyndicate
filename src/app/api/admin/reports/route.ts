@@ -38,18 +38,23 @@ export async function GET(req: NextRequest) {
   try {
     await requireRole('ADMIN', 'SUPER_ADMIN');
     const { searchParams } = new URL(req.url);
-    const requestedTimeframe = searchParams.get('timeframe') || '30d';
-    const timeframe = ['today', 'yesterday', '7d', '30d', 'month', 'year', 'custom'].includes(requestedTimeframe)
+    const requestedTimeframe = searchParams.get('timeframe') || 'all';
+    const timeframe = ['all', 'today', 'yesterday', '7d', '30d', 'month', 'year', 'custom'].includes(requestedTimeframe)
       ? requestedTimeframe
-      : '30d';
+      : 'all';
     const now = new Date();
     const localNow = new Date(now.getTime() + OFFSET_MINUTES * 60_000);
-    let startDate: Date;
+    let startDate: Date | undefined;
     let endDate: Date;
-    let calendarStartDate: Date;
+    let calendarStartDate: Date | undefined;
     let calendarEndDate: Date;
 
-    if (timeframe === 'custom') {
+    if (timeframe === 'all') {
+      startDate = undefined;
+      calendarStartDate = undefined;
+      endDate = businessDateStart(now, -1);
+      calendarEndDate = businessCalendarDateStart(now, -1);
+    } else if (timeframe === 'custom') {
       const range = parseReportCustomRange(searchParams.get('from'), searchParams.get('to'));
       if (!range) throw new ValidationError('Choose a valid From and To date, with From on or before To.');
       ({ startDate, endDate, calendarStartDate, calendarEndDate } = range);
@@ -89,7 +94,7 @@ export async function GET(req: NextRequest) {
     const [bookings, payments, paidMemberships, refunds, facilities, stations, staffUsers] = await Promise.all([
       prisma.booking.findMany({
         where: {
-          date: { gte: calendarStartDate, lt: calendarEndDate },
+          date: calendarStartDate ? { gte: calendarStartDate, lt: calendarEndDate } : { lt: calendarEndDate },
           status: { in: [...ACTIVE_BOOKING_STATUSES] },
         },
         select: {
@@ -104,7 +109,7 @@ export async function GET(req: NextRequest) {
         orderBy: { date: 'asc' },
       }),
       prisma.payment.findMany({
-        where: { status: { in: ['COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED'] }, paidAt: { gte: startDate, lt: endDate } },
+        where: { status: { in: ['COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED'] }, paidAt: startDate ? { gte: startDate, lt: endDate } : { lt: endDate } },
         select: {
           amountPaise: true,
           method: true,
@@ -115,7 +120,7 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.membership.findMany({
-        where: { status: { not: 'CANCELLED' }, pricePaidPaise: { gt: 0 }, createdAt: { gte: startDate, lt: endDate } },
+        where: { status: { not: 'CANCELLED' }, pricePaidPaise: { gt: 0 }, createdAt: startDate ? { gte: startDate, lt: endDate } : { lt: endDate } },
         select: {
           pricePaidPaise: true,
           paymentMethod: true,
@@ -123,7 +128,7 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.refund.findMany({
-        where: { status: 'COMPLETED', processedAt: { gte: startDate, lt: endDate } },
+        where: { status: 'COMPLETED', processedAt: startDate ? { gte: startDate, lt: endDate } : { lt: endDate } },
         select: {
           amountPaise: true,
           processedAt: true,
@@ -220,9 +225,32 @@ export async function GET(req: NextRequest) {
       stationTotals.set(booking.station.id, station);
     }
 
+    let trendStartDate = startDate;
+    if (!trendStartDate) {
+      const earliestTimes: number[] = [];
+      if (bookings.length > 0 && bookings[0].date) {
+        earliestTimes.push(new Date(bookings[0].date).getTime());
+      }
+      for (const p of payments) {
+        if (p.paidAt) earliestTimes.push(new Date(p.paidAt).getTime());
+      }
+      if (earliestTimes.length > 0) {
+        const earliest = new Date(Math.min(...earliestTimes));
+        trendStartDate = businessDateStart(earliest, 0);
+      } else {
+        trendStartDate = businessDateStart(now, 29);
+      }
+    }
+
     const calendarDays: Date[] = [];
-    for (let day = startDate; day < endDate; day = new Date(day.getTime() + 24 * 60 * 60_000)) {
+    const maxDays = 365;
+    let loopCount = 0;
+    for (let day = trendStartDate; day < endDate && loopCount < maxDays; day = new Date(day.getTime() + 24 * 60 * 60_000)) {
       calendarDays.push(day);
+      loopCount++;
+    }
+    if (calendarDays.length === 0) {
+      calendarDays.push(trendStartDate);
     }
     const trend = calendarDays.map((day) => {
       const key = dateKey(day);

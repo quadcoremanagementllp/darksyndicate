@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 
 export default function AdminReportsPage() {
-  const [timeframe, setTimeframe] = useState<'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom'>('30d');
+  const [timeframe, setTimeframe] = useState<'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'>('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -123,7 +123,7 @@ export default function AdminReportsPage() {
             {(fromDate || toDate) && (
               <button
                 type="button"
-                onClick={() => { setFromDate(''); setToDate(''); setTimeframe('30d'); }}
+                onClick={() => { setFromDate(''); setToDate(''); setTimeframe('all'); }}
                 className="text-[11px] text-rose-400 hover:text-rose-300 underline font-mono cursor-pointer ml-1"
               >
                 Clear
@@ -142,12 +142,12 @@ export default function AdminReportsPage() {
         <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:shrink-0">
           <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold overflow-x-auto">
             {([
+              { id: 'all', label: 'All' },
               { id: 'today', label: 'Today' },
               { id: 'yesterday', label: 'Yesterday' },
               { id: '7d', label: '7D' },
               { id: '30d', label: '30D' },
               { id: 'month', label: 'Month' },
-              { id: 'year', label: 'YTD' },
             ] as const).map((tf) => (
               <button
                 key={tf.id}
