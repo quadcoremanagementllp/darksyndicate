@@ -1,0 +1,72 @@
+{
+  "id": "darksyndicate-admin-portal",
+  "name": "Dark Syndicate Admin",
+  "short_name": "DS Admin",
+  "description": "Dark Syndicate Gaming World - Administration & Financial Management Portal",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0A111C",
+  "theme_color": "#0A111C",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Reservations & Bookings",
+      "short_name": "Bookings",
+      "description": "View and manage all customer reservations",
+      "url": "/admin/bookings",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Payments & Financial Ledger",
+      "short_name": "Payments",
+      "description": "Financial audit logs, desk receipts, split payments",
+      "url": "/admin/payments",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Station Inventory",
+      "short_name": "Stations",
+      "description": "Monitor PS5 arenas and Snooker tables",
+      "url": "/admin/stations",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

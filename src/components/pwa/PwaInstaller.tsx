@@ -144,7 +144,7 @@ export function PwaInstaller() {
               </div>
               <div>
                 <h3 className="font-heading font-black text-base text-white uppercase tracking-wide">
-                  Install Dark Syndicate App
+                  {pathname?.startsWith('/admin') ? 'Install Admin Portal' : 'Install Staff Portal'}
                 </h3>
                 <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
                   Install on your iPhone or iPad for instant fullscreen gaming & staff push notifications:
@@ -199,7 +199,7 @@ export function PwaInstaller() {
           </div>
           <div className="min-w-0">
             <h4 className="font-heading font-black text-xs text-white uppercase tracking-wider truncate">
-              Install Dark Syndicate
+              {pathname?.startsWith('/admin') ? 'Install Admin Portal' : 'Install Staff Portal'}
             </h4>
             <p className="text-[11px] text-ds-text-dim truncate">
               Fullscreen & instant lock-screen alerts
@@ -237,7 +237,7 @@ export function PwaInstaller() {
             </div>
             <div>
               <h3 className="font-heading font-black text-base text-white uppercase tracking-wide">
-                Install on iPhone or iPad
+                {pathname?.startsWith('/admin') ? 'Install Admin Portal' : 'Install Staff Portal'}
               </h3>
               <p className="text-xs text-ds-text-muted mt-1 leading-relaxed">
                 Add to your home screen for native fullscreen mode and push alerts:

@@ -1,0 +1,60 @@
+{
+  "id": "darksyndicate-staff-portal",
+  "name": "Dark Syndicate Staff",
+  "short_name": "DS Staff",
+  "description": "Dark Syndicate Gaming World - Staff Floor Operations & Station Timers",
+  "start_url": "/staff",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0A111C",
+  "theme_color": "#0A111C",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "In-Session Timers",
+      "short_name": "Floor Timers",
+      "description": "Active gaming sessions and station timers",
+      "url": "/staff/bookings/in-session",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Reservations",
+      "short_name": "Reservations",
+      "description": "Upcoming booked sessions",
+      "url": "/staff/bookings/reservations",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

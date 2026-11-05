@@ -59,12 +59,7 @@ export const metadata: Metadata = {
     description: 'Premium gaming zone — PS5, pool tables, and more.',
     images: ['/logo-1024.png'],
   },
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Dark Syndicate',
-  },
+
   icons: {
     icon: [
       { url: '/favicon.ico' },

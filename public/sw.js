@@ -2,8 +2,10 @@
 // Version: 1.4.1
 // Features: Offline Caching, Cache-First Static Assets, Network-First Pages, Web Push & Mobile Vibration
 
-const CACHE_NAME = 'ds-pwa-v1.4.1';
+const CACHE_NAME = 'ds-pwa-v1.4.2';
 const STATIC_ASSETS = [
+  '/manifest-admin.json',
+  '/manifest-staff.json',
   '/manifest.json',
   '/logo-1024.png',
   '/icon-512.png',
