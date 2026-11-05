@@ -513,6 +513,39 @@ export default function AdminPaymentsPage() {
             <CalendarDays className="w-4 h-4 text-ds-accent" />
             Date (IST):
           </div>
+          <div className="flex items-center gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs font-heading font-bold shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                setDateFrom(todayStr);
+                setDateTo(todayStr);
+              }}
+              className={`px-2.5 py-1 rounded-lg uppercase transition-all whitespace-nowrap cursor-pointer ${
+                dateFrom && dateFrom === dateTo && dateFrom === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+                  ? 'bg-ds-accent text-white shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const yest = new Date(Date.now() - 86400000);
+                const yestStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(yest);
+                setDateFrom(yestStr);
+                setDateTo(yestStr);
+              }}
+              className={`px-2.5 py-1 rounded-lg uppercase transition-all whitespace-nowrap cursor-pointer ${
+                dateFrom && dateFrom === dateTo && dateFrom === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000))
+                  ? 'bg-ds-accent text-white shadow-sm'
+                  : 'text-ds-text-dim hover:text-white'
+              }`}
+            >
+              Yesterday
+            </button>
+          </div>
           <label className="flex items-center gap-2 text-xs font-heading font-bold text-ds-text-muted">
             From
             <input

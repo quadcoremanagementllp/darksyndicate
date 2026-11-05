@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     await requireRole('ADMIN', 'SUPER_ADMIN');
     const { searchParams } = new URL(req.url);
     const requestedTimeframe = searchParams.get('timeframe') || '30d';
-    const timeframe = ['7d', '30d', 'month', 'year', 'custom'].includes(requestedTimeframe)
+    const timeframe = ['today', 'yesterday', '7d', '30d', 'month', 'year', 'custom'].includes(requestedTimeframe)
       ? requestedTimeframe
       : '30d';
     const now = new Date();
@@ -53,6 +53,16 @@ export async function GET(req: NextRequest) {
       const range = parseReportCustomRange(searchParams.get('from'), searchParams.get('to'));
       if (!range) throw new ValidationError('Choose a valid From and To date, with From on or before To.');
       ({ startDate, endDate, calendarStartDate, calendarEndDate } = range);
+    } else if (timeframe === 'today') {
+      startDate = businessDateStart(now, 0);
+      endDate = businessDateStart(now, -1);
+      calendarStartDate = businessCalendarDateStart(now, 0);
+      calendarEndDate = businessCalendarDateStart(now, -1);
+    } else if (timeframe === 'yesterday') {
+      startDate = businessDateStart(now, 1);
+      endDate = businessDateStart(now, 0);
+      calendarStartDate = businessCalendarDateStart(now, 1);
+      calendarEndDate = businessCalendarDateStart(now, 0);
     } else {
       if (timeframe === '7d') startDate = businessDateStart(now, 6);
       else if (timeframe === '30d') startDate = businessDateStart(now, 29);

@@ -8,9 +8,12 @@ function parseCalendarDate(value: string): Date | null {
 }
 
 export function parseReportCustomRange(from: string | null, to: string | null) {
-  if (!from || !to) return null;
-  const calendarStartDate = parseCalendarDate(from);
-  const lastCalendarDate = parseCalendarDate(to);
+  if (!from && !to) return null;
+  const fromVal = from || to;
+  const toVal = to || from;
+  if (!fromVal || !toVal) return null;
+  const calendarStartDate = parseCalendarDate(fromVal);
+  const lastCalendarDate = parseCalendarDate(toVal);
   if (!calendarStartDate || !lastCalendarDate || calendarStartDate > lastCalendarDate) return null;
 
   const calendarEndDate = new Date(lastCalendarDate.getTime() + DAY_MS);

@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/components/ui/Toast';
 
 export default function AdminReportsPage() {
-  const [timeframe, setTimeframe] = useState<'7d' | '30d' | 'month' | 'year' | 'custom'>('30d');
+  const [timeframe, setTimeframe] = useState<'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom'>('30d');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,11 +35,11 @@ export default function AdminReportsPage() {
     setLoading(true);
     setLoadError('');
     setReportData(null);
-    if (timeframe === 'custom' && (!fromDate || !toDate)) {
+    if (timeframe === 'custom' && !fromDate && !toDate) {
       setLoading(false);
       return;
     }
-    if (timeframe === 'custom' && fromDate > toDate) {
+    if (timeframe === 'custom' && fromDate && toDate && fromDate > toDate) {
       setLoadError('From date must be on or before To date.');
       setLoading(false);
       return;
@@ -47,8 +47,8 @@ export default function AdminReportsPage() {
     try {
       const params = new URLSearchParams({ timeframe });
       if (timeframe === 'custom') {
-        params.set('from', fromDate);
-        params.set('to', toDate);
+        params.set('from', fromDate || toDate);
+        params.set('to', toDate || fromDate);
       }
       const res = await fetch(`/api/admin/reports?${params.toString()}`);
       const json = await res.json();
@@ -79,7 +79,7 @@ export default function AdminReportsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `dark_syndicate_report_${timeframe === 'custom' ? `${fromDate}_to_${toDate}` : timeframe}_${Date.now()}.csv`);
+    link.setAttribute('download', `dark_syndicate_report_${timeframe === 'custom' ? `${fromDate || toDate}_to_${toDate || fromDate}` : timeframe}_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -120,27 +120,46 @@ export default function AdminReportsPage() {
               <span>To</span>
               <input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => { setToDate(event.target.value); setTimeframe('custom'); }} className="rounded-lg border border-ds-border bg-ds-surface px-2.5 py-1.5 text-ds-text [color-scheme:dark] focus:border-ds-accent focus:outline-none" />
             </label>
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => { setFromDate(''); setToDate(''); setTimeframe('30d'); }}
+                className="text-[11px] text-rose-400 hover:text-rose-300 underline font-mono cursor-pointer ml-1"
+              >
+                Clear
+              </button>
+            )}
           </div>
-          {timeframe === 'custom' && (!fromDate || !toDate) && (
-            <p className="mt-2 text-xs text-ds-text-muted">Choose both dates to view the report.</p>
+          {timeframe === 'custom' && (!fromDate && !toDate) && (
+            <p className="mt-2 text-xs text-ds-text-muted">Choose a date or date range to view the report.</p>
+          )}
+          {timeframe === 'custom' && fromDate && !toDate && (
+            <p className="mt-2 text-xs text-cyan-400 font-mono">Viewing single date: {fromDate}</p>
           )}
         </div>
 
         {/* Report controls */}
         <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:shrink-0">
-          <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold">
-            {(['7d', '30d', 'month', 'year'] as const).map((tf) => (
+          <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold overflow-x-auto">
+            {([
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: '7d', label: '7D' },
+              { id: '30d', label: '30D' },
+              { id: 'month', label: 'Month' },
+              { id: 'year', label: 'YTD' },
+            ] as const).map((tf) => (
               <button
-                key={tf}
+                key={tf.id}
                 type="button"
-                onClick={() => { setTimeframe(tf); setFromDate(''); setToDate(''); }}
-                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors ${
-                  timeframe === tf
+                onClick={() => { setTimeframe(tf.id); setFromDate(''); setToDate(''); }}
+                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
+                  timeframe === tf.id
                     ? 'bg-ds-accent text-white shadow-glow-sm'
                     : 'text-ds-text-muted hover:text-white'
                 }`}
               >
-                {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === 'month' ? 'Month' : 'YTD'}
+                {tf.label}
               </button>
             ))}
           </div>
