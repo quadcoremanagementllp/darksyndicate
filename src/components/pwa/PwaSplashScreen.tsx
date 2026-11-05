@@ -1,20 +1,25 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 /**
- * Dark Syndicate Gaming World - PWA & Web App Loading Splash Screen
+ * Dark Syndicate Gaming World - PWA Loading Splash Screen
  * 
- * Provides an instantaneous, branded visual experience upon cold launch or PWA boot.
- * Prevents any black screen on mobile devices while React and Next.js hydrate.
- * Smoothly fades out and unmounts once the application is ready.
+ * Exclusively active on Staff Portal (/staff) and Admin Panel (/admin).
+ * Never shown on public customer website pages.
  */
 export function PwaSplashScreen() {
+  const pathname = usePathname();
+  const isStaffOrAdmin = pathname?.startsWith('/admin') || pathname?.startsWith('/staff');
+
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // Only show once per browser tab / PWA session to keep in-app navigation instantaneous
+    if (!isStaffOrAdmin) return;
+
+    // Only show once per tab / session in admin or staff portals
     try {
       if (sessionStorage.getItem('ds_pwa_splash_shown')) {
         setVisible(false);
@@ -23,15 +28,13 @@ export function PwaSplashScreen() {
       }
       sessionStorage.setItem('ds_pwa_splash_shown', '1');
     } catch {
-      // Ignore if sessionStorage is disabled or in restricted iframe
+      // Ignore if sessionStorage restricted
     }
 
-    // Brief smooth display window to allow DOM and styles to settle
     const fadeTimer = setTimeout(() => {
       setVisible(false);
     }, 450);
 
-    // Completely unmount from DOM after transition completes to free memory
     const removeTimer = setTimeout(() => {
       setMounted(true);
     }, 850);
@@ -40,9 +43,10 @@ export function PwaSplashScreen() {
       clearTimeout(fadeTimer);
       clearTimeout(removeTimer);
     };
-  }, []);
+  }, [isStaffOrAdmin]);
 
-  if (mounted) return null;
+  // Never render on public website pages; only render for staff and admin
+  if (!isStaffOrAdmin || mounted) return null;
 
   return (
     <div

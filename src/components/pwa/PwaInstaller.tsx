@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Download, X, Smartphone, Share2, PlusSquare } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -9,6 +10,9 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PwaInstaller() {
+  const pathname = usePathname();
+  const isStaffOrAdmin = pathname?.startsWith('/admin') || pathname?.startsWith('/staff');
+
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [showBanner, setShowBanner] = useState<boolean>(false);
@@ -16,6 +20,9 @@ export function PwaInstaller() {
   const [isIos, setIsIos] = useState<boolean>(false);
 
   useEffect(() => {
+    // PWA installation and service worker is exclusively enabled for Admin and Staff portals
+    if (!isStaffOrAdmin) return;
+
     // 1. Register PWA Service Worker & Resume Sync
     let handleVisibilityChange: (() => void) | null = null;
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -98,7 +105,7 @@ export function PwaInstaller() {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-  }, []);
+  }, [isStaffOrAdmin]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -121,6 +128,9 @@ export function PwaInstaller() {
       localStorage.setItem('ds_pwa_dismissed_at', String(Date.now()));
     } catch {}
   };
+
+  // Do not render any PWA install banner or guide on customer website
+  if (!isStaffOrAdmin) return null;
 
   if (isStandalone || !showBanner) {
     return (
