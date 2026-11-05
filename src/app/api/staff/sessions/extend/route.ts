@@ -12,7 +12,9 @@ const extendSessionSchema = z.object({
   bookingId: z.string().optional(),
   additionalMinutes: z.number().int().min(15).max(300).default(30),
   paymentTiming: z.enum(['PRE_PAID', 'PAY_ON_EXIT']).optional(),
-  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER', 'PAY_ON_EXIT']).default('CASH'),
+  paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'OTHER', 'PAY_ON_EXIT', 'SPLIT']).default('CASH'),
+  splitCashPaise: z.number().int().min(0).optional(),
+  splitUpiPaise: z.number().int().min(0).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -153,6 +155,49 @@ export async function POST(req: NextRequest) {
                     recordedByStaffId: staffSession.userId,
                     notes: `Session extended +${data.additionalMinutes} mins (Pay on Exit open tab) by ${staffName}`,
                   },
+                });
+              }
+            } else if (data.paymentMethod === 'SPLIT') {
+              const cashPaise = data.splitCashPaise || 0;
+              const upiPaise = data.splitUpiPaise || 0;
+              if (cashPaise + upiPaise !== extensionFeePaise) {
+                throw new ValidationError(`Split amounts (Cash ₹${(cashPaise / 100).toFixed(2)} + UPI ₹${(upiPaise / 100).toFixed(2)}) must equal extension fee ₹${(extensionFeePaise / 100).toFixed(2)}.`);
+              }
+
+              if (cashPaise > 0) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: cashPaise,
+                    method: 'CASH',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Session extended +${data.additionalMinutes} mins (Split: Cash ₹${(cashPaise / 100).toFixed(2)}) by ${staffName}`,
+                  },
+                });
+              }
+
+              if (upiPaise > 0) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: upiPaise,
+                    method: 'UPI',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Session extended +${data.additionalMinutes} mins (Split: UPI/GPay ₹${(upiPaise / 100).toFixed(2)}) by ${staffName}`,
+                  },
+                });
+              }
+
+              if (session.booking?.userId) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: session.booking.userId },
+                  data: { totalSpent: { increment: extensionFeePaise } },
                 });
               }
             } else {

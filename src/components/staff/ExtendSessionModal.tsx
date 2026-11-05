@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import {
   Clock,
+  Layers,
   Banknote,
   Sparkles,
   CreditCard,
@@ -57,7 +58,9 @@ export function ExtendSessionModal({
 }: ExtendSessionModalProps) {
   const [additionalMinutes, setAdditionalMinutes] = useState<number>(30);
   const [paymentTiming, setPaymentTiming] = useState<'PAY_ON_EXIT' | 'PRE_PAID'>('PAY_ON_EXIT');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'SPLIT'>('CASH');
+  const [splitCash, setSplitCash] = useState<string>('');
+  const [splitUpi, setSplitUpi] = useState<string>('');
   const [cashTendered, setCashTendered] = useState<string>('');
   const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -166,6 +169,8 @@ export function ExtendSessionModal({
           additionalMinutes,
           paymentTiming: effectivePaymentTiming,
           paymentMethod: effectivePaymentTiming === 'PAY_ON_EXIT' ? 'PAY_ON_EXIT' : paymentMethod,
+          splitCashPaise: paymentMethod === 'SPLIT' ? Math.round(splitCashNum * 100) : undefined,
+          splitUpiPaise: paymentMethod === 'SPLIT' ? Math.round(splitUpiNum * 100) : undefined,
         }),
       });
 
@@ -206,7 +211,41 @@ export function ExtendSessionModal({
 
   const displayQrCode = adminQrUrl || dynamicQrUrl;
   const cashTenderedNum = parseFloat(cashTendered) || 0;
-  const changeDue = Math.max(0, cashTenderedNum - extensionFeeRupees);
+  const splitCashNum = parseFloat(splitCash) || 0;
+  const splitUpiNum = parseFloat(splitUpi) || 0;
+  const splitTotal = Math.round((splitCashNum + splitUpiNum) * 100) / 100;
+  const splitDifference = Math.round((extensionFeeRupees - splitTotal) * 100) / 100;
+  const isSplitValid = paymentMethod === 'SPLIT'
+    ? Math.abs(splitDifference) < 0.01 && splitCashNum > 0 && splitUpiNum > 0
+    : true;
+
+  const cashPortion = paymentMethod === 'SPLIT' ? splitCashNum : extensionFeeRupees;
+  const changeDue = Math.max(0, cashTenderedNum - cashPortion);
+
+  const handleSelectSplit = () => {
+    setPaymentMethod('SPLIT');
+    if (!splitCash && !splitUpi && extensionFeeRupees > 0) {
+      const half = Math.floor(extensionFeeRupees / 2);
+      setSplitCash(half.toString());
+      setSplitUpi((extensionFeeRupees - half).toString());
+    }
+  };
+
+  const handleSplitCashChange = (val: string) => {
+    setSplitCash(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= extensionFeeRupees) {
+      setSplitUpi(String(Math.round((extensionFeeRupees - num) * 100) / 100));
+    }
+  };
+
+  const handleSplitUpiChange = (val: string) => {
+    setSplitUpi(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0 && num <= extensionFeeRupees) {
+      setSplitCash(String(Math.round((extensionFeeRupees - num) * 100) / 100));
+    }
+  };
 
   // Clean gameTitle (strip any [PAY ON EXIT] text)
   const cleanGameTitle = station.activeSession.gameTitle?.replace(/\[PAY ON EXIT\]/gi, '').trim() || null;
@@ -415,17 +454,18 @@ export function ExtendSessionModal({
               <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
                 Extension Payment Received
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { id: 'CASH', label: 'Cash', icon: Banknote },
-                  { id: 'UPI', label: 'UPI / QR', icon: Sparkles },
-                  { id: 'CARD', label: 'POS Card', icon: CreditCard },
+                  { id: 'UPI', label: 'UPI/GPay', icon: Sparkles },
+                  { id: 'CARD', label: 'Card', icon: CreditCard },
+                  { id: 'SPLIT', label: 'Split', icon: Layers },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     type="button"
                     key={id}
-                    onClick={() => handleSelectPaymentMethod(id as any)}
-                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-heading font-bold ${
+                    onClick={() => id === 'SPLIT' ? handleSelectSplit() : handleSelectPaymentMethod(id as any)}
+                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1 transition-all text-xs font-heading font-bold cursor-pointer ${
                       paymentMethod === id
                         ? 'bg-ds-surface border-emerald-500 text-emerald-400 ring-1 ring-emerald-500 shadow-sm'
                         : 'bg-ds-surface/40 border-ds-border text-ds-text-muted hover:border-ds-border'
@@ -436,6 +476,69 @@ export function ExtendSessionModal({
                   </button>
                 ))}
               </div>
+
+              {/* Split extension input box */}
+              {paymentMethod === 'SPLIT' && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-amber-300 font-heading font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Split Extension Fee</span>
+                    </span>
+                    <span className={`text-[11px] font-mono font-bold ${isSplitValid ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {isSplitValid
+                        ? '✓ Balanced'
+                        : splitDifference > 0
+                        ? `₹${splitDifference} remaining`
+                        : `₹${Math.abs(splitDifference)} extra`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-mono text-emerald-400 font-semibold flex items-center gap-1">
+                        <Banknote className="w-3 h-3" />
+                        Cash (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={extensionFeeRupees}
+                        placeholder="0"
+                        value={splitCash}
+                        onChange={(e) => handleSplitCashChange(e.target.value)}
+                        className="w-full bg-ds-dark border border-ds-border rounded-lg px-3 py-1.5 text-xs text-ds-text font-mono focus:border-emerald-400 focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-cyan-400 font-semibold flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          UPI / GPay (₹)
+                        </span>
+                        {splitUpiNum > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowQrPopup(true)}
+                            className="text-[10px] text-cyan-400 underline hover:text-cyan-300 cursor-pointer font-bold"
+                          >
+                            QR (₹{splitUpiNum})
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={extensionFeeRupees}
+                        placeholder="0"
+                        value={splitUpi}
+                        onChange={(e) => handleSplitUpiChange(e.target.value)}
+                        className="w-full bg-ds-dark border border-ds-border rounded-lg px-3 py-1.5 text-xs text-ds-text font-mono focus:border-cyan-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Cash Quick Tender Box */}
               {paymentMethod === 'CASH' && (
@@ -557,7 +660,7 @@ export function ExtendSessionModal({
               variant="accent"
               size="sm"
               onClick={handleExtend}
-              disabled={submitting || (isOverdue && remainingMsFromNow <= 0)}
+              disabled={submitting || (isOverdue && remainingMsFromNow <= 0) || (paymentMethod === 'SPLIT' && !isSplitValid)}
               className={`text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md cursor-pointer font-heading font-bold ${
                 effectivePaymentTiming === 'PAY_ON_EXIT'
                   ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-black shadow-amber-500/20'
@@ -588,7 +691,7 @@ export function ExtendSessionModal({
       <QrPaymentModal
         isOpen={showQrPopup}
         onClose={() => setShowQrPopup(false)}
-        amountRupees={extensionFeeRupees}
+        amountRupees={paymentMethod === 'SPLIT' ? splitUpiNum : extensionFeeRupees}
         customerName={station.activeSession?.customerName}
         stationName={station.name}
         bookingRef={station.activeSession?.bookingRef}

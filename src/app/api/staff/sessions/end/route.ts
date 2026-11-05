@@ -11,7 +11,9 @@ const endSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
-  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD']).optional(),
+  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']).optional(),
+  splitCashPaise: z.number().int().min(0).optional(),
+  splitUpiPaise: z.number().int().min(0).optional(),
   transferTab: z.boolean().optional(),
   settleAdditionalBookingIds: z.array(z.string()).max(20).optional(),
   discountPaise: z.number().int().min(0).max(100_000_000).optional(),
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, transferTab, settleAdditionalBookingIds, discountPaise, finalPricePaise, refundConfirmed } = endSessionSchema.parse(body);
+    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, splitCashPaise, splitUpiPaise, transferTab, settleAdditionalBookingIds, discountPaise, finalPricePaise, refundConfirmed } = endSessionSchema.parse(body);
     if (discountPaise !== undefined && finalPricePaise !== undefined) {
       throw new ValidationError('Choose a discount or a final price, not both.');
     }
@@ -188,27 +190,8 @@ export async function POST(req: NextRequest) {
                 },
               });
             }
-            if (checkout.duePaise > 0 && session.booking) {
-              await tx.payment.create({
-                data: {
-                  bookingId: session.bookingId,
-                  userId: session.booking.userId,
-                  amountPaise: checkout.duePaise,
-                  method: chosenMethod,
-                  status: 'COMPLETED',
-                  paidAt: new Date(),
-                  recordedByStaffId: staffSession.userId,
-                  notes: `Final session checkout collected via ${chosenMethod} by ${staffName}; final price ₹${(checkout.finalPricePaise / 100).toFixed(2)}`,
-                },
-              });
-
-              await tx.customerProfile.updateMany({
-                where: { userId: session.booking.userId },
-                data: { totalSpent: { increment: checkout.duePaise } },
-              });
-            }
-
             // Also settle any linked prior bookings (e.g. PS5 open tab carried over to Snooker)
+            let priorPaidSum = 0;
             if (settleAdditionalBookingIds && settleAdditionalBookingIds.length > 0) {
               const priorPending = await tx.payment.findMany({
                 where: {
@@ -219,6 +202,7 @@ export async function POST(req: NextRequest) {
               });
 
               if (priorPending.length > 0) {
+                priorPaidSum = priorPending.reduce((sum, p) => sum + p.amountPaise, 0);
                 await tx.payment.updateMany({
                   where: {
                     bookingId: { in: settleAdditionalBookingIds },
@@ -226,10 +210,10 @@ export async function POST(req: NextRequest) {
                   },
                   data: {
                     status: 'COMPLETED',
-                    method: chosenMethod,
+                    method: settlePaymentMethod === 'SPLIT' ? 'OTHER' : chosenMethod,
                     paidAt: new Date(),
                     recordedByStaffId: staffSession.userId,
-                    notes: `Desk tab settled (${chosenMethod}) in combined multi-game bill by ${staffName}`,
+                    notes: `Desk tab settled (${settlePaymentMethod === 'SPLIT' ? 'Split payment' : chosenMethod}) in combined multi-game bill by ${staffName}`,
                   },
                 });
 
@@ -241,6 +225,74 @@ export async function POST(req: NextRequest) {
                     });
                   }
                 }
+              }
+            }
+
+            const totalDueAtDesk = checkout.duePaise + priorPaidSum;
+
+            if (settlePaymentMethod === 'SPLIT') {
+              const cashPaise = splitCashPaise || 0;
+              const upiPaise = splitUpiPaise || 0;
+              if (cashPaise + upiPaise !== totalDueAtDesk) {
+                throw new ValidationError(`Split amounts (Cash ₹${(cashPaise / 100).toFixed(2)} + UPI ₹${(upiPaise / 100).toFixed(2)}) must equal total bill ₹${(totalDueAtDesk / 100).toFixed(2)}.`);
+              }
+
+              if (cashPaise > 0 && session.booking) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: cashPaise,
+                    method: 'CASH',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Split payment: Cash portion (₹${(cashPaise / 100).toFixed(2)}) collected by ${staffName}`,
+                  },
+                });
+              }
+
+              if (upiPaise > 0 && session.booking) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: upiPaise,
+                    method: 'UPI',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Split payment: UPI/GPay portion (₹${(upiPaise / 100).toFixed(2)}) collected by ${staffName}`,
+                  },
+                });
+              }
+
+              if (checkout.duePaise > 0 && session.booking) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: session.booking.userId },
+                  data: { totalSpent: { increment: checkout.duePaise } },
+                });
+              }
+            } else {
+              // Standard single method payment
+              if (checkout.duePaise > 0 && session.booking) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: checkout.duePaise,
+                    method: chosenMethod,
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Final session checkout collected via ${chosenMethod} by ${staffName}; final price ₹${(checkout.finalPricePaise / 100).toFixed(2)}`,
+                  },
+                });
+
+                await tx.customerProfile.updateMany({
+                  where: { userId: session.booking.userId },
+                  data: { totalSpent: { increment: checkout.duePaise } },
+                });
               }
             }
           }
