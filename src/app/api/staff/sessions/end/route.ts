@@ -176,17 +176,12 @@ export async function POST(req: NextRequest) {
               });
             }
           } else {
-            // Replace draft tab lines with one payment for the actual final balance.
+            // Delete temporary draft tab placeholder lines upon final checkout so no ghost records remain
             if (payments.some((payment) => payment.status === 'PENDING')) {
-              await tx.payment.updateMany({
+              await tx.payment.deleteMany({
                 where: {
                   bookingId: session.bookingId,
                   status: 'PENDING',
-                },
-                data: {
-                  status: 'FAILED',
-                  recordedByStaffId: staffSession.userId,
-                  notes: `Draft tab replaced by final checkout price by ${staffName}`,
                 },
               });
             }

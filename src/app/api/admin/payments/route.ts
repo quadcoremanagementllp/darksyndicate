@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
     const [payments, paidMemberships, allStaffUsers] = await Promise.all([
       prisma.payment.findMany({
         where: {
+          NOT: {
+            notes: { startsWith: 'Draft tab replaced' },
+          },
           ...(parsedMethod.success ? { method: parsedMethod.data } : {}),
           ...(parsedStatus.success ? { status: parsedStatus.data } : {}),
           ...(dateBounds ? { OR: [{ paidAt: dateBounds }, { paidAt: null, createdAt: dateBounds }] } : {}),
@@ -185,7 +188,7 @@ export async function GET(req: NextRequest) {
         refundedPaise,
         pendingRefundPaise,
         netAmountPaise: Math.max(0, p.amountPaise - refundedPaise),
-        method: p.method,
+        method: p.method as string,
         status: p.status,
         channel: paymentChannel,
         collectedBy,
@@ -223,7 +226,37 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const combined = [...formattedBookings, ...formattedMemberships].sort(
+    // Group split payments for the same booking into a single unified record when viewing ALL methods
+    const processedBookings: typeof formattedBookings = [];
+    const splitGroupMap = new Map<string, typeof formattedBookings[0]>();
+
+    for (const item of formattedBookings) {
+      const isSplitPayment = item.notes && item.notes.startsWith('Split payment:');
+      if (isSplitPayment && item.bookingId && (!method || method === 'ALL')) {
+        const existing = splitGroupMap.get(item.bookingId);
+        if (existing) {
+          // Merge with existing split record for this booking
+          const firstIsCash = existing.method === 'CASH' || (existing.notes && existing.notes.includes('Cash portion'));
+          const currentIsCash = item.method === 'CASH' || (item.notes && item.notes.includes('Cash portion'));
+          
+          const cashAmt = firstIsCash ? existing.amountPaise : (currentIsCash ? item.amountPaise : 0);
+          const upiAmt = !firstIsCash ? existing.amountPaise : (!currentIsCash ? item.amountPaise : 0);
+          
+          existing.amountPaise += item.amountPaise;
+          existing.netAmountPaise = Math.max(0, existing.amountPaise - (existing.refundedPaise || 0));
+          existing.method = 'SPLIT' as any;
+          existing.notes = `Split payment: ₹${(cashAmt / 100).toFixed(0)} Cash + ₹${(upiAmt / 100).toFixed(0)} UPI`;
+          continue;
+        } else {
+          splitGroupMap.set(item.bookingId, item);
+          processedBookings.push(item);
+        }
+      } else {
+        processedBookings.push(item);
+      }
+    }
+
+    const combined = [...processedBookings, ...formattedMemberships].sort(
       (a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()
     );
 

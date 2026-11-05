@@ -273,7 +273,10 @@ export default function AdminPaymentsPage() {
   const filteredPayments = useMemo(() => {
     return dateScopedPayments.filter((p) => {
       const matchesChannel = channelFilter === 'ALL' || p.channel === channelFilter;
-      const matchesMethod = methodFilter === 'ALL' || p.method === methodFilter;
+      const matchesMethod =
+        methodFilter === 'ALL' ||
+        p.method === methodFilter ||
+        (p.method === 'SPLIT' && (methodFilter === 'CASH' || methodFilter === 'UPI'));
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
 
       const matchesStaff =
@@ -694,9 +697,22 @@ export default function AdminPaymentsPage() {
 
                       {/* Payment Method */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-ds-surface border border-ds-border text-ds-text">
-                          {p.method}
-                        </span>
+                        {p.method === 'SPLIT' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 w-fit">
+                              SPLIT
+                            </span>
+                            {p.notes && p.notes.includes('Split payment:') && (
+                              <span className="text-[10px] font-mono text-ds-text-dim">
+                                {p.notes.replace('Split payment:', '').split('collected by')[0].trim()}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-ds-surface border border-ds-border text-ds-text">
+                            {p.method}
+                          </span>
+                        )}
                       </td>
 
                       {/* Collected By (Which Staff Collected) */}
