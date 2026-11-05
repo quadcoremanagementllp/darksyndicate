@@ -61,7 +61,15 @@ export function ExtendSessionModal({
   const [cashTendered, setCashTendered] = useState<string>('');
   const [showQrPopup, setShowQrPopup] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const toast = useToast();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCurrentTime(Date.now());
+    const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
 
   // Admin QR & UPI Details
   const [adminQrUrl, setAdminQrUrl] = useState<string>('');
@@ -184,7 +192,17 @@ export function ExtendSessionModal({
   const currentEndRaw = station.activeSession.scheduledEndAt;
   const currentEnd = currentEndRaw ? new Date(currentEndRaw) : new Date();
   const validCurrentEnd = !isNaN(currentEnd.getTime()) ? currentEnd : new Date();
-  const newEnd = new Date(validCurrentEnd.getTime() + additionalMinutes * 60 * 1000);
+  const currentEndMs = validCurrentEnd.getTime();
+  const isOverdue = currentTime > currentEndMs;
+  const overdueMs = isOverdue ? currentTime - currentEndMs : 0;
+  const overdueMinutes = Math.floor(overdueMs / 60000);
+  const overdueSeconds = Math.floor((overdueMs % 60000) / 1000);
+
+  const newEndMs = validCurrentEnd.getTime() + additionalMinutes * 60 * 1000;
+  const newEnd = new Date(newEndMs);
+  const remainingMsFromNow = newEndMs - currentTime;
+  const remainingMinutes = Math.max(0, Math.floor(remainingMsFromNow / 60000));
+  const remainingSeconds = Math.max(0, Math.floor((remainingMsFromNow % 60000) / 1000));
 
   const displayQrCode = adminQrUrl || dynamicQrUrl;
   const cashTenderedNum = parseFloat(cashTendered) || 0;
@@ -237,9 +255,15 @@ export function ExtendSessionModal({
               <p className="font-mono font-bold text-ds-text text-sm">
                 {validCurrentEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <span className="text-[10px] font-mono text-ds-accent block">
-                ₹{(hourlyRate / 100).toFixed(0)} / hr
-              </span>
+              {isOverdue ? (
+                <span className="text-[10px] font-mono font-bold text-rose-400 block mt-0.5">
+                  Overtime: +{overdueMinutes}m {overdueSeconds.toString().padStart(2, '0')}s
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-ds-accent block">
+                  ₹{(hourlyRate / 100).toFixed(0)} / hr
+                </span>
+              )}
             </div>
           </div>
 
@@ -273,6 +297,40 @@ export function ExtendSessionModal({
               ))}
             </div>
           </div>
+
+          {/* Overtime Net Calculation Banner */}
+          {isOverdue && (
+            <div className={`p-3.5 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              remainingMsFromNow > 0
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                : 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+            }`}>
+              <div className="flex items-start gap-2.5">
+                <Clock className={`w-4 h-4 mt-0.5 shrink-0 ${remainingMsFromNow > 0 ? 'text-amber-400' : 'text-rose-400'}`} />
+                <div>
+                  <div className="font-heading font-bold text-xs uppercase flex items-center gap-1.5">
+                    <span>Overtime Adjustment</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-rose-500/20 text-rose-300 rounded border border-rose-500/30 font-bold">
+                      -{overdueMinutes}m used
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ds-text-dim mt-0.5">
+                    {remainingMsFromNow > 0
+                      ? `+${additionalMinutes}m added from scheduled end (${validCurrentEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) → ${remainingMinutes}m ${remainingSeconds > 0 ? `${remainingSeconds}s ` : ''}remaining from now.`
+                      : `Customer has already played ${overdueMinutes}m of overtime. +${additionalMinutes}m does not add playable time. Please select +30M or more.`}
+                  </p>
+                </div>
+              </div>
+              <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-ds-border/40">
+                <span className="text-[9px] uppercase font-mono text-ds-text-dim block">Playable Time Remaining</span>
+                <span className={`text-base font-mono font-black ${remainingMsFromNow > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {remainingMsFromNow > 0
+                    ? `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`
+                    : '0:00 (Overdue)'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* ─── TIER 1: PAYMENT TIMING SELECTOR (Add to Tab vs Pay Now) ─── */}
           {!isExistingPayOnExit && (
@@ -465,7 +523,7 @@ export function ExtendSessionModal({
                 {newEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
               <span className="text-[10px] font-mono text-ds-text-dim">
-                (+{additionalMinutes} mins added)
+                (+{additionalMinutes} mins added{isOverdue && remainingMsFromNow > 0 ? ` • ${remainingMinutes}m remaining from now` : ''})
               </span>
             </div>
             <div className="text-right">
@@ -499,7 +557,7 @@ export function ExtendSessionModal({
               variant="accent"
               size="sm"
               onClick={handleExtend}
-              disabled={submitting}
+              disabled={submitting || (isOverdue && remainingMsFromNow <= 0)}
               className={`text-xs sm:text-sm py-1.5 sm:py-2 px-3.5 sm:px-5 shadow-md cursor-pointer font-heading font-bold ${
                 effectivePaymentTiming === 'PAY_ON_EXIT'
                   ? 'bg-amber-500 hover:bg-amber-600 border-amber-500 text-black shadow-amber-500/20'
@@ -508,6 +566,8 @@ export function ExtendSessionModal({
             >
               {submitting ? (
                 'Extending...'
+              ) : isOverdue && remainingMsFromNow <= 0 ? (
+                <span>Select Longer Duration</span>
               ) : effectivePaymentTiming === 'PAY_ON_EXIT' ? (
                 <>
                   <span className="sm:hidden">Add to Tab (₹0)</span>
