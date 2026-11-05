@@ -55,6 +55,7 @@ interface SelectedBooking {
   durationMinutes: number;
   totalPricePaise: number;
   paymentMethod?: string | null;
+  splitPaymentDetails?: string | null;
   paymentStatus: string;
   status: string;
   session?: { startedAt: string; endedAt?: string | null } | null;
@@ -646,7 +647,22 @@ export default function AdminBookingsPage() {
                         ₹{(b.totalPricePaise / 100).toFixed(0)}
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
-                        <span className="text-[11px] font-mono block text-ds-text whitespace-nowrap">{b.paymentMethod || '—'}</span>
+                        {b.paymentMethod === 'SPLIT' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[11px] font-mono font-bold text-cyan-300 block whitespace-nowrap">
+                              SPLIT
+                            </span>
+                            {b.splitPaymentDetails && (
+                              <span className="text-[10px] font-mono text-ds-text-dim block whitespace-nowrap">
+                                {b.splitPaymentDetails}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-mono block text-ds-text whitespace-nowrap">
+                            {b.paymentMethod || '—'}
+                          </span>
+                        )}
                         <span
                           className={`text-[10px] font-semibold whitespace-nowrap ${
                             b.paymentStatus === 'COMPLETED'
@@ -788,7 +804,7 @@ export default function AdminBookingsPage() {
                 ['End (IST)', new Date(selectedBooking.endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })],
                 ['Duration', `${Math.floor(selectedBooking.durationMinutes / 60)}h ${selectedBooking.durationMinutes % 60}m`],
                 ['Price', `₹${(selectedBooking.totalPricePaise / 100).toLocaleString('en-IN')}`],
-                ['Payment Mode', selectedBooking.paymentMethod || 'Unpaid'],
+                ['Payment Mode', selectedBooking.paymentMethod === 'SPLIT' && selectedBooking.splitPaymentDetails ? `SPLIT (${selectedBooking.splitPaymentDetails})` : selectedBooking.paymentMethod || 'Unpaid'],
                 ['Payment Status', selectedBooking.paymentStatus],
                 ['Booking Status', selectedBooking.status],
               ] as [string, string][]).map(([label, value]) => (

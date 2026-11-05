@@ -586,7 +586,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                 </div>
                 <div className="lg:text-right shrink-0">
                   <p className="font-mono font-bold text-white">₹{(b.totalPricePaise / 100).toFixed(0)}</p>
-                  <p className="text-[10px] font-mono uppercase text-ds-text-muted">{b.paymentMethod || 'OTHER'} · Completed</p>
+                  <p className="text-[10px] font-mono uppercase text-ds-text-muted">{b.paymentMethod === 'SPLIT' && b.splitPaymentDetails ? `SPLIT (${b.splitPaymentDetails})` : b.paymentMethod || 'OTHER'} · Completed</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank" aria-label={`Receipt for ${b.bookingRef}`} className="p-2.5 rounded-xl border border-ds-border text-ds-ice hover:border-ds-accent">
@@ -1157,7 +1157,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-ds-text-dim">Payment Mode:</span>
-                    <span className="font-bold text-ds-text">{b.paymentMethod || 'Unpaid'}</span>
+                    <span className="font-bold text-ds-text">{b.paymentMethod === 'SPLIT' && b.splitPaymentDetails ? `SPLIT (${b.splitPaymentDetails})` : b.paymentMethod || 'Unpaid'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-ds-text-dim">Payment Status:</span>

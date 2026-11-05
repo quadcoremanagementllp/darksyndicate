@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
           staff: { select: { id: true, firstName: true, lastName: true, role: true } },
         },
       },
-      payments: { orderBy: { createdAt: 'desc' as const }, take: 1 },
+      payments: { orderBy: { createdAt: 'desc' as const }, take: 5 },
     };
 
     const [recentBookings, activeFloorBookings] = await Promise.all([
@@ -188,6 +188,24 @@ export async function GET(req: NextRequest) {
           ? 'IN_PROGRESS'
           : booking.status;
 
+      const completedPayments = (booking.payments || []).filter((p) =>
+        ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status)
+      );
+      const splitPayments = completedPayments.filter((p) => p.notes && p.notes.startsWith('Split payment:'));
+      const isSplit = splitPayments.length > 1;
+
+      let displayPaymentMethod: string | null = booking.payments[0]?.method || null;
+      let splitPaymentDetails: string | null = null;
+
+      if (isSplit) {
+        displayPaymentMethod = 'SPLIT';
+        const cashPart = splitPayments.find((p) => p.method === 'CASH' || p.notes?.includes('Cash portion'));
+        const upiPart = splitPayments.find((p) => p.method === 'UPI' || p.notes?.includes('UPI/GPay portion'));
+        const cashAmt = cashPart ? Math.round(cashPart.amountPaise / 100) : 0;
+        const upiAmt = upiPart ? Math.round(upiPart.amountPaise / 100) : 0;
+        splitPaymentDetails = `₹${cashAmt} Cash + ₹${upiAmt} UPI`;
+      }
+
       return {
         id: booking.id,
         bookingRef: booking.bookingRef,
@@ -210,7 +228,8 @@ export async function GET(req: NextRequest) {
         staffId: booking.session?.staffId || null,
         paymentId: booking.payments[0]?.id || null,
         paymentStatus: booking.payments[0]?.status || 'UNPAID',
-        paymentMethod: booking.payments[0]?.method || null,
+        paymentMethod: displayPaymentMethod,
+        splitPaymentDetails,
         createdAt: booking.createdAt,
         updatedAt: booking.updatedAt,
         gameTitle: finalGameTitle,
