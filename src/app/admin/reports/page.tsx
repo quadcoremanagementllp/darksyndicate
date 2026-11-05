@@ -66,6 +66,19 @@ export default function AdminReportsPage() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlTimeframe = params.get('timeframe');
+      if (
+        urlTimeframe &&
+        ['all', 'today', 'yesterday', '7d', '30d', 'month', 'custom'].includes(urlTimeframe)
+      ) {
+        setTimeframe(urlTimeframe as any);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     loadReports();
   }, [timeframe, fromDate, toDate]);
 

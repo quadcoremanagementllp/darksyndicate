@@ -80,31 +80,35 @@ export default function AdminDashboardPage() {
 
       {/* 1. Primary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card glass className="p-5 border-ds-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase font-mono text-ds-text-dim">Today's Revenue</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+        <Link href="/admin/reports?timeframe=today" className="block group">
+          <Card glass className="p-5 border-ds-border group-hover:border-emerald-500/50 group-hover:bg-ds-surface/60 transition-all duration-200 cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-mono text-ds-text-dim group-hover:text-emerald-300 transition-colors">Today's Revenue</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500/20 group-hover:scale-105 transition-all">
+                <DollarSign className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <div className="text-2xl font-heading font-black text-emerald-400">
-            {money(kpis?.todayRevenuePaise)}
-          </div>
-          <span className="text-[11px] text-ds-text-dim block mt-1">Completed payments after refunds</span>
-        </Card>
+            <div className="text-2xl font-heading font-black text-emerald-400">
+              {money(kpis?.todayRevenuePaise)}
+            </div>
+            <span className="text-[11px] text-ds-text-dim block mt-1">Completed payments after refunds</span>
+          </Card>
+        </Link>
 
-        <Card glass className="p-5 border-ds-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] uppercase font-mono text-ds-text-dim">Month-to-Date Revenue</span>
-            <div className="w-8 h-8 rounded-lg bg-ds-accent/10 text-ds-ice flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+        <Link href="/admin/reports?timeframe=month" className="block group">
+          <Card glass className="p-5 border-ds-border group-hover:border-cyan-500/50 group-hover:bg-ds-surface/60 transition-all duration-200 cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] uppercase font-mono text-ds-text-dim group-hover:text-cyan-300 transition-colors">Month-to-Date Revenue</span>
+              <div className="w-8 h-8 rounded-lg bg-ds-accent/10 text-ds-ice flex items-center justify-center group-hover:bg-ds-accent/20 group-hover:scale-105 transition-all">
+                <TrendingUp className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <div className="text-2xl font-heading font-black text-ds-ice">
-            {money(kpis?.monthRevenuePaise)}
-          </div>
-          <span className="text-[11px] text-ds-text-dim block mt-1">Current month after refunds</span>
-        </Card>
+            <div className="text-2xl font-heading font-black text-ds-ice">
+              {money(kpis?.monthRevenuePaise)}
+            </div>
+            <span className="text-[11px] text-ds-text-dim block mt-1">Current month after refunds</span>
+          </Card>
+        </Link>
 
         <Card glass className="p-5 border-ds-border">
           <div className="flex items-center justify-between mb-2">
