@@ -1,8 +1,8 @@
 // Dark Syndicate Gaming World - Progressive Web App (PWA) Service Worker
-// Version: 1.4.0
+// Version: 1.4.1
 // Features: Offline Caching, Cache-First Static Assets, Network-First Pages, Web Push & Mobile Vibration
 
-const CACHE_NAME = 'ds-pwa-v1.4.0';
+const CACHE_NAME = 'ds-pwa-v1.4.1';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo-1024.png',
@@ -132,15 +132,21 @@ self.addEventListener('message', (event) => {
 
 // 4. Fetch Strategy:
 // - API calls & mutations: Network-only
+// - Admin routes (/admin): Network-only (never intercepted)
 // - Static images & fonts: Cache-First
 // - Next.js script chunks & CSS: Cache-First with clean network fallback (NEVER return image for script!)
-// - Navigation (HTML pages): Network-First with 2.5s timeout, cache fallback & offline shell
+// - Navigation (HTML pages): Network-First with offline fallback
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Bypass non-GET requests and internal Next.js dev HMR
-  if (req.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.includes('/_next/webpack-hmr')) {
+  // Bypass non-GET requests, API routes, /admin, and internal Next.js dev HMR
+  if (
+    req.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/admin') ||
+    url.pathname.includes('/_next/webpack-hmr')
+  ) {
     return;
   }
 
@@ -185,38 +191,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. HTML Navigation Requests: Network-First with 2.5s Timeout & Offline Fallback
+  // C. HTML Navigation Requests: Network-First with Offline Fallback
   if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      (async () => {
-        try {
-          // Set a 2.5s network timeout so iOS WebKit never hangs indefinitely on wake-up
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-          const networkResponse = await fetch(req, { signal: controller.signal });
-          clearTimeout(timeoutId);
-
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+      fetch(req)
+        .then((networkResponse) => {
+          // Return any response from the server (200, 302, 307 redirects, etc.)
+          if (networkResponse) {
+            if (networkResponse.status === 200) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            }
             return networkResponse;
           }
-        } catch {
-          // Network failed or timed out — fall back to cache below
-        }
+          return new Response(OFFLINE_HTML, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        })
+        .catch(async () => {
+          // Network failed completely (no internet / device offline)
+          const cachedPage = await caches.match(req);
+          if (cachedPage) {
+            return cachedPage;
+          }
 
-        // Try serving cached version of the page if network was slow or offline
-        const cachedPage = await caches.match(req);
-        if (cachedPage) {
-          return cachedPage;
-        }
-
-        // Final fallback: Return branded offline HTML page
-        return new Response(OFFLINE_HTML, {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
-      })()
+          return new Response(OFFLINE_HTML, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        })
     );
     return;
   }
