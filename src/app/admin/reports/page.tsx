@@ -140,7 +140,7 @@ export default function AdminReportsPage() {
 
         {/* Report controls */}
         <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:shrink-0">
-          <div className="flex items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold overflow-x-auto">
+          <div className="flex flex-wrap items-center p-1 rounded-xl bg-ds-surface border border-ds-border text-xs font-heading font-bold no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {([
               { id: 'all', label: 'All' },
               { id: 'today', label: 'Today' },
@@ -153,7 +153,7 @@ export default function AdminReportsPage() {
                 key={tf.id}
                 type="button"
                 onClick={() => { setTimeframe(tf.id); setFromDate(''); setToDate(''); }}
-                className={`px-3 py-1.5 rounded-lg uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg uppercase tracking-wider text-[11px] sm:text-xs transition-colors whitespace-nowrap cursor-pointer ${
                   timeframe === tf.id
                     ? 'bg-ds-accent text-white shadow-glow-sm'
                     : 'text-ds-text-muted hover:text-white'
