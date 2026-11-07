@@ -42,10 +42,24 @@ export async function POST(req: NextRequest) {
         // Concurrency: Check if already active session inside transaction
         const existingSession = await tx.gamingSession.findFirst({
           where: { stationId: data.stationId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
+          include: { booking: true },
         });
 
         if (existingSession) {
+          if (data.bookingId && existingSession.bookingId === data.bookingId) {
+            return existingSession;
+          }
           throw new ValidationError('Station is already running an active session');
+        }
+
+        if (data.bookingId) {
+          const bookingSession = await tx.gamingSession.findFirst({
+            where: { bookingId: data.bookingId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
+            include: { booking: true },
+          });
+          if (bookingSession) {
+            return bookingSession;
+          }
         }
 
         let bookingId = data.bookingId;
@@ -54,16 +68,23 @@ export async function POST(req: NextRequest) {
           // Create instant walk-in booking if no bookingId provided
           let guest = await tx.user.findUnique({ where: { email: 'guest@darksyndicate.in' } });
           if (!guest) {
-            guest = await tx.user.create({
-              data: {
-                email: 'guest@darksyndicate.in',
-                passwordHash: 'LOCKED_GUEST_ACCOUNT',
-                firstName: data.customerName || 'Walk-in',
-                lastName: 'Gamer',
-                phone: data.customerPhone || '9876543210',
-                role: 'CUSTOMER',
-              },
-            });
+            try {
+              guest = await tx.user.create({
+                data: {
+                  email: 'guest@darksyndicate.in',
+                  passwordHash: 'LOCKED_GUEST_ACCOUNT',
+                  firstName: data.customerName || 'Walk-in',
+                  lastName: 'Gamer',
+                  phone: null,
+                  role: 'CUSTOMER',
+                },
+              });
+            } catch {
+              guest = await tx.user.findUnique({ where: { email: 'guest@darksyndicate.in' } });
+            }
+          }
+          if (!guest) {
+            throw new ValidationError('Could not initialize guest profile for walk-in session');
           }
 
           const playerCount = station.stationType === 'POOL_TABLE' ? 4 : 1;

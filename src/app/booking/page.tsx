@@ -1954,6 +1954,11 @@ function BookingContent() {
                       <li>Please arrive 5-10 minutes early to check in with your QR pass.</li>
                       <li>Extra controllers and refreshments are available on demand at the arena.</li>
                     </ul>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[11px]">
+                      <Link href="/terms-and-conditions" target="_blank" className="text-ds-ice underline underline-offset-2">Terms and conditions</Link>
+                      <Link href="/privacy-policy" target="_blank" className="text-ds-ice underline underline-offset-2">Privacy policy</Link>
+                      <Link href="/cancellation-and-refund-policy" target="_blank" className="text-ds-ice underline underline-offset-2">Cancellation and refund policy</Link>
+                    </div>
                   </div>
 
                   {/* Bottom Navigation */}

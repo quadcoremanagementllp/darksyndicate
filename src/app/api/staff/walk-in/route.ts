@@ -159,25 +159,55 @@ export async function POST(req: NextRequest) {
             user = existingByPhone;
             registeredUser = existingByPhone;
           } else {
-            const newCustomer = await tx.user.create({
-              data: {
-                email: userEmail,
-                passwordHash,
-                firstName,
-                lastName,
-                phone: phoneDigits.length === 10 ? phoneDigits : null,
-                role: 'CUSTOMER',
-                status: 'ACTIVE',
-                customerProfile: {
-                  create: {
-                    totalSpent: 0,
-                    totalBookings: 0,
+            try {
+              const newCustomer = await tx.user.create({
+                data: {
+                  email: userEmail,
+                  passwordHash,
+                  firstName,
+                  lastName,
+                  phone: phoneDigits.length === 10 ? phoneDigits : null,
+                  role: 'CUSTOMER',
+                  status: 'ACTIVE',
+                  customerProfile: {
+                    create: {
+                      totalSpent: 0,
+                      totalBookings: 0,
+                    },
                   },
                 },
-              },
-            });
-            user = newCustomer;
-            registeredUser = newCustomer;
+              });
+              user = newCustomer;
+              registeredUser = newCustomer;
+            } catch {
+              const recoverUser = await tx.user.findFirst({
+                where: {
+                  OR: [
+                    { email: userEmail },
+                    ...(phoneDigits.length === 10 ? [{ phone: phoneDigits }] : []),
+                  ],
+                },
+              });
+              if (recoverUser) {
+                user = recoverUser;
+                registeredUser = recoverUser;
+              } else {
+                let guest = await tx.user.findUnique({ where: { email: 'guest@darksyndicate.in' } });
+                if (!guest) {
+                  guest = await tx.user.create({
+                    data: {
+                      email: 'guest@darksyndicate.in',
+                      passwordHash: 'LOCKED_GUEST_ACCOUNT',
+                      firstName: 'Walk-in',
+                      lastName: 'Gamer',
+                      phone: null,
+                      role: 'CUSTOMER',
+                    },
+                  });
+                }
+                user = guest;
+              }
+            }
           }
         } else {
           // Fallback to anonymous guest account only if zero contact info given
@@ -202,10 +232,14 @@ export async function POST(req: NextRequest) {
       let membershipDiscountPaise = 0;
       let membershipPlanName: string | null = null;
       if (registeredUser) {
-        const activeMem = await getActiveUserMembership(registeredUser.id);
-        if (activeMem && activeMem.discountPercent > 0) {
-          membershipPlanName = activeMem.planNameSnapshot;
-          membershipDiscountPaise = Math.round((subtotalPaise * activeMem.discountPercent) / 100);
+        try {
+          const activeMem = await getActiveUserMembership(registeredUser.id);
+          if (activeMem && activeMem.discountPercent > 0) {
+            membershipPlanName = activeMem.planNameSnapshot;
+            membershipDiscountPaise = Math.round((subtotalPaise * activeMem.discountPercent) / 100);
+          }
+        } catch {
+          // Non-fatal if membership lookup fails
         }
       }
       const totalPricePaise = Math.max(0, subtotalPaise - membershipDiscountPaise);
@@ -305,7 +339,7 @@ export async function POST(req: NextRequest) {
               totalFeePaise: totalPricePaise,
             },
           },
-        });
+        }).catch(() => {});
       }
 
       // 12. Mark station OCCUPIED

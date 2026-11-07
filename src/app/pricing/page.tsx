@@ -138,7 +138,7 @@ export default function PricingPage() {
     },
     {
       q: 'What is the cancellation refund policy?',
-      a: 'Cancel at least 2 hours before your scheduled session for a 100% full refund directly to your original payment method. Cancellations within 2 hours are eligible for a free reschedule.',
+      a: 'Cancel at least 2 hours before your scheduled session for a full refund of eligible payments to your original payment method after review. Later cancellations do not receive an automatic refund; contact us if you need help.',
     },
   ];
 

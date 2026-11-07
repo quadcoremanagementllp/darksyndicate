@@ -104,9 +104,14 @@ export async function POST(req: NextRequest) {
           action: 'UPDATE_BOOKING',
           entityType: 'BOOKING',
           entityId: booking.id,
-          details: `${action === 'ADD' ? 'Added' : 'Removed'} extra person for ${booking.customerName || 'Gamer'} on ${booking.station.name}. Total players: ${newCount}, new bill: ₹${(newTotalPricePaise / 100).toFixed(0)}`,
+          details: {
+            action,
+            note: `${action === 'ADD' ? 'Added' : 'Removed'} extra person for ${booking.customerName || 'Gamer'} on ${booking.station.name}. Total players: ${newCount}, new bill: ₹${(newTotalPricePaise / 100).toFixed(0)}`,
+            playerCount: newCount,
+            totalPricePaise: newTotalPricePaise,
+          },
         },
-      });
+      }).catch(() => {});
 
       return { updatedBooking, newCount, newTotalPricePaise };
     });

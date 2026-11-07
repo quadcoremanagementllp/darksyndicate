@@ -1,5 +1,5 @@
-export function canManageStaffSession(role: string | undefined, userId: string | undefined, ownerId: string | null | undefined) {
-  return role === 'ADMIN' || role === 'SUPER_ADMIN' || (role === 'STAFF' && Boolean(userId && ownerId && userId === ownerId));
+export function canManageStaffSession(role: string | undefined, _userId?: string | undefined, _ownerId?: string | null | undefined) {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'STAFF';
 }
 
 export function visibleStaffSessions<T extends { staffId?: string | null }>(sessions: T[], role: string | undefined, userId: string | undefined): T[] {

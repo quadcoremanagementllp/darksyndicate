@@ -46,12 +46,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Try finding by bookingId
+    // 2. Try finding by bookingId (prefer active sessions first)
     if (!session && bookingId) {
       session = await prisma.gamingSession.findFirst({
-        where: { bookingId },
+        where: { bookingId, status: { in: ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'] } },
         include: { station: true, booking: true },
       });
+      if (!session) {
+        session = await prisma.gamingSession.findFirst({
+          where: { bookingId },
+          include: { station: true, booking: true },
+        });
+      }
     }
 
     // 3. Try finding active/extended/overdue session by stationId
@@ -63,7 +69,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (session) {
-      if (session.status === 'COMPLETED') throw new ConflictError('This session has already ended.');
+      if (session.status === 'COMPLETED') {
+        if (session.stationId) {
+          await prisma.gamingStation.update({
+            where: { id: session.stationId },
+            data: { status: 'AVAILABLE' },
+          }).catch(() => {});
+        }
+        return apiSuccess({
+          transferred: false,
+          message: `Session on ${session.station?.name || 'station'} has already ended. Station marked as Available.`,
+          extraMinutes: 0,
+          overtimePaise: 0,
+          finalPricePaise: session.booking?.totalPricePaise || 0,
+          discountPaise: session.booking?.discountPaise || 0,
+          refundedPaise: 0,
+          bookingId: session.bookingId,
+          bookingRef: session.booking?.bookingRef,
+          customerName: session.booking?.customerName,
+          customerPhone: session.booking?.customerPhone,
+        });
+      }
       if (!canManageStaffSession(staffSession.role, staffSession.userId, session.staffId)) {
         throw new ForbiddenError('Only the staff member who started this session or an administrator can end it.');
       }
@@ -146,12 +172,13 @@ export async function POST(req: NextRequest) {
 
         // Store the final offered price and its discount with the completed booking.
         if (session.bookingId) {
+          const currentDiscount = session.booking?.discountPaise || 0;
           await tx.booking.update({
             where: { id: session.bookingId },
             data: {
               status: 'COMPLETED',
               totalPricePaise: checkout.finalPricePaise,
-              ...(checkout.discountPaise > 0 ? { discountPaise: { increment: checkout.discountPaise } } : {}),
+              discountPaise: currentDiscount + checkout.discountPaise,
               ...((discountPaise !== undefined || finalPricePaise !== undefined) ? {
                 notes: `${session.booking?.notes || ''}\n[Checkout: original ₹${(grossPaise / 100).toFixed(2)}, final ₹${(checkout.finalPricePaise / 100).toFixed(2)}, discount ₹${(checkout.discountPaise / 100).toFixed(2)}, by ${staffName}]`.trim(),
               } : {}),
@@ -178,12 +205,22 @@ export async function POST(req: NextRequest) {
           } else {
             // Delete temporary draft tab placeholder lines upon final checkout so no ghost records remain
             if (payments.some((payment) => payment.status === 'PENDING')) {
-              await tx.payment.deleteMany({
-                where: {
-                  bookingId: session.bookingId,
-                  status: 'PENDING',
-                },
-              });
+              try {
+                await tx.payment.deleteMany({
+                  where: {
+                    bookingId: session.bookingId,
+                    status: 'PENDING',
+                  },
+                });
+              } catch {
+                await tx.payment.updateMany({
+                  where: {
+                    bookingId: session.bookingId,
+                    status: 'PENDING',
+                  },
+                  data: { status: 'FAILED' },
+                });
+              }
             }
             // Also settle any linked prior bookings (e.g. PS5 open tab carried over to Snooker)
             let priorPaidSum = 0;
@@ -341,68 +378,233 @@ export async function POST(req: NextRequest) {
         customerPhone: session.booking?.customerPhone,
       });
     } else {
-      // Fallback: If no GamingSession row was found, update Booking & GamingStation directly
-      if (discountPaise !== undefined || finalPricePaise !== undefined) {
-        throw new ValidationError('A live session record is required to adjust its final price.');
-      }
-      if (staffSession.role === 'STAFF') {
-        throw new ForbiddenError('Session ownership cannot be verified. Ask an administrator to end this booking.');
-      }
-      await prisma.$transaction(async (tx) => {
-        if (bookingId) {
-          await tx.booking.update({
+      // Fallback: If no GamingSession row was found, complete Booking & free GamingStation directly
+      const fallbackBooking = bookingId
+        ? await prisma.booking.findUnique({
             where: { id: bookingId },
-            data: { status: 'COMPLETED' },
+            include: { station: true, user: true },
+          })
+        : null;
+
+      const targetStationId = stationId || fallbackBooking?.stationId;
+      const targetStation = targetStationId
+        ? await prisma.gamingStation.findUnique({ where: { id: targetStationId } })
+        : null;
+
+      const overtimeMinutes = extraMinutes && extraMinutes > 0 ? Math.floor(extraMinutes) : 0;
+      const hourlyRatePaise = sessionHourlyRatePaise(
+        targetStation?.stationType || fallbackBooking?.station?.stationType,
+        targetStation?.pricePerHourPaise || fallbackBooking?.station?.pricePerHourPaise || 15000,
+        sessionPlayerCount(fallbackBooking?.notes, targetStation?.stationType || fallbackBooking?.station?.stationType)
+      );
+      const overtimePaise = overtimeMinutes > 0 ? Math.round(hourlyRatePaise * (overtimeMinutes / 60)) : 0;
+
+      const fallbackResult = await prisma.$transaction(async (tx) => {
+        let checkout: ReturnType<typeof calculateSessionCheckout> = {
+          finalPricePaise: fallbackBooking?.totalPricePaise || 0,
+          discountPaise: 0,
+          duePaise: 0,
+          refundPaise: 0,
+        };
+
+        if (fallbackBooking) {
+          const payments = await tx.payment.findMany({
+            where: { bookingId: fallbackBooking.id },
+            include: { refunds: { where: { status: 'COMPLETED' } } },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          const paidPaise = payments
+            .filter((payment) => ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(payment.status))
+            .reduce((sum, payment) => sum + payment.amountPaise - payment.refunds.reduce((refundSum, refund) => refundSum + refund.amountPaise, 0), 0);
+
+          const grossPaise = (fallbackBooking.totalPricePaise || 0) + overtimePaise;
+
+          try {
+            checkout = calculateSessionCheckout(grossPaise, paidPaise, { discountPaise, finalPricePaise });
+          } catch (error) {
+            throw new ValidationError(error instanceof Error ? error.message : 'Invalid checkout price');
+          }
+
+          if (checkout.refundPaise > 0 && !transferTab) {
+            if (!refundConfirmed) throw new ValidationError('Confirm the amount returned to the customer before ending this booking.');
+          }
+
+          const currentDiscount = fallbackBooking.discountPaise || 0;
+          await tx.booking.update({
+            where: { id: fallbackBooking.id },
+            data: {
+              status: 'COMPLETED',
+              totalPricePaise: checkout.finalPricePaise,
+              discountPaise: currentDiscount + checkout.discountPaise,
+              ...((discountPaise !== undefined || finalPricePaise !== undefined) ? {
+                notes: `${fallbackBooking.notes || ''}\n[Checkout: original ₹${(grossPaise / 100).toFixed(2)}, final ₹${(checkout.finalPricePaise / 100).toFixed(2)}, discount ₹${(checkout.discountPaise / 100).toFixed(2)}, by ${staffName}]`.trim(),
+              } : {}),
+            },
           });
 
           if (!transferTab) {
-            await tx.payment.updateMany({
-              where: {
-                bookingId,
-                status: 'PENDING',
-              },
-              data: {
-                status: 'COMPLETED',
-                method: chosenMethod,
-                paidAt: new Date(),
-                recordedByStaffId: staffSession.userId,
-                notes: `Desk tab settled (${chosenMethod}) upon session conclusion by ${staffName}`,
-              },
-            });
+            if (payments.some((p) => p.status === 'PENDING')) {
+              try {
+                await tx.payment.deleteMany({
+                  where: { bookingId: fallbackBooking.id, status: 'PENDING' },
+                });
+              } catch {
+                await tx.payment.updateMany({
+                  where: { bookingId: fallbackBooking.id, status: 'PENDING' },
+                  data: { status: 'FAILED' },
+                });
+              }
+            }
 
+            let priorPaidSum = 0;
             if (settleAdditionalBookingIds && settleAdditionalBookingIds.length > 0) {
-              await tx.payment.updateMany({
+              const priorPending = await tx.payment.findMany({
                 where: {
                   bookingId: { in: settleAdditionalBookingIds },
                   status: 'PENDING',
                 },
-                data: {
-                  status: 'COMPLETED',
-                  method: chosenMethod,
-                  paidAt: new Date(),
-                  recordedByStaffId: staffSession.userId,
-                  notes: `Desk tab settled (${chosenMethod}) in combined multi-game bill by ${staffName}`,
-                },
+                select: { id: true, amountPaise: true, userId: true },
               });
+
+              if (priorPending.length > 0) {
+                priorPaidSum = priorPending.reduce((sum, p) => sum + p.amountPaise, 0);
+                await tx.payment.updateMany({
+                  where: {
+                    bookingId: { in: settleAdditionalBookingIds },
+                    status: 'PENDING',
+                  },
+                  data: {
+                    status: 'COMPLETED',
+                    method: settlePaymentMethod === 'SPLIT' ? 'OTHER' : chosenMethod,
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Desk tab settled (${settlePaymentMethod === 'SPLIT' ? 'Split payment' : chosenMethod}) in combined bill by ${staffName}`,
+                  },
+                });
+
+                for (const pp of priorPending) {
+                  if (pp.amountPaise > 0) {
+                    await tx.customerProfile.updateMany({
+                      where: { userId: pp.userId },
+                      data: { totalSpent: { increment: pp.amountPaise } },
+                    });
+                  }
+                }
+              }
+            }
+
+            const totalDueAtDesk = checkout.duePaise + priorPaidSum;
+
+            if (settlePaymentMethod === 'SPLIT') {
+              const cashPaise = splitCashPaise || 0;
+              const upiPaise = splitUpiPaise || 0;
+              if (cashPaise + upiPaise !== totalDueAtDesk) {
+                throw new ValidationError(`Split amounts (Cash ₹${(cashPaise / 100).toFixed(2)} + UPI ₹${(upiPaise / 100).toFixed(2)}) must equal total bill ₹${(totalDueAtDesk / 100).toFixed(2)}.`);
+              }
+
+              if (cashPaise > 0) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: fallbackBooking.id,
+                    userId: fallbackBooking.userId,
+                    amountPaise: cashPaise,
+                    method: 'CASH',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Split payment: Cash portion (₹${(cashPaise / 100).toFixed(2)}) collected by ${staffName}`,
+                  },
+                });
+              }
+
+              if (upiPaise > 0) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: fallbackBooking.id,
+                    userId: fallbackBooking.userId,
+                    amountPaise: upiPaise,
+                    method: 'UPI',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Split payment: UPI/GPay portion (₹${(upiPaise / 100).toFixed(2)}) collected by ${staffName}`,
+                  },
+                });
+              }
+
+              if (checkout.duePaise > 0) {
+                await tx.customerProfile.updateMany({
+                  where: { userId: fallbackBooking.userId },
+                  data: { totalSpent: { increment: checkout.duePaise } },
+                });
+              }
+            } else {
+              if (checkout.duePaise > 0) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: fallbackBooking.id,
+                    userId: fallbackBooking.userId,
+                    amountPaise: checkout.duePaise,
+                    method: chosenMethod,
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Final session checkout collected via ${chosenMethod} by ${staffName}; final price ₹${(checkout.finalPricePaise / 100).toFixed(2)}`,
+                  },
+                });
+
+                await tx.customerProfile.updateMany({
+                  where: { userId: fallbackBooking.userId },
+                  data: { totalSpent: { increment: checkout.duePaise } },
+                });
+              }
             }
           }
         }
-        if (stationId) {
+
+        if (targetStationId) {
           await tx.gamingStation.update({
-            where: { id: stationId },
+            where: { id: targetStationId },
             data: { status: 'AVAILABLE' },
           });
         }
+
+        await tx.staffActivityLog.create({
+          data: {
+            userId: staffSession.userId,
+            action: transferTab ? 'TRANSFER_TAB' : 'END_SESSION',
+            entityType: 'booking',
+            entityId: fallbackBooking?.id || targetStationId,
+            details: {
+              stationName: targetStation?.name,
+              overtimeMinutes,
+              overtimePaise,
+              finalPricePaise: checkout.finalPricePaise,
+              discountPaise: checkout.discountPaise,
+              staffName,
+              transferTab: Boolean(transferTab),
+            },
+          },
+        }).catch(() => {});
+
+        return checkout;
       });
 
       return apiSuccess({
         transferred: Boolean(transferTab),
         message: transferTab
-          ? 'Station is now Available! Open tab preserved for next game.'
-          : extraMinutes && extraMinutes > 0
-          ? `Session ended (${Math.floor(extraMinutes)}m extra time recorded). Station is now Available.`
-          : 'Session ended successfully! Station marked as Available.',
-        extraMinutes: extraMinutes ? Math.floor(extraMinutes) : 0,
+          ? `Booking on ${targetStation?.name || 'station'} concluded and station is now Available! Open tab preserved for next game.`
+          : `Booking on ${targetStation?.name || 'station'} concluded at ₹${(fallbackResult.finalPricePaise / 100).toFixed(2)}. Station is now Available.`,
+        extraMinutes: overtimeMinutes,
+        overtimePaise,
+        finalPricePaise: fallbackResult.finalPricePaise,
+        discountPaise: fallbackResult.discountPaise,
+        refundedPaise: fallbackResult.refundPaise,
+        bookingId: fallbackBooking?.id,
+        bookingRef: fallbackBooking?.bookingRef,
+        customerName: fallbackBooking?.customerName,
+        customerPhone: fallbackBooking?.customerPhone,
       });
     }
   } catch (error) {

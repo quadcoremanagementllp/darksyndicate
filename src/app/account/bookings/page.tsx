@@ -277,8 +277,9 @@ export default function MyBookingsPage() {
               <div>
                 <p className="font-bold">Cancellation Policy Notice</p>
                 <p className="mt-1">
-                  Cancellations initiated at least 2 hours prior to the session start time are eligible for a 100% refund to the original payment source.
+                  Cancellations initiated at least 2 hours before the session start are eligible for a full refund of completed payments. Refunds are queued for staff review and returned to the original payment method.
                 </p>
+                <Link href="/cancellation-and-refund-policy" target="_blank" className="inline-block mt-2 underline underline-offset-2">Read the full cancellation and refund policy</Link>
               </div>
             </div>
 

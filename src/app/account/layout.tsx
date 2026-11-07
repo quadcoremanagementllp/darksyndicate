@@ -171,15 +171,14 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
               <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
             </Link>
 
-            <a
-              href="https://wa.me/919876543210"
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              href="/contact"
+              onClick={() => setIsMobileOpen(false)}
               className="flex items-center justify-between px-3 py-2 rounded-xl text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors"
             >
-              <span>WhatsApp Help Desk</span>
+              <span>Contact the Venue</span>
               <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
-            </a>
+            </Link>
 
             <button
               type="button"
@@ -379,15 +378,13 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
             {/* Arena Info Box */}
             <div className="p-4 rounded-2xl bg-ds-dark/60 border border-ds-border text-xs space-y-2 text-ds-text-muted">
               <p className="font-heading font-bold text-ds-text uppercase">Need Assistance?</p>
-              <p>Front desk hotline is active during all open hours (10 AM - 12 AM).</p>
-              <a
-                href="https://wa.me/919876543210"
-                target="_blank"
-                rel="noreferrer"
+              <p>Questions about your booking or payment? Send us a message.</p>
+              <Link
+                href="/contact"
                 className="text-emerald-400 font-semibold block hover:underline"
               >
-                WhatsApp Help Desk →
-              </a>
+                Contact the Venue →
+              </Link>
             </div>
           </aside>
 
@@ -424,16 +421,14 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
             <div className="mt-8 mb-4 lg:hidden p-4 rounded-2xl bg-ds-surface/40 border border-ds-border/60 text-xs flex items-center justify-between gap-3 text-ds-text-muted">
               <div>
                 <p className="font-heading font-bold text-ds-text uppercase">Need Assistance?</p>
-                <p className="text-[11px] text-ds-text-dim">Front desk hotline (10 AM – 12 AM)</p>
+                <p className="text-[11px] text-ds-text-dim">Questions about a booking or payment?</p>
               </div>
-              <a
-                href="https://wa.me/919876543210"
-                target="_blank"
-                rel="noreferrer"
+              <Link
+                href="/contact"
                 className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-heading font-bold text-xs hover:bg-emerald-500/20 shrink-0"
               >
-                WhatsApp Help →
-              </a>
+                Contact Us →
+              </Link>
             </div>
           </div>
         </div>

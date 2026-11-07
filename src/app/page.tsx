@@ -4,7 +4,6 @@ import {
   Gamepad2,
   Sparkles,
   Calendar,
-  Clock,
   Shield,
   Award,
   ChevronRight,
@@ -12,7 +11,6 @@ import {
   Star,
   MapPin,
   Phone,
-  MessageCircle,
   Tv,
   Headphones,
   CheckCircle2,
@@ -426,17 +424,13 @@ export default function HomePage() {
                   READY TO ENTER <span className="gradient-text">THE SYNDICATE?</span>
                 </h3>
                 <p className="text-ds-text-muted text-sm sm:text-base leading-relaxed">
-                  Located conveniently in the central gaming district. Walk-ins are always welcome, but advance online reservations guarantee your preferred console and table slot.
+                  Visit the arena or reserve a session online to choose your preferred console or table slot.
                 </p>
 
                 <div className="space-y-2 text-sm pt-2">
                   <div className="flex items-center gap-2 text-ds-text">
-                    <Clock className="w-4 h-4 text-ds-accent" />
-                    <span>Open 7 Days: 10:00 AM – 12:00 AM Midnight</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-ds-text">
                     <MapPin className="w-4 h-4 text-ds-accent" />
-                    <span>Dark Syndicate Arena, Main Commercial Hub</span>
+                    <a href="https://maps.app.goo.gl/PFuypQdnfK9Zc5wSA?g_st=iw" target="_blank" rel="noopener noreferrer" className="hover:text-ds-ice hover:underline">Find the venue on Google Maps</a>
                   </div>
                 </div>
 
@@ -446,12 +440,11 @@ export default function HomePage() {
                       Book Now Online
                     </Button>
                   </Link>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer">
+                  <Link href="/contact">
                     <Button variant="outline" size="lg">
-                      <MessageCircle className="w-4 h-4 mr-2 text-emerald-400" />
-                      WhatsApp Quick Chat
+                      Contact Us
                     </Button>
-                  </a>
+                  </Link>
                 </div>
               </div>
 

@@ -43,12 +43,18 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 2. Try finding by bookingId
+      // 2. Try finding by bookingId (prefer active sessions first)
       if (!session && data.bookingId) {
         session = await prisma.gamingSession.findFirst({
-          where: { bookingId: data.bookingId },
+          where: { bookingId: data.bookingId, status: { in: ['ACTIVE', 'EXTENDED', 'OVERDUE', 'PAUSED'] } },
           include: { station: true, booking: true },
         });
+        if (!session) {
+          session = await prisma.gamingSession.findFirst({
+            where: { bookingId: data.bookingId },
+            include: { station: true, booking: true },
+          });
+        }
       }
 
       // 3. Try finding active/extended/overdue session by stationId
@@ -257,9 +263,6 @@ export async function POST(req: NextRequest) {
 
       // If no session row, fallback to bookingId directly
       if (data.bookingId) {
-        if (staffSession.role === 'STAFF') {
-          throw new ForbiddenError('Session ownership cannot be verified. Ask an administrator to extend this booking.');
-        }
         const booking = await prisma.booking.findUnique({
           where: { id: data.bookingId },
           include: { station: true },

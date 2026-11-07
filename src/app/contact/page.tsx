@@ -4,15 +4,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   MapPin,
-  Phone,
-  Mail,
-  Clock,
-  MessageCircle,
   Send,
   CheckCircle,
-  AlertCircle,
-  HelpCircle,
-  Sparkles,
 } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -80,7 +73,7 @@ export default function ContactPage() {
           {/* Header */}
           <div data-scroll-reveal="" className="text-center max-w-3xl mx-auto space-y-4">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-ds-surface border border-ds-accent/30 text-xs font-heading font-bold uppercase tracking-[0.2em] text-ds-ice">
-              <Mail className="w-3.5 h-3.5 text-ds-accent" />
+              <MapPin className="w-3.5 h-3.5 text-ds-accent" />
               Direct Communication
             </span>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-heading font-extrabold tracking-tight uppercase">
@@ -94,105 +87,16 @@ export default function ContactPage() {
           <div data-scroll-reveal="" className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             {/* Left Column: Venue Info & Operating Hours */}
             <div className="lg:col-span-5 space-y-6">
-              {/* Arena Info Card */}
-              <Card glass className="p-5 sm:p-8 border-ds-accent/30 space-y-6">
-                <h3 className="font-heading font-bold text-xl text-ds-text uppercase">
-                  Arena Headquarters
-                </h3>
-
-                <ul className="space-y-4 text-sm">
-                  <li className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-ds-primary/20 border border-ds-primary/40 flex items-center justify-center shrink-0 mt-0.5 text-ds-accent">
-                      <MapPin className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ds-text">Physical Address</p>
-                      <p className="text-xs text-ds-text-muted mt-0.5 leading-relaxed">
-                        DARK SYNDICATE GAMING WORLD
-                        <br />
-                        Plot 42, 1st Cross Street, Main Commercial Hub
-                        <br />
-                        Anna Nagar, Chennai, Tamil Nadu 600040
-                      </p>
-                    </div>
-                  </li>
-
-                  <li className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 text-emerald-400">
-                      <Phone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ds-text">Phone & WhatsApp</p>
-                      <a href="tel:+919876543210" className="text-xs text-ds-ice hover:underline block mt-0.5">
-                        +91 98765 43210 (Desk Direct)
-                      </a>
-                      <a
-                        href="https://wa.me/919876543210"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-emerald-400 hover:underline block mt-0.5"
-                      >
-                        Chat on WhatsApp (Instant Reply)
-                      </a>
-                    </div>
-                  </li>
-
-                  <li className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-ds-surface border border-ds-border flex items-center justify-center shrink-0 mt-0.5 text-ds-accent">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ds-text">Email Inquiries</p>
-                      <a href="mailto:support@darksyndicate.com" className="text-xs text-ds-ice hover:underline block mt-0.5">
-                        support@darksyndicate.com
-                      </a>
-                    </div>
-                  </li>
-
-                  <li className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-ds-surface border border-ds-border flex items-center justify-center shrink-0 mt-0.5 text-amber-400">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-ds-text">Operating Timetable</p>
-                      <p className="text-xs text-ds-text-muted mt-0.5">
-                        Monday – Sunday: 10:00 AM – 12:00 AM Midnight
-                      </p>
-                      <p className="text-[11px] text-emerald-400 font-semibold mt-0.5">
-                        Open all 365 days including public holidays
-                      </p>
-                    </div>
-                  </li>
-                </ul>
-
-                <div className="pt-4 border-t border-ds-border">
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noreferrer" className="block w-full">
-                    <Button variant="accent" className="w-full justify-center">
-                      <MessageCircle className="w-4 h-4 mr-2 text-emerald-300" />
-                      Instant WhatsApp Support
-                    </Button>
-                  </a>
+              <Card glass className="p-5 sm:p-8 border-ds-accent/30 space-y-5">
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-6 h-6 text-ds-accent" />
+                  <h3 className="font-heading font-bold text-xl text-ds-text uppercase">Visit the Arena</h3>
                 </div>
-              </Card>
-
-              {/* Map Preview Mock */}
-              <div className="rounded-2xl bg-ds-surface/60 border border-ds-border p-5 text-center space-y-2">
-                <MapPin className="w-6 h-6 text-ds-accent mx-auto" />
-                <h4 className="font-heading font-bold text-sm text-ds-text uppercase">
-                  Finding Us Is Easy
-                </h4>
-                <p className="text-xs text-ds-text-muted">
-                  Located right opposite Central Mall with designated two-wheeler & car parking available.
-                </p>
-                <a
-                  href="https://maps.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block text-xs font-heading font-bold text-ds-ice hover:underline pt-1"
-                >
+                <p className="text-sm text-ds-text-muted">View the venue location and directions on Google Maps.</p>
+                <a href="https://maps.app.goo.gl/PFuypQdnfK9Zc5wSA?g_st=iw" target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-heading font-bold text-ds-ice hover:underline">
                   Open in Google Maps →
                 </a>
-              </div>
+              </Card>
             </div>
 
             {/* Right Column: Interactive Contact Form */}
@@ -203,7 +107,7 @@ export default function ContactPage() {
                     SEND US A <span className="gradient-text">MESSAGE</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-ds-text-muted mt-1">
-                    Fill out the form below and an arena manager will reach back within 2 business hours.
+                    Fill out the form below and our team will review your message.
                   </p>
                 </div>
 

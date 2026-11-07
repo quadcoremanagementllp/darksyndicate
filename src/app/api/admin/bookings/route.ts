@@ -74,11 +74,9 @@ export async function GET(req: NextRequest) {
           ...(stationId ? { stationId } : {}),
           AND: [
             ...(dayFilter ? [dayFilter] : []),
+            // Allow staff and admins to view venue bookings
             ...(viewer.role === 'STAFF' && !status
-              ? [{ OR: [{ status: { not: 'COMPLETED' as const } }, { session: { is: { staffId: viewer.userId } } }] }]
-              : []),
-            ...(viewer.role === 'STAFF' && status === 'COMPLETED'
-              ? [{ session: { is: { staffId: viewer.userId } } }]
+              ? []
               : []),
           ],
           ...(search
