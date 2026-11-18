@@ -209,7 +209,7 @@ export default function StaffStationGridPage() {
       if (json.success) {
         toast.success(
           json.data?.message ||
-            (action === 'REMOVE' ? 'Extra person undone (-₹50)' : 'Extra person added (+₹50)')
+            (action === 'REMOVE' ? 'Player updated' : 'Player added')
         );
         loadData();
         if (typeof window !== 'undefined') {
@@ -901,34 +901,36 @@ export default function StaffStationGridPage() {
                               </div>
 
                               {/* Bottom Actions Row */}
-                              {canManage && <div className={`pt-1.5 border-t border-ds-border/40 ${(station.activeSession?.playerCount || 4) > 4 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
-                                {(station.activeSession?.playerCount || 4) > 4 && (
+                              {canManage && (
+                                <div className={`pt-1.5 border-t border-ds-border/40 ${(station.activeSession?.playerCount || 4) > 1 ? 'grid grid-cols-2 gap-2' : 'flex justify-end'}`}>
+                                  {(station.activeSession?.playerCount || 4) > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleExtraPlayerAction(station, 'REMOVE');
+                                      }}
+                                      className="h-7.5 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-500/50 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap"
+                                      title={(station.activeSession?.playerCount || 4) > 4 ? "Undo 1 extra person (-₹50)" : "Undo 1 person"}
+                                    >
+                                      <RotateCcw className="w-3 h-3 text-rose-400" />
+                                      <span>{(station.activeSession?.playerCount || 4) > 4 ? "Undo (-₹50)" : "Undo"}</span>
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleExtraPlayerAction(station, 'REMOVE');
+                                      handleExtraPlayerAction(station, 'ADD');
                                     }}
-                                    className="h-7.5 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-500/50 text-rose-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap"
-                                    title="Undo 1 extra person (-₹50)"
+                                    className={`h-7.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap ${(station.activeSession?.playerCount || 4) <= 1 ? 'w-full' : ''}`}
+                                    title={(station.activeSession?.playerCount || 4) >= 4 ? "Add 1 extra person (+₹50)" : "Add 1 person (Included in base rate)"}
                                   >
-                                    <RotateCcw className="w-3 h-3 text-rose-400" />
-                                    <span>Undo (-₹50)</span>
+                                    <UserPlus className="w-3 h-3 text-emerald-400" />
+                                    <span>{(station.activeSession?.playerCount || 4) >= 4 ? "+ Person (+₹50)" : "+ Person (Included)"}</span>
                                   </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExtraPlayerAction(station, 'ADD');
-                                  }}
-                                  className={`h-7.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-white font-mono font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-sm whitespace-nowrap ${(station.activeSession?.playerCount || 4) <= 4 ? 'w-full' : ''}`}
-                                  title="Add 1 extra person (+₹50)"
-                                >
-                                  <UserPlus className="w-3 h-3 text-emerald-400" />
-                                  <span>+ Person (+₹50)</span>
-                                </button>
-                              </div>}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

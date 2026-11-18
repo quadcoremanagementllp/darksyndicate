@@ -55,15 +55,26 @@ export async function POST(req: NextRequest) {
     const playerMatch = booking.notes?.match(/\[Players:\s*(\d+)\]/i);
     const currentCount = playerMatch ? parseInt(playerMatch[1], 10) : (isSnooker ? 4 : 1);
 
-    let newCount = action === 'ADD' ? currentCount + 1 : currentCount - 1;
-    if (newCount < 1) newCount = 1;
-    if (action === 'REMOVE' && currentCount <= 4 && isSnooker) {
-      throw new ValidationError('Cannot remove below 4 base players included for Snooker table');
+    if (action === 'REMOVE' && currentCount <= 1) {
+      throw new ValidationError('Cannot reduce below 1 player');
     }
 
-    // Rate calculation: +₹50 per extra person (5000 paise)
-    const extraFeePaise = 5000;
-    const deltaPaise = action === 'ADD' ? extraFeePaise : -extraFeePaise;
+    const newCount = action === 'ADD' ? currentCount + 1 : Math.max(1, currentCount - 1);
+
+    // Rate calculation:
+    // For Snooker tables, the base table rate includes up to 4 players.
+    // An extra fee of ₹50 (5000 paise) is only charged for members ABOVE 4 (5th, 6th, etc.).
+    let deltaPaise = 0;
+    if (isSnooker) {
+      if (action === 'ADD') {
+        deltaPaise = currentCount >= 4 ? 5000 : 0;
+      } else {
+        deltaPaise = currentCount > 4 ? -5000 : 0;
+      }
+    } else {
+      deltaPaise = action === 'ADD' ? 5000 : -5000;
+    }
+
     const newTotalPricePaise = Math.max(0, booking.totalPricePaise + deltaPaise);
 
     // Update notes
@@ -73,7 +84,11 @@ export async function POST(req: NextRequest) {
     } else {
       updatedNotes = `[Players: ${newCount}]. ` + updatedNotes;
     }
-    updatedNotes += ` [${action === 'ADD' ? '+' : '-'}1 Extra Person by ${staffName} (${newCount} total)]`;
+    const deltaNote =
+      deltaPaise !== 0
+        ? ` (${deltaPaise > 0 ? '+₹' : '-₹'}${Math.abs(deltaPaise / 100)})`
+        : ' (Base included)';
+    updatedNotes += ` [${action === 'ADD' ? '+' : '-'}1 Person by ${staffName} (${newCount} total${deltaNote})]`;
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Update Booking
@@ -88,11 +103,15 @@ export async function POST(req: NextRequest) {
       // 2. Update Pending Payment (if on Tab / Pay on Exit)
       const pendingPayment = booking.payments.find((p) => p.status === 'PENDING') || booking.payments[0];
       if (pendingPayment) {
+        const paymentDeltaText =
+          deltaPaise !== 0
+            ? ` [Extra person ${deltaPaise > 0 ? '+₹50' : '-₹50'} by ${staffName}]`
+            : ` [Player count adjusted to ${newCount} by ${staffName}]`;
         await tx.payment.update({
           where: { id: pendingPayment.id },
           data: {
             amountPaise: newTotalPricePaise,
-            notes: (pendingPayment.notes || '') + ` [Extra person ${action === 'ADD' ? '+₹50' : '-₹50'} by ${staffName}]`,
+            notes: (pendingPayment.notes || '') + paymentDeltaText,
           },
         });
       }
@@ -106,8 +125,9 @@ export async function POST(req: NextRequest) {
           entityId: booking.id,
           details: {
             action,
-            note: `${action === 'ADD' ? 'Added' : 'Removed'} extra person for ${booking.customerName || 'Gamer'} on ${booking.station.name}. Total players: ${newCount}, new bill: ₹${(newTotalPricePaise / 100).toFixed(0)}`,
+            note: `${action === 'ADD' ? 'Added' : 'Removed'} person for ${booking.customerName || 'Gamer'} on ${booking.station.name}. Total players: ${newCount}, bill: ₹${(newTotalPricePaise / 100).toFixed(0)}${deltaNote}`,
             playerCount: newCount,
+            deltaPaise,
             totalPricePaise: newTotalPricePaise,
           },
         },
@@ -116,12 +136,22 @@ export async function POST(req: NextRequest) {
       return { updatedBooking, newCount, newTotalPricePaise };
     });
 
+    const feeMessage =
+      deltaPaise > 0
+        ? `Added extra person (+₹${deltaPaise / 100})`
+        : deltaPaise < 0
+        ? `Removed extra person (-₹${Math.abs(deltaPaise / 100)})`
+        : action === 'ADD'
+        ? 'Player added (included in base rate)'
+        : 'Player removed (base rate)';
+
     return apiSuccess({
       bookingId: booking.id,
       playerCount: result.newCount,
       totalPricePaise: result.newTotalPricePaise,
       totalPriceRupees: Math.round(result.newTotalPricePaise / 100),
-      message: `${action === 'ADD' ? 'Added extra person (+₹50)' : 'Removed extra person (-₹50)'}. Total: ${result.newCount} players.`,
+      deltaPaise,
+      message: `${feeMessage}. Total: ${result.newCount} players.`,
     });
   } catch (err) {
     return handleApiError(err);
