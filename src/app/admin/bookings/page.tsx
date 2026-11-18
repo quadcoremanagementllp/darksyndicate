@@ -525,7 +525,250 @@ export default function AdminBookingsPage() {
           )}
         </Card>
       ) : (
-        <Card glass className="border-ds-border overflow-hidden shadow-lg">
+                <div className="space-y-3">
+          {/* Mobile Select All Bar */}
+          <div className="lg:hidden flex items-center justify-between px-3.5 py-2.5 bg-ds-surface/60 rounded-xl border border-ds-border text-xs text-ds-text-dim">
+            <button
+              type="button"
+              onClick={handleSelectAllVisible}
+              className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+            >
+              {allVisibleSelected ? (
+                <CheckSquare className="w-4 h-4 text-rose-400" />
+              ) : (
+                <Square className="w-4 h-4 text-ds-border hover:text-ds-text" />
+              )}
+              <span className="font-medium text-ds-text">
+                {allVisibleSelected ? 'Deselect All' : `Select All Visible (${filteredBookings.length})`}
+              </span>
+            </button>
+            <span className="font-mono text-[10px] text-ds-text-muted">
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : `${filteredBookings.length} total`}
+            </span>
+          </div>
+
+          {/* Mobile Card List (under lg screen width) */}
+          <div className="lg:hidden space-y-3">
+            {filteredBookings.map((b) => {
+              const canMarkPaid =
+                b.paymentStatus !== 'COMPLETED' &&
+                !['CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'].includes(b.status);
+              const canCancelOrNoShow = ['PENDING', 'CONFIRMED'].includes(b.status);
+              const isBusy = actionLoadingId === b.id;
+              const isRowSelected = selectedIds.includes(b.id);
+
+              return (
+                <div
+                  key={`mobile-${b.id}`}
+                  className={`rounded-2xl border p-4 space-y-3.5 shadow-md transition-all ${
+                    isRowSelected
+                      ? 'border-rose-500/50 bg-rose-500/10 shadow-rose-950/30'
+                      : 'border-ds-border bg-ds-surface/60 hover:border-ds-accent/30'
+                  }`}
+                >
+                  {/* Top Header: Checkbox + Ref + Channel + Status */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelect(b.id)}
+                        className="text-ds-text-dim hover:text-white transition-colors cursor-pointer shrink-0"
+                        aria-label={isRowSelected ? 'Deselect booking' : 'Select booking'}
+                      >
+                        {isRowSelected ? (
+                          <CheckSquare className="w-4 h-4 text-rose-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-ds-border hover:text-ds-text" />
+                        )}
+                      </button>
+                      <span className="font-mono font-bold text-xs text-ds-ice bg-ds-dark/90 border border-ds-border/80 px-2 py-0.5 rounded-lg select-all tracking-tight shadow-sm truncate">
+                        {b.bookingRef}
+                      </span>
+                      {b.isWalkIn ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-amber-300 font-heading font-bold text-[9px] uppercase tracking-wider shrink-0">
+                          <UserCheck className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                          <span>Desk</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/25 text-sky-400 font-heading font-bold text-[9px] uppercase tracking-wider shrink-0">
+                          <Globe className="w-2.5 h-2.5 text-sky-400 shrink-0" />
+                          <span>Online</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <Badge
+                      variant={
+                        b.status === 'CONFIRMED'
+                          ? 'success'
+                          : b.status === 'IN_PROGRESS' || b.status === 'CHECKED_IN'
+                          ? 'accent'
+                          : b.status === 'COMPLETED'
+                          ? 'default'
+                          : b.status === 'CANCELLED' || b.status === 'NO_SHOW'
+                          ? 'danger'
+                          : 'warning'
+                      }
+                      size="sm"
+                      className="font-mono text-[10px] whitespace-nowrap shrink-0"
+                    >
+                      {b.status}
+                    </Badge>
+                  </div>
+
+                  {/* Details Grid: Station & Player */}
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-1 border-t border-ds-border/40">
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-[10px] font-mono text-ds-text-dim uppercase tracking-wider block">Station</span>
+                      <p className="font-heading font-bold text-ds-text truncate">{b.stationName}</p>
+                      <p className="text-[10px] text-ds-accent truncate">{b.facilityName}</p>
+                      {b.gameTitle && (
+                        <p className="text-[11px] text-ds-cyan font-mono truncate">🎮 {b.gameTitle}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-[10px] font-mono text-ds-text-dim uppercase tracking-wider block">Customer</span>
+                      <p className="font-heading font-bold text-ds-text truncate">{b.customerName}</p>
+                      <p className="text-[11px] text-ds-text-dim truncate">{b.customerPhone || b.customerEmail || '—'}</p>
+                      {b.isWalkIn && b.staffName && (
+                        <p className="text-[10px] text-ds-text-muted font-mono truncate">By {b.staffName}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Timing & Financial Info */}
+                  <div className="grid grid-cols-2 gap-3 text-xs bg-ds-dark/60 p-2.5 rounded-xl border border-ds-border/60">
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-[10px] font-mono text-ds-text-dim uppercase tracking-wider block">Time Slot</span>
+                      <p className="font-mono font-bold text-ds-ice text-xs">
+                        {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                        {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p className="text-[10px] text-ds-text-dim font-mono">
+                        {new Date(b.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+
+                    <div className="space-y-0.5 min-w-0 text-right">
+                      <span className="text-[10px] font-mono text-ds-text-dim uppercase tracking-wider block">Amount & Mode</span>
+                      <p className="font-heading font-extrabold text-white text-sm">
+                        ₹{(b.totalPricePaise / 100).toFixed(0)}
+                      </p>
+                      {b.paymentMethod === 'SPLIT' ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-[10px] font-mono font-bold text-cyan-300">SPLIT</span>
+                          {b.splitPaymentDetails && (
+                            <span className="text-[9px] font-mono text-ds-text-dim truncate max-w-[140px]">
+                              {b.splitPaymentDetails}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-mono text-ds-text-muted">{b.paymentMethod || '—'}</span>
+                      )}
+                      <span
+                        className={`text-[9px] font-mono font-semibold block uppercase ${
+                          b.paymentStatus === 'COMPLETED'
+                            ? 'text-emerald-400'
+                            : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
+                            ? 'text-amber-400'
+                            : 'text-rose-400'
+                        }`}
+                      >
+                        {b.paymentStatus}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-ds-border/50 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {canMarkPaid && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleBookingAction(b, 'MARK_PAID', 'CASH')}
+                            className="px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Settle Pending Payment via Cash"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Cash</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleBookingAction(b, 'MARK_PAID', 'UPI')}
+                            className="px-2 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Settle Pending Payment via UPI"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>UPI</span>
+                          </button>
+                        </>
+                      )}
+                      {canCancelOrNoShow && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleBookingAction(b, 'NO_SHOW')}
+                            className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-300 hover:bg-amber-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
+                            title="Mark as No-Show"
+                          >
+                            No-Show
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleBookingAction(b, 'CANCEL')}
+                            className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[10px] font-heading font-bold uppercase transition-colors cursor-pointer"
+                            title="Cancel Reservation"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank">
+                        <Button variant="outline" size="sm" className="text-[11px] py-1 px-2.5 cursor-pointer">
+                          <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                          <span>Pass</span>
+                        </Button>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBooking(b)}
+                        className="p-1.5 rounded-lg border border-ds-border text-ds-ice hover:border-ds-accent hover:bg-ds-surface transition-colors cursor-pointer"
+                        title={`View details for ${b.bookingRef}`}
+                        aria-label={`View details for ${b.bookingRef}`}
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={deleteLoadingId === b.id || isBusy}
+                        onClick={() => handleDeleteSingle(b)}
+                        className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/25 hover:text-rose-300 transition-colors disabled:opacity-50 cursor-pointer"
+                        title={`Delete reservation ${b.bookingRef}`}
+                        aria-label={`Delete reservation ${b.bookingRef}`}
+                      >
+                        <Trash2 className={`w-3.5 h-3.5 ${deleteLoadingId === b.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table (Visible on lg and above) */}
+          <Card glass className="hidden lg:block border-ds-border overflow-hidden shadow-lg">
           <p className="xl:hidden px-4 py-2.5 border-b border-ds-border bg-ds-dark/95 text-[11px] font-mono text-ds-text-dim">
             Swipe horizontally to see all columns.
           </p>
@@ -776,7 +1019,8 @@ export default function AdminBookingsPage() {
               </tbody>
             </table>
           </div>
-        </Card>
+          </Card>
+        </div>
       )}
 
       <Modal
