@@ -20,6 +20,7 @@ import {
   Download,
   CreditCard,
   Layers,
+  Crown,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -267,9 +268,12 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       stationName: booking.stationName,
       stationType: booking.stationType,
       bookingId: booking.id,
+      userId: booking.userId,
       customerName: booking.customerName,
       customerPhone: booking.customerPhone,
       bookingRef: booking.bookingRef,
+      durationMinutes: booking.durationMinutes,
+      syndicatePass: booking.syndicatePass || null,
       scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
       pricePerHourPaise: sessionHourlyRatePaise(booking.stationType, booking.pricePerHourPaise || 15000, booking.playerCount || 1),
       gameTitle: booking.gameTitle || booking.session?.gameTitle || null,
@@ -884,6 +888,18 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           </span>
                           <span className="font-mono text-white shrink-0">
                             +₹{((b.priorUnpaidPaise || 0) / 100).toFixed(0)}
+                          </span>
+                        </div>
+                      )}
+
+                      {b.syndicatePass && (
+                        <div className="flex items-center justify-between text-[11px] font-heading font-bold text-purple-200 bg-purple-950/40 border border-purple-500/30 px-2.5 py-1 rounded-lg">
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Crown className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span className="truncate">👑 {b.syndicatePass.planName}</span>
+                          </span>
+                          <span className="font-mono text-cyan-300 font-bold shrink-0">
+                            {b.syndicatePass.remainingHours}h left
                           </span>
                         </div>
                       )}

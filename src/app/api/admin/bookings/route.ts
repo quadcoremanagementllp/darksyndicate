@@ -193,6 +193,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Resolve active Syndicate Passes for quick detection in staff panels
+    const activeMemberships = await prisma.membership.findMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        user: { select: { id: true, phone: true } },
+      },
+    }).catch(() => []);
+
+    const passByUserId = new Map<string, typeof activeMemberships[0]>();
+    const passByPhoneDigits = new Map<string, typeof activeMemberships[0]>();
+
+    for (const mem of activeMemberships) {
+      if (mem.userId) passByUserId.set(mem.userId, mem);
+      const digits = (mem.user?.phone || '').replace(/\D/g, '').slice(-10);
+      if (digits.length >= 10) passByPhoneDigits.set(digits, mem);
+    }
+
     const mappedBookings = bookings.map((booking) => {
       const isWalkIn = Boolean(booking.isWalkIn);
       let staffName: string | null = null;
@@ -321,12 +341,50 @@ export async function GET(req: NextRequest) {
         splitPaymentDetails = `₹${cashAmt} Cash + ₹${upiAmt} UPI`;
       }
 
+      // Check if player has an active Syndicate Pass
+      const matchedPass =
+        passByUserId.get(booking.userId) ||
+        (currentPhoneDigits.length >= 10 ? passByPhoneDigits.get(currentPhoneDigits) : null);
+
+      let syndicatePass: {
+        id: string;
+        planName: string;
+        tier: string;
+        discountPercent: number;
+        totalHours: number;
+        usedHours: number;
+        remainingMinutes: number;
+        remainingHours: number;
+        hasHoursAvailable: boolean;
+      } | null = null;
+
+      if (matchedPass) {
+        const totalMinutes = (matchedPass.totalHours || 0) * 60;
+        const remainingMinutes = Math.max(0, totalMinutes - (matchedPass.usedMinutes || 0));
+        const remainingHours = Number((remainingMinutes / 60).toFixed(2));
+        const usedHours = Number(((matchedPass.usedMinutes || 0) / 60).toFixed(2));
+
+        syndicatePass = {
+          id: matchedPass.id,
+          planName: matchedPass.planNameSnapshot,
+          tier: matchedPass.tierSnapshot,
+          discountPercent: matchedPass.discountPercent,
+          totalHours: matchedPass.totalHours,
+          usedHours,
+          remainingMinutes,
+          remainingHours,
+          hasHoursAvailable: remainingMinutes > 0,
+        };
+      }
+
       return {
         id: booking.id,
         bookingRef: booking.bookingRef,
+        userId: booking.userId,
         customerName: booking.customerName || `${booking.user.firstName} ${booking.user.lastName}`.trim(),
         customerEmail: booking.user.email,
         customerPhone: booking.customerPhone || booking.user.phone,
+        syndicatePass,
         stationId: booking.stationId,
         stationName: booking.station.name,
         facilityName: booking.station.facility.name,

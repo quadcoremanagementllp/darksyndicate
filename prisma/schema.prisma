@@ -640,6 +640,8 @@ model Membership {
   planNameSnapshot String           @map("plan_name_snapshot")
   tierSnapshot     String           @default("SILVER") @map("tier_snapshot")
   discountPercent  Int              @default(10) @map("discount_percent")
+  totalHours       Int              @default(0) @map("total_hours")
+  usedMinutes      Int              @default(0) @map("used_minutes")
   pricePaidPaise   Int              @default(0) @map("price_paid_paise")
   paymentMethod    PaymentMethod    @default(UPI) @map("payment_method")
   paymentId        String?          @map("payment_id")
@@ -652,11 +654,37 @@ model Membership {
 
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan             MembershipPlan   @relation(fields: [planId], references: [id])
+  usageLogs        MembershipUsageLog[]
 
   @@index([userId])
   @@index([status])
   @@index([expiresAt])
   @@map("memberships")
+}
+
+/// Syndicate pass / membership hours redemption audit log
+model MembershipUsageLog {
+  id                    String        @id @default(uuid())
+  membershipId          String        @map("membership_id")
+  bookingId             String?       @map("booking_id")
+  sessionId             String?       @map("session_id")
+  stationName           String        @map("station_name")
+  stationType           StationType?  @map("station_type")
+  gameTitle             String?       @map("game_title")
+  durationMinutes       Int           @map("duration_minutes")
+  hoursDeducted         Decimal       @db.Decimal(5, 2) @map("hours_deducted")
+  balanceBeforeMinutes  Int           @map("balance_before_minutes")
+  balanceAfterMinutes   Int           @map("balance_after_minutes")
+  notes                 String?       @db.Text
+  staffId               String?       @map("staff_id")
+  staffName             String?       @map("staff_name")
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  membership            Membership    @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([membershipId])
+  @@index([createdAt])
+  @@map("membership_usage_logs")
 }
 
 /// Arena games catalog available across consoles and tables

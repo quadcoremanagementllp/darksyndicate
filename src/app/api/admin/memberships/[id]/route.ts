@@ -11,6 +11,8 @@ async function requireAdmin() {
 const updateMembershipSchema = z.object({
   status: z.enum(['ACTIVE', 'EXPIRED', 'CANCELLED']).optional(),
   expiresAt: z.string().optional(),
+  totalHours: z.number().int().min(0).optional(),
+  usedMinutes: z.number().int().min(0).optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -33,6 +35,8 @@ export async function PATCH(
     const updateData: any = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.totalHours !== undefined) updateData.totalHours = data.totalHours;
+    if (data.usedMinutes !== undefined) updateData.usedMinutes = data.usedMinutes;
     if (data.expiresAt) {
       const parsedDate = new Date(data.expiresAt);
       if (!isNaN(parsedDate.getTime())) {

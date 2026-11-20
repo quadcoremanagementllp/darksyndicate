@@ -8,6 +8,7 @@ import { z } from 'zod';
 const adminGrantSchema = z.object({
   userId: z.string().min(1, 'User ID is required'),
   planId: z.string().min(1, 'Plan ID is required'),
+  totalHours: z.number().int().min(0).optional(),
   notes: z.string().optional(),
   paymentMethod: z.enum(['CASH', 'UPI', 'RAZORPAY', 'OTHER']).default('CASH'),
 });
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || '';
     const userId = searchParams.get('userId') || '';
 
-    const memberships = await prisma.membership.findMany({
+    const rawMemberships = await prisma.membership.findMany({
       where: {
         ...(status ? { status: status as any } : {}),
         ...(userId ? { userId } : {}),
@@ -40,9 +41,27 @@ export async function GET(req: NextRequest) {
             phone: true,
           },
         },
+        _count: {
+          select: { usageLogs: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
+    });
+
+    const memberships = rawMemberships.map((m) => {
+      const totalMinutes = (m.totalHours || 0) * 60;
+      const remainingMinutes = Math.max(0, totalMinutes - (m.usedMinutes || 0));
+      const remainingHours = Number((remainingMinutes / 60).toFixed(2));
+      const usedHours = Number(((m.usedMinutes || 0) / 60).toFixed(2));
+
+      return {
+        ...m,
+        remainingMinutes,
+        remainingHours,
+        usedHours,
+        usageCount: m._count.usageLogs,
+      };
     });
 
     return apiSuccess({ memberships });
@@ -66,6 +85,7 @@ export async function POST(req: NextRequest) {
     const membership = await grantUserMembership({
       userId: data.userId,
       planId: data.planId,
+      totalHours: data.totalHours,
       paymentMethod: data.paymentMethod,
       notes: data.notes || 'Granted manually by Admin',
       adminId: session.userId,

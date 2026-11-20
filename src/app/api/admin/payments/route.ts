@@ -174,6 +174,8 @@ export async function GET(req: NextRequest) {
       const refundedPaise = p.refunds.filter((r) => r.status === 'COMPLETED').reduce((sum, r) => sum + r.amountPaise, 0);
       const pendingRefundPaise = p.refunds.filter((r) => r.status === 'PENDING' || r.status === 'PROCESSING').reduce((sum, r) => sum + r.amountPaise, 0);
 
+      const isSyndicatePass = Boolean(p.notes && /syndicate pass/i.test(p.notes));
+
       return {
         id: p.id,
         isMembership: false,
@@ -187,7 +189,7 @@ export async function GET(req: NextRequest) {
         refundedPaise,
         pendingRefundPaise,
         netAmountPaise: Math.max(0, p.amountPaise - refundedPaise),
-        method: p.method as string,
+        method: isSyndicatePass ? 'SYNDICATE_PASS' : (p.method as string),
         status: p.status,
         channel: paymentChannel,
         collectedBy,

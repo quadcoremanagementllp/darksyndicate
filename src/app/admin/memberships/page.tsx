@@ -29,6 +29,7 @@ import {
   Edit3,
   Percent,
   Check,
+  History,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -40,6 +41,12 @@ interface Membership {
   tierSnapshot: string;
   pricePaidPaise: number;
   discountPercent: number;
+  totalHours: number;
+  usedMinutes: number;
+  usedHours?: number;
+  remainingMinutes?: number;
+  remainingHours?: number;
+  usageCount?: number;
   freeHoursGranted?: number;
   freeHoursUsed?: number;
   status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
@@ -63,6 +70,22 @@ interface Membership {
     email: string;
     phone: string | null;
   };
+}
+
+interface UsageLogItem {
+  id: string;
+  bookingId: string | null;
+  sessionId: string | null;
+  stationName: string;
+  stationType: string | null;
+  gameTitle: string | null;
+  durationMinutes: number;
+  hoursDeducted: number;
+  balanceBeforeHours: number;
+  balanceAfterHours: number;
+  notes: string | null;
+  staffName: string;
+  createdAt: string;
 }
 
 interface MembershipPlan {
@@ -100,6 +123,7 @@ export default function AdminMembershipsPage() {
   const [isGrantOpen, setIsGrantOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [grantHours, setGrantHours] = useState<number>(30);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'OTHER'>('CASH');
   const [grantNotes, setGrantNotes] = useState('Admin manual pass grant');
   const [submittingGrant, setSubmittingGrant] = useState(false);
@@ -127,9 +151,17 @@ export default function AdminMembershipsPage() {
   const [membershipForm, setMembershipForm] = useState({
     status: 'ACTIVE' as 'ACTIVE' | 'EXPIRED' | 'CANCELLED',
     expiresAt: '',
+    totalHours: 30,
+    usedMinutes: 0,
     notes: '',
   });
   const [savingMembership, setSavingMembership] = useState(false);
+
+  // Usage History Modal State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyMembership, setHistoryMembership] = useState<Membership | null>(null);
+  const [usageLogs, setUsageLogs] = useState<UsageLogItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const toast = useToast();
 
@@ -194,6 +226,14 @@ export default function AdminMembershipsPage() {
     loadData();
   }, []);
 
+  const handlePlanSelectChange = (planId: string) => {
+    setSelectedPlanId(planId);
+    const plan = plans.find((p) => p.id === planId);
+    if (plan) {
+      setGrantHours(plan.freeHours || 30);
+    }
+  };
+
   const handleGrantMembership = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserId || !selectedPlanId) {
@@ -209,6 +249,7 @@ export default function AdminMembershipsPage() {
         body: JSON.stringify({
           userId: selectedUserId,
           planId: selectedPlanId,
+          totalHours: Number(grantHours),
           paymentMethod,
           notes: grantNotes,
         }),
@@ -363,9 +404,33 @@ export default function AdminMembershipsPage() {
     setMembershipForm({
       status: m.status,
       expiresAt: dateStr,
+      totalHours: m.totalHours || 0,
+      usedMinutes: m.usedMinutes || 0,
       notes: m.notes || '',
     });
     setIsEditMembershipOpen(true);
+  };
+
+  const handleOpenHistory = async (m: Membership) => {
+    setHistoryMembership(m);
+    setIsHistoryOpen(true);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/admin/memberships/${m.id}/history`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setUsageLogs(json.data.usageLogs || []);
+        if (json.data.membership) {
+          setHistoryMembership((prev) => (prev ? { ...prev, ...json.data.membership } : null));
+        }
+      } else {
+        toast.error(json.error?.message || 'Failed to load usage history');
+      }
+    } catch {
+      toast.error('Network error loading history');
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const handleQuickExtend = (days: number) => {
@@ -391,6 +456,8 @@ export default function AdminMembershipsPage() {
           expiresAt: membershipForm.expiresAt
             ? new Date(`${membershipForm.expiresAt}T23:59:59.999Z`).toISOString()
             : undefined,
+          totalHours: Number(membershipForm.totalHours),
+          usedMinutes: Number(membershipForm.usedMinutes),
           notes: membershipForm.notes,
         }),
       });
@@ -692,6 +759,7 @@ export default function AdminMembershipsPage() {
                 <tr>
                   <th className="p-4">Gamer Profile</th>
                   <th className="p-4">Pass & Tier</th>
+                  <th className="p-4">Hours Allowance</th>
                   <th className="p-4">Hourly Discount</th>
                   <th className="p-4">Validity Period</th>
                   <th className="p-4">Payment</th>
@@ -745,6 +813,36 @@ export default function AdminMembershipsPage() {
                       </td>
 
                       <td className="p-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="font-heading font-black text-cyan-300 text-xs">
+                              {m.remainingHours !== undefined ? `${m.remainingHours} hrs` : `${Math.max(0, ((m.totalHours * 60 - m.usedMinutes) / 60)).toFixed(1)} hrs`}
+                            </span>
+                            <span className="text-[10px] text-ds-text-dim">
+                              of {m.totalHours || 0} hrs
+                            </span>
+                          </div>
+                          <div className="w-28 h-1.5 rounded-full bg-ds-dark border border-white/10 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                (m.remainingHours ?? 0) > 5
+                                  ? 'bg-emerald-400'
+                                  : (m.remainingHours ?? 0) > 0
+                                  ? 'bg-amber-400'
+                                  : 'bg-rose-500'
+                              }`}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, m.totalHours > 0 ? (((m.remainingHours ?? (m.totalHours - (m.usedMinutes || 0) / 60)) / m.totalHours) * 100) : 0))}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-mono text-ds-text-muted block">
+                            Used: {m.usedHours !== undefined ? `${m.usedHours} hrs` : `${((m.usedMinutes || 0) / 60).toFixed(1)} hrs`}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="p-4">
                         <Badge
                           variant={isVip ? 'accent' : isGold ? 'warning' : 'default'}
                           size="sm"
@@ -791,6 +889,17 @@ export default function AdminMembershipsPage() {
 
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-purple-500/30 hover:border-purple-400 text-purple-300 hover:text-white hover:bg-purple-900/20 text-[10px] h-7 px-2"
+                            onClick={() => handleOpenHistory(m)}
+                            title="View Gaming Session Hours History"
+                          >
+                            <Clock className="w-3 h-3 mr-1 text-purple-400" />
+                            <span>History</span>
+                          </Button>
+
                           <Button
                             variant="outline"
                             size="sm"
@@ -1027,6 +1136,38 @@ export default function AdminMembershipsPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
+                Total Hours Allowance
+              </label>
+              <Input
+                type="number"
+                min="0"
+                value={membershipForm.totalHours}
+                onChange={(e) => setMembershipForm({ ...membershipForm, totalHours: Number(e.target.value) })}
+                className="text-xs font-mono"
+              />
+              <span className="text-[10px] text-ds-text-dim">e.g. 30 hrs plan</span>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
+                Used Minutes
+              </label>
+              <Input
+                type="number"
+                min="0"
+                value={membershipForm.usedMinutes}
+                onChange={(e) => setMembershipForm({ ...membershipForm, usedMinutes: Number(e.target.value) })}
+                className="text-xs font-mono"
+              />
+              <span className="text-[10px] text-ds-text-dim">
+                = {(membershipForm.usedMinutes / 60).toFixed(1)} hrs used
+              </span>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
               Membership Status
@@ -1142,16 +1283,34 @@ export default function AdminMembershipsPage() {
             </label>
             <select
               value={selectedPlanId}
-              onChange={(e) => setSelectedPlanId(e.target.value)}
+              onChange={(e) => handlePlanSelectChange(e.target.value)}
               required
               className="w-full bg-ds-dark border border-ds-border rounded-xl px-3 py-2.5 text-xs text-ds-text focus:outline-none focus:border-ds-accent"
             >
+              <option value="">-- Select Membership Plan --</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({p.tier} — {p.discountPercent}% OFF — ₹{p.pricePaise / 100})
+                  {p.name} ({p.tier} — {p.discountPercent}% OFF — ₹{p.pricePaise / 100} — {p.freeHours} hrs)
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-heading font-bold uppercase tracking-wider text-ds-text-dim">
+                Pass Hours Allowance (Total Hours)
+              </label>
+              <span className="text-[10px] font-mono text-cyan-400">e.g. 30 hrs for ₹5,000 plan</span>
+            </div>
+            <Input
+              type="number"
+              min="0"
+              value={grantHours}
+              onChange={(e) => setGrantHours(Number(e.target.value))}
+              required
+              className="text-xs font-mono"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -1193,6 +1352,198 @@ export default function AdminMembershipsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Syndicate Pass Session Usage History Modal */}
+      <Modal
+        isOpen={isHistoryOpen}
+        onClose={() => {
+          setIsHistoryOpen(false);
+          setHistoryMembership(null);
+          setUsageLogs([]);
+        }}
+        title="Syndicate Pass Session Usage History"
+        size="xl"
+      >
+        <div className="space-y-4">
+          {/* Member & Pass Dossier Header */}
+          {historyMembership && (
+            <div className="p-3.5 rounded-xl bg-ds-dark/70 border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-bold text-white text-sm">
+                    {historyMembership.user.firstName} {historyMembership.user.lastName}
+                  </h4>
+                  <Badge variant="accent" size="sm" className="font-mono text-[10px]">
+                    {historyMembership.tierSnapshot} TIER
+                  </Badge>
+                </div>
+                <p className="text-xs text-ds-text-dim mt-0.5 font-mono">
+                  {historyMembership.user.email} {historyMembership.user.phone ? `• ${historyMembership.user.phone}` : ''}
+                </p>
+              </div>
+
+              <div className="text-left sm:text-right">
+                <span className="font-heading font-bold text-cyan-300 text-xs block">
+                  {historyMembership.planNameSnapshot}
+                </span>
+                <span className="text-[11px] font-mono text-ds-text-muted">
+                  Expires {new Date(historyMembership.expiresAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Metrics Bar */}
+          {historyMembership && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="p-3 rounded-xl bg-ds-surface border border-ds-border">
+                <span className="text-[10px] font-mono uppercase text-ds-text-dim block">
+                  Total Allowance
+                </span>
+                <p className="text-lg font-heading font-black text-white mt-0.5">
+                  {historyMembership.totalHours || 0} hrs
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-ds-surface border border-ds-border">
+                <span className="text-[10px] font-mono uppercase text-ds-text-dim block">
+                  Hours Used
+                </span>
+                <p className="text-lg font-heading font-black text-rose-400 mt-0.5">
+                  {historyMembership.usedHours !== undefined
+                    ? `${historyMembership.usedHours} hrs`
+                    : `${((historyMembership.usedMinutes || 0) / 60).toFixed(1)} hrs`}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-ds-surface border border-purple-500/30 bg-purple-950/20">
+                <span className="text-[10px] font-mono uppercase text-purple-300 block">
+                  Remaining Hours
+                </span>
+                <p className="text-lg font-heading font-black text-cyan-300 mt-0.5">
+                  {historyMembership.remainingHours !== undefined
+                    ? `${historyMembership.remainingHours} hrs`
+                    : `${Math.max(0, ((historyMembership.totalHours * 60 - historyMembership.usedMinutes) / 60)).toFixed(1)} hrs`}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-ds-surface border border-ds-border">
+                <span className="text-[10px] font-mono uppercase text-ds-text-dim block">
+                  Sessions Logged
+                </span>
+                <p className="text-lg font-heading font-black text-amber-300 mt-0.5">
+                  {usageLogs.length}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Sessions Usage Table */}
+          <div className="rounded-xl border border-ds-border overflow-hidden bg-ds-surface/40">
+            <div className="p-3 bg-ds-dark/60 border-b border-ds-border flex items-center justify-between">
+              <span className="font-heading font-bold text-xs uppercase tracking-wider text-ds-text flex items-center gap-1.5">
+                <History className="w-4 h-4 text-purple-400" />
+                <span>Session Timings & Redeemed Hours Log</span>
+              </span>
+              <span className="text-[11px] font-mono text-ds-text-dim">
+                {usageLogs.length} records
+              </span>
+            </div>
+
+            {loadingHistory ? (
+              <div className="p-12 text-center text-xs text-ds-text-dim flex flex-col items-center gap-2">
+                <RotateCw className="w-5 h-5 animate-spin text-purple-400" />
+                <span>Loading session history logs...</span>
+              </div>
+            ) : usageLogs.length === 0 ? (
+              <div className="p-10 text-center text-xs text-ds-text-dim space-y-1">
+                <Clock className="w-6 h-6 text-ds-text-dim mx-auto opacity-50" />
+                <p className="font-heading font-semibold text-ds-text-muted">
+                  No session hours redeemed yet
+                </p>
+                <p className="text-[11px]">
+                  When staff ends a game session using Syndicate Pass, the deducted timings will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-ds-dark/80 text-ds-text-dim uppercase text-[10px] font-mono border-b border-ds-border sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3">Date & Time (IST)</th>
+                      <th className="py-2.5 px-3">Station / Game</th>
+                      <th className="py-2.5 px-3">Duration</th>
+                      <th className="py-2.5 px-3">Deducted</th>
+                      <th className="py-2.5 px-3">Balance After</th>
+                      <th className="py-2.5 px-3">Staff Operator</th>
+                      <th className="py-2.5 px-3">Reference / Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ds-border/40 font-mono text-[11px]">
+                    {usageLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-ds-surface/50 transition-colors">
+                        <td className="py-2.5 px-3 text-ds-text whitespace-nowrap">
+                          {new Date(log.createdAt).toLocaleString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="py-2.5 px-3 font-heading font-bold text-white whitespace-nowrap">
+                          <span className="flex items-center gap-1.5">
+                            {log.stationName.toUpperCase().includes('SNOOKER') || log.stationName.toUpperCase().includes('POOL')
+                              ? '🎱'
+                              : '🎮'}
+                            <span>{log.stationName}</span>
+                            {log.gameTitle && (
+                              <span className="text-[10px] font-mono text-cyan-300 font-normal">
+                                ({log.gameTitle})
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-ds-text-muted whitespace-nowrap">
+                          {log.durationMinutes >= 60
+                            ? `${(log.durationMinutes / 60).toFixed(1)} hrs (${log.durationMinutes}m)`
+                            : `${log.durationMinutes} mins`}
+                        </td>
+                        <td className="py-2.5 px-3 text-rose-400 font-bold whitespace-nowrap">
+                          -{log.hoursDeducted} hrs
+                        </td>
+                        <td className="py-2.5 px-3 text-cyan-300 font-bold whitespace-nowrap">
+                          {log.balanceAfterHours} hrs left
+                        </td>
+                        <td className="py-2.5 px-3 text-ds-text-dim whitespace-nowrap">
+                          {log.staffName || 'Staff Operator'}
+                        </td>
+                        <td className="py-2.5 px-3 text-[10px] text-ds-text-dim truncate max-w-[200px]" title={log.notes || ''}>
+                          {log.notes || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex items-center justify-end border-t border-ds-border/60">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsHistoryOpen(false);
+                setHistoryMembership(null);
+                setUsageLogs([]);
+              }}
+            >
+              Close History
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

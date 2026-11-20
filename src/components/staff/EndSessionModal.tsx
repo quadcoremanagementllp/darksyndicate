@@ -20,6 +20,7 @@ import {
   ArrowRightLeft,
   Layers,
   RefreshCw,
+  Crown,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { QrPaymentModal } from '@/components/staff/QrPaymentModal';
@@ -32,11 +33,13 @@ export interface EndSessionTarget {
   stationName: string;
   stationType?: string;
   bookingId?: string;
+  userId?: string;
   customerName: string;
   customerPhone?: string;
   bookingRef?: string;
   scheduledEndAt?: string;
   pricePerHourPaise?: number;
+  durationMinutes?: number;
   gameTitle?: string | null;
   paymentStatus?: string;
   paymentMethod?: string;
@@ -44,6 +47,17 @@ export interface EndSessionTarget {
   paidPaise?: number;
   unpaidPaise?: number;
   isPayOnExit?: boolean;
+  syndicatePass?: {
+    id: string;
+    planName: string;
+    tier: string;
+    discountPercent: number;
+    totalHours: number;
+    usedHours: number;
+    remainingMinutes: number;
+    remainingHours: number;
+    hasHoursAvailable: boolean;
+  } | null;
   priorPendingTabs?: Array<{
     bookingId: string;
     bookingRef: string;
@@ -92,7 +106,7 @@ export function EndSessionModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [transferring, setTransferring] = useState<boolean>(false);
   const [chargeOvertime, setChargeOvertime] = useState<boolean>(true);
-  const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI' | 'SPLIT' | 'PENDING'>('CASH');
+  const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI' | 'SPLIT' | 'PENDING' | 'SYNDICATE_PASS'>('CASH');
   const [splitCash, setSplitCash] = useState<string>('');
   const [splitUpi, setSplitUpi] = useState<string>('');
   const [cashTendered, setCashTendered] = useState<string>('');
@@ -100,6 +114,10 @@ export function EndSessionModal({
   const [priceMode, setPriceMode] = useState<'standard' | 'discount' | 'offered'>('standard');
   const [priceInput, setPriceInput] = useState('');
   const [refundConfirmed, setRefundConfirmed] = useState(false);
+
+  // Syndicate Pass states
+  const [activePass, setActivePass] = useState<EndSessionTarget['syndicatePass'] | null>(null);
+  const [checkingPass, setCheckingPass] = useState<boolean>(false);
 
   // Transfer Mode states
   const [isTransferMode, setIsTransferMode] = useState<boolean>(false);
@@ -214,6 +232,14 @@ export function EndSessionModal({
   const combinedProjectedPaise = totalCollectPaise + newStationFeePaise;
   const combinedProjectedRupees = combinedProjectedPaise / 100;
 
+  // Pass Hours Deduction calculation
+  const scheduledMinutes = target?.durationMinutes || 60;
+  const sessionMinutes = Math.max(15, scheduledMinutes + (chargeOvertime ? extraMinutes : 0));
+  const passHoursToDeduct = Number((sessionMinutes / 60).toFixed(1));
+  const passRemainingAfter = activePass
+    ? Math.max(0, Number((activePass.remainingHours - passHoursToDeduct).toFixed(1)))
+    : 0;
+
   const handleSelectSplit = () => {
     setSettleMethod('SPLIT');
     if (!splitCash && !splitUpi && totalCollectRupees > 0) {
@@ -257,6 +283,29 @@ export function EndSessionModal({
       setTransferDuration(60);
       setTransferGameTitle('');
       setTransferCategory('ALL');
+
+      // Check active Syndicate Pass for this customer
+      if (target.syndicatePass !== undefined) {
+        setActivePass(target.syndicatePass);
+      } else if (target.userId || target.customerPhone) {
+        setCheckingPass(true);
+        const params = new URLSearchParams();
+        if (target.userId) params.set('userId', target.userId);
+        if (target.customerPhone) params.set('phone', target.customerPhone);
+        fetch(`/api/staff/memberships/check?${params.toString()}`)
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.success && json.data?.hasPass) {
+              setActivePass(json.data.pass);
+            } else {
+              setActivePass(null);
+            }
+          })
+          .catch(() => setActivePass(null))
+          .finally(() => setCheckingPass(false));
+      } else {
+        setActivePass(null);
+      }
 
       // Load station inventory if not passed as props
       if (stations && stations.length > 0) {
@@ -917,7 +966,7 @@ export function EndSessionModal({
                   <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-amber-200 block">
                     How is customer paying at desk?
                   </span>
-                  <div className={`grid ${hidePendingOption ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
+                  <div className={`grid ${activePass && activePass.hasHoursAvailable ? 'grid-cols-2 sm:grid-cols-5' : hidePendingOption ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
                     <button
                       type="button"
                       onClick={() => setSettleMethod('CASH')}
@@ -973,7 +1022,61 @@ export function EndSessionModal({
                         <span>Pending</span>
                       </button>
                     )}
+                    {activePass && activePass.hasHoursAvailable && (
+                      <button
+                        type="button"
+                        onClick={() => setSettleMethod('SYNDICATE_PASS')}
+                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all font-heading font-bold text-xs ${
+                          settleMethod === 'SYNDICATE_PASS'
+                            ? 'bg-purple-600/30 border-purple-400 text-purple-200 shadow-sm ring-1 ring-purple-400'
+                            : 'bg-purple-950/20 border-purple-500/40 text-purple-300 hover:text-white hover:bg-purple-900/30'
+                        }`}
+                      >
+                        <Crown className="w-4 h-4 text-purple-400" />
+                        <span>Pass ({activePass.remainingHours}h)</span>
+                      </button>
+                    )}
                   </div>
+
+                  {/* Syndicate Pass Deduction Card */}
+                  {settleMethod === 'SYNDICATE_PASS' && activePass && (
+                    <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2.5 animate-in fade-in duration-200 mt-2">
+                      <div className="flex items-center justify-between pb-1.5 border-b border-purple-500/20">
+                        <div className="flex items-center gap-2 font-heading font-bold text-purple-300 text-xs uppercase tracking-wider">
+                          <Crown className="w-4 h-4 text-purple-400" />
+                          <span>Redeem Syndicate Pass Allowance</span>
+                        </div>
+                        <Badge variant="accent" size="sm" className="font-mono text-[10px] bg-purple-500/20 text-purple-300 border-purple-400/40">
+                          {activePass.planName} ({activePass.tier})
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs text-purple-200/90 font-mono">
+                        <div className="flex items-center justify-between">
+                          <span className="text-ds-text-dim">Pass Plan Allowance:</span>
+                          <span className="text-white font-bold">{activePass.totalHours} hrs</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-ds-text-dim">Current Remaining Hours:</span>
+                          <span className="text-emerald-400 font-bold">{activePass.remainingHours} hrs</span>
+                        </div>
+                        <div className="flex items-center justify-between py-1 border-t border-b border-purple-500/20 text-amber-300 font-bold">
+                          <span>Session Time to Deduct ({sessionMinutes} mins):</span>
+                          <span className="text-rose-400">-{passHoursToDeduct} hrs</span>
+                        </div>
+                        <div className="flex items-center justify-between font-heading font-black text-white text-sm">
+                          <span>Balance Remaining After Session:</span>
+                          <span className="font-mono text-cyan-300">{passRemainingAfter} hrs</span>
+                        </div>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-black/40 border border-purple-500/20 text-[11px] text-purple-200/80 leading-relaxed">
+                        ✓ Station <strong>{target.stationName}</strong> will switch to <strong>AVAILABLE</strong> immediately.
+                        <br />
+                        ✓ <strong>₹0.00</strong> desk collection (covered by gamer&apos;s Syndicate Pass hours).
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pending Payment Notice */}
                   {settleMethod === 'PENDING' && (
@@ -1215,17 +1318,25 @@ export function EndSessionModal({
                   onClick={handleConfirmEnd}
                   disabled={submitting || transferring || Boolean(priceError) || gatewayRefundRequired || (checkout.refundPaise > 0 && !refundConfirmed) || (settleMethod === 'SPLIT' && !isSplitValid)}
                   className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
-                    settleMethod === 'PENDING'
+                    settleMethod === 'SYNDICATE_PASS'
+                      ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-500/20'
+                      : settleMethod === 'PENDING'
                       ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20'
                       : totalCollectPaise > 0
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
                       : 'bg-rose-600 hover:bg-rose-500 text-white'
                   }`}
                 >
-                  <Square className="w-3.5 h-3.5" />
+                  {settleMethod === 'SYNDICATE_PASS' ? (
+                    <Crown className="w-3.5 h-3.5" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5" />
+                  )}
                   <span>
                     {submitting
                       ? 'Processing...'
+                      : settleMethod === 'SYNDICATE_PASS'
+                      ? `Deduct ${passHoursToDeduct}h & End Session`
                       : settleMethod === 'PENDING'
                       ? `End Session & Mark ₹${totalCollectRupees} as Pending`
                       : settleMethod === 'SPLIT'

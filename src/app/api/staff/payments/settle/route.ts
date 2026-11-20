@@ -3,11 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, ConflictError, handleApiError, NotFoundError, ValidationError } from '@/lib/errors';
 import { requireRole } from '@/lib/session';
 import { calculateSessionCheckout } from '@/lib/sessionCheckout';
+import { getGamerActivePass, redeemMembershipHours } from '@/lib/memberships';
 import { z } from 'zod';
 
 const settlePaymentSchema = z.object({
   bookingId: z.string().min(1),
-  settlePaymentMethod: z.enum(['CASH', 'UPI', 'SPLIT']),
+  settlePaymentMethod: z.enum(['CASH', 'UPI', 'SPLIT', 'SYNDICATE_PASS']),
   splitCashPaise: z.number().int().min(0).optional(),
   splitUpiPaise: z.number().int().min(0).optional(),
   discountPaise: z.number().int().min(0).max(100_000_000).optional(),
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
             },
             data: {
               status: 'COMPLETED',
-              method: settlePaymentMethod === 'SPLIT' ? 'OTHER' : settlePaymentMethod,
+              method: (settlePaymentMethod === 'SPLIT' || settlePaymentMethod === 'SYNDICATE_PASS') ? 'OTHER' : settlePaymentMethod,
               paidAt: new Date(),
               recordedByStaffId: staffSession.userId,
               notes: `Desk tab settled (${settlePaymentMethod === 'SPLIT' ? 'Split payment' : settlePaymentMethod}) in combined multi-game bill by ${staffName}`,
@@ -165,6 +166,57 @@ export async function POST(req: NextRequest) {
               paidAt: new Date(),
               recordedByStaffId: staffSession.userId,
               notes: `Split payment: UPI/GPay portion (₹${(upiPaise / 100).toFixed(2)}) collected by ${staffName}`,
+            },
+          });
+        }
+      } else if (settlePaymentMethod === 'SYNDICATE_PASS') {
+        const activePass = await getGamerActivePass({
+          userId: booking.userId,
+          phone: booking.customerPhone,
+        });
+        if (!activePass || !activePass.hasHoursAvailable) {
+          throw new ValidationError('Player does not have an active Syndicate Pass with available hours.');
+        }
+
+        const scheduledMins = booking.durationMinutes || 60;
+        const deductionNotes = `Deducted ${(scheduledMins / 60).toFixed(1)} hrs on ${booking.station?.name || 'station'} (${activePass.planNameSnapshot})`;
+        const deduction = await redeemMembershipHours({
+          membershipId: activePass.id,
+          durationMinutes: scheduledMins,
+          bookingId: booking.id,
+          stationName: booking.station?.name || 'Gaming Station',
+          stationType: booking.station?.stationType,
+          gameTitle: booking.gameTitle,
+          staffId: staffSession.userId,
+          staffName,
+          notes: deductionNotes,
+        });
+
+        if (pendingPayment) {
+          await tx.payment.update({
+            where: { id: pendingPayment.id },
+            data: {
+              amountPaise: duePaise,
+              method: 'OTHER',
+              status: 'COMPLETED',
+              paidAt: new Date(),
+              recordedByStaffId: staffSession.userId,
+              receiptNumber: `PASS-${activePass.id.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+              notes: `Syndicate Pass: Deducted ${deduction.hoursDeducted} hrs (${activePass.planNameSnapshot}). Remaining: ${deduction.balanceAfterHours} hrs. Authorized by ${staffName}`,
+            },
+          });
+        } else {
+          await tx.payment.create({
+            data: {
+              bookingId: booking.id,
+              userId: booking.userId,
+              amountPaise: duePaise,
+              method: 'OTHER',
+              status: 'COMPLETED',
+              paidAt: new Date(),
+              recordedByStaffId: staffSession.userId,
+              receiptNumber: `PASS-${activePass.id.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+              notes: `Syndicate Pass: Deducted ${deduction.hoursDeducted} hrs (${activePass.planNameSnapshot}). Remaining: ${deduction.balanceAfterHours} hrs. Authorized by ${staffName}`,
             },
           });
         }

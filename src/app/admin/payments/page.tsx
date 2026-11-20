@@ -19,6 +19,7 @@ import {
   Download,
   RotateCcw,
   X,
+  Crown,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { paymentDateInISTRange } from '@/lib/paymentDateFilter';
@@ -443,18 +444,24 @@ export default function AdminPaymentsPage() {
               Method:
             </span>
             <div className="flex flex-wrap gap-1 bg-ds-dark p-1 rounded-xl border border-ds-border text-xs">
-              {['ALL', 'UPI', 'CASH', 'RAZORPAY'].map((m) => (
+              {[
+                { key: 'ALL', label: 'ALL' },
+                { key: 'UPI', label: 'UPI' },
+                { key: 'CASH', label: 'CASH' },
+                { key: 'RAZORPAY', label: 'RAZORPAY' },
+                { key: 'SYNDICATE_PASS', label: 'PASS' },
+              ].map(({ key, label }) => (
                 <button
-                  key={m}
+                  key={key}
                   type="button"
-                  onClick={() => setMethodFilter(m)}
+                  onClick={() => setMethodFilter(key)}
                   className={`px-3 py-1.5 rounded-lg font-heading font-bold uppercase transition-all ${
-                    methodFilter === m
+                    methodFilter === key
                       ? 'bg-ds-surface text-ds-ice border border-ds-accent/40 shadow-sm'
                       : 'text-ds-text-dim hover:text-white'
                   }`}
                 >
-                  {m}
+                  {label}
                 </button>
               ))}
             </div>
@@ -697,7 +704,19 @@ export default function AdminPaymentsPage() {
 
                       {/* Payment Method */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        {p.method === 'SPLIT' ? (
+                        {p.method === 'SYNDICATE_PASS' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider bg-purple-500/15 border border-purple-500/40 text-purple-300 w-fit shadow-sm">
+                              <Crown className="w-3 h-3 text-purple-400" />
+                              <span>SYNDICATE PASS</span>
+                            </span>
+                            {p.notes && (
+                              <span className="text-[10px] font-mono text-purple-300/80 max-w-[200px] truncate" title={p.notes}>
+                                {p.notes}
+                              </span>
+                            )}
+                          </div>
+                        ) : p.method === 'SPLIT' ? (
                           <div className="flex flex-col gap-0.5">
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 w-fit">
                               SPLIT

@@ -162,6 +162,7 @@ export function calculateMembershipBookingDiscount(
 export async function grantUserMembership(params: {
   userId: string;
   planId: string;
+  totalHours?: number;
   pricePaidPaise?: number;
   paymentMethod?: 'UPI' | 'RAZORPAY' | 'CASH' | 'CASHFREE' | 'OTHER';
   paymentId?: string;
@@ -189,6 +190,9 @@ export async function grantUserMembership(params: {
       ? 0
       : plan.pricePaise;
 
+  const effectiveTotalHours =
+    params.totalHours !== undefined ? params.totalHours : (plan.freeHours || 0);
+
   const membership = await prisma.$transaction(async (tx) => {
     // Supersede any previously active memberships so the user has a single active pass
     await tx.membership.updateMany({
@@ -209,6 +213,8 @@ export async function grantUserMembership(params: {
         planNameSnapshot: plan.name,
         tierSnapshot: plan.tier,
         discountPercent: plan.discountPercent,
+        totalHours: effectiveTotalHours,
+        usedMinutes: 0,
         pricePaidPaise: effectivePricePaidPaise,
         paymentMethod: params.paymentMethod ?? 'UPI',
         paymentId: params.paymentId ?? null,
@@ -273,4 +279,134 @@ export async function grantUserMembership(params: {
   });
 
   return membership;
+}
+
+/**
+ * Returns active Syndicate Pass for a user or phone number with live remaining hours.
+ */
+export async function getGamerActivePass(params: { userId?: string | null; phone?: string | null }) {
+  await syncExpiredMemberships();
+  const now = new Date();
+
+  let targetUserId = params.userId;
+
+  if (!targetUserId && params.phone) {
+    const cleanDigits = params.phone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length >= 10) {
+      const user = await prisma.user.findFirst({
+        where: {
+          phone: { contains: cleanDigits },
+        },
+        select: { id: true },
+      });
+      if (user) {
+        targetUserId = user.id;
+      }
+    }
+  }
+
+  if (!targetUserId) return null;
+
+  const mem = await prisma.membership.findFirst({
+    where: {
+      userId: targetUserId,
+      status: 'ACTIVE',
+      startsAt: { lte: now },
+      expiresAt: { gt: now },
+    },
+    include: {
+      plan: true,
+      user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+    },
+    orderBy: { expiresAt: 'desc' },
+  });
+
+  if (!mem) return null;
+
+  const totalMinutes = mem.totalHours * 60;
+  const remainingMinutes = Math.max(0, totalMinutes - mem.usedMinutes);
+  const remainingHours = Number((remainingMinutes / 60).toFixed(2));
+  const usedHours = Number((mem.usedMinutes / 60).toFixed(2));
+
+  return {
+    ...mem,
+    remainingMinutes,
+    remainingHours,
+    usedHours,
+    hasHoursAvailable: remainingMinutes > 0,
+  };
+}
+
+/**
+ * Deducts played gaming session hours from a user's active Syndicate Pass and logs audit history.
+ */
+export async function redeemMembershipHours(params: {
+  membershipId: string;
+  durationMinutes: number;
+  bookingId?: string;
+  sessionId?: string;
+  stationName: string;
+  stationType?: any;
+  gameTitle?: string | null;
+  staffId?: string;
+  staffName?: string;
+  notes?: string;
+}) {
+  return await prisma.$transaction(async (tx) => {
+    const mem = await tx.membership.findUnique({
+      where: { id: params.membershipId },
+      include: { user: true },
+    });
+    if (!mem) throw new Error('Syndicate Pass not found');
+    if (mem.status !== 'ACTIVE') throw new Error('Syndicate Pass is not active');
+    if (mem.expiresAt <= new Date()) throw new Error('Syndicate Pass has expired');
+
+    const totalMinutes = mem.totalHours * 60;
+    const balanceBeforeMinutes = Math.max(0, totalMinutes - mem.usedMinutes);
+    const balanceBeforeHours = Number((balanceBeforeMinutes / 60).toFixed(2));
+
+    const minutesToDeduct = Math.max(1, Math.round(params.durationMinutes));
+    const hoursDeducted = Number((minutesToDeduct / 60).toFixed(2));
+
+    const newUsedMinutes = mem.usedMinutes + minutesToDeduct;
+    const balanceAfterMinutes = Math.max(0, totalMinutes - newUsedMinutes);
+    const balanceAfterHours = Number((balanceAfterMinutes / 60).toFixed(2));
+
+    // Update membership usedMinutes
+    await tx.membership.update({
+      where: { id: mem.id },
+      data: { usedMinutes: newUsedMinutes },
+    });
+
+    // Create usage log
+    const log = await tx.membershipUsageLog.create({
+      data: {
+        id: randomUUID(),
+        membershipId: mem.id,
+        bookingId: params.bookingId ?? null,
+        sessionId: params.sessionId ?? null,
+        stationName: params.stationName,
+        stationType: params.stationType ?? null,
+        gameTitle: params.gameTitle ?? null,
+        durationMinutes: minutesToDeduct,
+        hoursDeducted,
+        balanceBeforeMinutes,
+        balanceAfterMinutes,
+        notes: params.notes ?? `Syndicate Pass hour deduction: ${hoursDeducted} hrs on ${params.stationName}`,
+        staffId: params.staffId ?? null,
+        staffName: params.staffName ?? null,
+      },
+    });
+
+    return {
+      membershipId: mem.id,
+      hoursDeducted,
+      minutesDeducted: minutesToDeduct,
+      balanceBeforeHours,
+      balanceAfterHours,
+      totalHours: mem.totalHours,
+      usedMinutes: newUsedMinutes,
+      log,
+    };
+  });
 }

@@ -4,6 +4,7 @@ import { apiSuccess, ConflictError, ForbiddenError, handleApiError, NotFoundErro
 import { requireRole } from '@/lib/session';
 import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
 import { calculateSessionCheckout } from '@/lib/sessionCheckout';
+import { getGamerActivePass, redeemMembershipHours } from '@/lib/memberships';
 import { z } from 'zod';
 
 const endSessionSchema = z.object({
@@ -11,7 +12,7 @@ const endSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
-  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT', 'PENDING']).optional(),
+  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT', 'PENDING', 'SYNDICATE_PASS']).optional(),
   splitCashPaise: z.number().int().min(0).optional(),
   splitUpiPaise: z.number().int().min(0).optional(),
   transferTab: z.boolean().optional(),
@@ -342,6 +343,56 @@ export async function POST(req: NextRequest) {
                   data: { totalSpent: { increment: checkout.duePaise } },
                 });
               }
+            } else if (settlePaymentMethod === 'SYNDICATE_PASS') {
+              // Syndicate Pass hour deduction flow
+              const activePass = await getGamerActivePass({
+                userId: session.booking?.userId,
+                phone: session.booking?.customerPhone,
+              });
+              if (!activePass || !activePass.hasHoursAvailable) {
+                throw new ValidationError('Player does not have an active Syndicate Pass with available hours.');
+              }
+
+              const scheduledMins = session.booking?.durationMinutes || 60;
+              const sessionMinutes = Math.max(15, scheduledMins + overtimeMinutes);
+              const deductionNotes = `Deducted ${(sessionMinutes / 60).toFixed(1)} hrs on ${session.station?.name || 'station'} (${activePass.planNameSnapshot})`;
+
+              const deduction = await redeemMembershipHours({
+                membershipId: activePass.id,
+                durationMinutes: sessionMinutes,
+                bookingId: session.bookingId,
+                sessionId: session.id,
+                stationName: session.station?.name || 'Gaming Station',
+                stationType: session.station?.stationType,
+                gameTitle: session.booking?.gameTitle,
+                staffId: staffSession.userId,
+                staffName,
+                notes: deductionNotes,
+              });
+
+              if (session.booking) {
+                await tx.payment.create({
+                  data: {
+                    bookingId: session.bookingId,
+                    userId: session.booking.userId,
+                    amountPaise: checkout.duePaise > 0 ? checkout.duePaise : checkout.finalPricePaise,
+                    method: 'OTHER',
+                    status: 'COMPLETED',
+                    paidAt: new Date(),
+                    receiptNumber: `PASS-${activePass.id.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+                    recordedByStaffId: staffSession.userId,
+                    notes: `Syndicate Pass: Deducted ${deduction.hoursDeducted} hrs (${activePass.planNameSnapshot}). Balance remaining: ${deduction.balanceAfterHours} hrs. Authorized by ${staffName}`,
+                  },
+                });
+
+                await tx.booking.update({
+                  where: { id: session.bookingId },
+                  data: {
+                    membershipPlanName: activePass.planNameSnapshot,
+                    notes: `${session.booking.notes || ''}\n[SYNDICATE_PASS: ${deduction.hoursDeducted} hrs deducted from ${activePass.planNameSnapshot}. ${deduction.balanceAfterHours} hrs remaining. Authorized by ${staffName}]`.trim(),
+                  },
+                });
+              }
             } else {
               // Standard single method payment
               if (checkout.duePaise > 0 && session.booking) {
@@ -611,6 +662,53 @@ export async function POST(req: NextRequest) {
                   data: { totalSpent: { increment: checkout.duePaise } },
                 });
               }
+            } else if (settlePaymentMethod === 'SYNDICATE_PASS') {
+              const activePass = await getGamerActivePass({
+                userId: fallbackBooking.userId,
+                phone: fallbackBooking.customerPhone,
+              });
+              if (!activePass || !activePass.hasHoursAvailable) {
+                throw new ValidationError('Player does not have an active Syndicate Pass with available hours.');
+              }
+
+              const scheduledMins = fallbackBooking.durationMinutes || 60;
+              const sessionMinutes = Math.max(15, scheduledMins + overtimeMinutes);
+              const stationObj = targetStation || fallbackBooking.station;
+              const deductionNotes = `Deducted ${(sessionMinutes / 60).toFixed(1)} hrs on ${stationObj?.name || 'station'} (${activePass.planNameSnapshot})`;
+
+              const deduction = await redeemMembershipHours({
+                membershipId: activePass.id,
+                durationMinutes: sessionMinutes,
+                bookingId: fallbackBooking.id,
+                stationName: stationObj?.name || 'Gaming Station',
+                stationType: stationObj?.stationType,
+                gameTitle: fallbackBooking.gameTitle,
+                staffId: staffSession.userId,
+                staffName,
+                notes: deductionNotes,
+              });
+
+              await tx.payment.create({
+                data: {
+                  bookingId: fallbackBooking.id,
+                  userId: fallbackBooking.userId,
+                  amountPaise: checkout.duePaise > 0 ? checkout.duePaise : checkout.finalPricePaise,
+                  method: 'OTHER',
+                  status: 'COMPLETED',
+                  paidAt: new Date(),
+                  receiptNumber: `PASS-${activePass.id.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Syndicate Pass: Deducted ${deduction.hoursDeducted} hrs (${activePass.planNameSnapshot}). Balance remaining: ${deduction.balanceAfterHours} hrs. Authorized by ${staffName}`,
+                },
+              });
+
+              await tx.booking.update({
+                where: { id: fallbackBooking.id },
+                data: {
+                  membershipPlanName: activePass.planNameSnapshot,
+                  notes: `${fallbackBooking.notes || ''}\n[SYNDICATE_PASS: ${deduction.hoursDeducted} hrs deducted from ${activePass.planNameSnapshot}. ${deduction.balanceAfterHours} hrs remaining. Authorized by ${staffName}]`.trim(),
+                },
+              });
             } else {
               if (checkout.duePaise > 0) {
                 await tx.payment.create({
