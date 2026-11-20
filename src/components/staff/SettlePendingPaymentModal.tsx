@@ -46,6 +46,12 @@ export function SettlePendingPaymentModal({
   const originalPricePaise = booking?.totalPricePaise || 0;
   const alreadyPaidPaise = 0; // For pending bookings, balance is due
 
+  const priorTabs = booking?.priorPendingTabs || [];
+  const priorTabsPaise =
+    booking?.priorUnpaidPaise !== undefined
+      ? booking.priorUnpaidPaise
+      : priorTabs.reduce((sum: number, t: any) => sum + t.amountPaise, 0);
+
   const validPriceInput = /^\d+(?:\.\d{1,2})?$/.test(priceInput.trim());
   const enteredPaise = validPriceInput ? Math.round(Number(priceInput) * 100) : null;
   let priceError = '';
@@ -67,7 +73,7 @@ export function SettlePendingPaymentModal({
     }
   }
 
-  const totalCollectPaise = checkout.duePaise;
+  const totalCollectPaise = checkout.duePaise + priorTabsPaise;
   const totalCollectRupees = totalCollectPaise / 100;
 
   const cashTenderedNum = parseFloat(cashTendered) || 0;
@@ -130,6 +136,7 @@ export function SettlePendingPaymentModal({
 
     setSubmitting(true);
     try {
+      const additionalBookingIds = priorTabs.map((t: any) => t.bookingId).filter(Boolean);
       const res = await fetch('/api/staff/payments/settle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,6 +145,7 @@ export function SettlePendingPaymentModal({
           settlePaymentMethod: settleMethod,
           splitCashPaise: settleMethod === 'SPLIT' ? Math.round(splitCashNum * 100) : undefined,
           splitUpiPaise: settleMethod === 'SPLIT' ? Math.round(splitUpiNum * 100) : undefined,
+          settleAdditionalBookingIds: additionalBookingIds.length > 0 ? additionalBookingIds : undefined,
           ...(priceMode === 'discount' ? { discountPaise: enteredPaise } :
             priceMode === 'offered' ? { finalPricePaise: enteredPaise } : {}),
         }),
@@ -257,6 +265,36 @@ export function SettlePendingPaymentModal({
               Total Due: ₹{totalCollectRupees}
             </span>
           </div>
+
+          {priorTabs.length > 0 && (
+            <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 space-y-2 text-cyan-200">
+              <div className="flex items-center justify-between text-xs font-heading font-black text-cyan-300 pb-1 border-b border-cyan-500/20">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Itemized Multi-Game Open Tab</span>
+                </span>
+                <Badge variant="accent" size="sm" className="font-mono text-[10px]">
+                  {priorTabs.length + 1} Games Combined
+                </Badge>
+              </div>
+              <div className="space-y-1 text-xs">
+                {priorTabs.map((pt: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between py-0.5 text-[11px] text-cyan-100">
+                    <span>{pt.stationType === 'POOL_TABLE' ? '🎱' : '🎮'} {pt.stationName} (Transferred Tab)</span>
+                    <span className="font-mono font-bold text-white">₹{(pt.amountPaise / 100).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between py-0.5 text-[11px] text-emerald-300">
+                  <span>{booking.stationType === 'POOL_TABLE' ? '🎱' : '🎮'} {booking.stationName} (Current Session)</span>
+                  <span className="font-mono font-bold text-white">₹{(checkout.duePaise / 100).toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="pt-1.5 border-t border-cyan-500/30 flex items-center justify-between font-heading font-black text-amber-300 text-sm">
+                <span>Combined Bill:</span>
+                <span className="font-mono text-base text-white">₹{totalCollectRupees}</span>
+              </div>
+            </div>
+          )}
 
           {/* Settle Method Selector (Cash, UPI, Split only — NO Pending option) */}
           <div className="pt-2 border-t border-amber-500/30 space-y-2">

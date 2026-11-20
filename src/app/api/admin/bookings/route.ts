@@ -140,6 +140,59 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Query pending payments to resolve multi-game transferred tabs (e.g. Snooker transferred to PS5)
+    const pendingPayments = await prisma.payment.findMany({
+      where: {
+        status: 'PENDING',
+        amountPaise: { gt: 0 },
+      },
+      include: {
+        booking: {
+          include: {
+            station: true,
+            user: { select: { firstName: true, lastName: true, phone: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pendingByBooking = new Map<string, {
+      bookingId: string;
+      bookingRef: string;
+      stationId: string;
+      stationName: string;
+      stationType: string;
+      gameTitle: string | null;
+      customerName: string;
+      customerPhone: string | null;
+      userId: string;
+      amountPaise: number;
+    }>();
+
+    for (const p of pendingPayments) {
+      if (!p.bookingId || !p.booking) continue;
+      const existing = pendingByBooking.get(p.bookingId);
+      const custName = p.booking.customerName || `${p.booking.user?.firstName || 'Gamer'} ${p.booking.user?.lastName || ''}`.trim();
+      const custPhone = p.booking.customerPhone || p.booking.user?.phone || null;
+      if (existing) {
+        existing.amountPaise += p.amountPaise;
+      } else {
+        pendingByBooking.set(p.bookingId, {
+          bookingId: p.bookingId,
+          bookingRef: p.booking.bookingRef,
+          stationId: p.booking.stationId,
+          stationName: p.booking.station?.name || 'Previous Station',
+          stationType: p.booking.station?.stationType || 'PS5',
+          gameTitle: p.booking.gameTitle || null,
+          customerName: custName,
+          customerPhone: custPhone,
+          userId: p.booking.userId,
+          amountPaise: p.amountPaise,
+        });
+      }
+    }
+
     const mappedBookings = bookings.map((booking) => {
       const isWalkIn = Boolean(booking.isWalkIn);
       let staffName: string | null = null;
@@ -165,6 +218,67 @@ export async function GET(req: NextRequest) {
         booking.station?.name?.toUpperCase().includes('SNOOKER') ||
         booking.station?.name?.toUpperCase().includes('POOL');
 
+      const hasActiveFloorSession = Boolean(
+        booking.session && ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'].includes(booking.session.status)
+      );
+
+      // Resolve multi-game transferred open tabs (e.g. Snooker transferred to PlayStation)
+      const priorPendingTabs: Array<{
+        bookingId: string;
+        bookingRef: string;
+        stationName: string;
+        stationType: string;
+        gameTitle: string | null;
+        amountPaise: number;
+      }> = [];
+
+      const currentPhoneRaw = booking.customerPhone || booking.user?.phone || '';
+      const currentPhoneDigits = currentPhoneRaw.replace(/\D/g, '').slice(-10);
+      const currentNameRaw = (
+        booking.customerName ||
+        `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`
+      ).trim().toLowerCase();
+
+      // Check explicit link in notes: [TRANSFERRED_FROM: bookingId=xxx...]
+      const noteTransferredMatch = booking.notes?.match(/\[TRANSFERRED_FROM:\s*bookingId=([a-zA-Z0-9_-]+)/i);
+      const linkedFromId = noteTransferredMatch ? noteTransferredMatch[1] : null;
+
+      if (linkedFromId && pendingByBooking.has(linkedFromId)) {
+        const pb = pendingByBooking.get(linkedFromId)!;
+        priorPendingTabs.push({
+          bookingId: pb.bookingId,
+          bookingRef: pb.bookingRef,
+          stationName: pb.stationName,
+          stationType: pb.stationType,
+          gameTitle: pb.gameTitle,
+          amountPaise: pb.amountPaise,
+        });
+      } else if (hasActiveFloorSession || booking.status === 'PENDING' || booking.status === 'IN_PROGRESS') {
+        // Match by phone / name / userId for active or pending bookings
+        for (const [bId, pb] of pendingByBooking.entries()) {
+          if (bId === booking.id) continue;
+          const pbPhoneDigits = (pb.customerPhone || '').replace(/\D/g, '').slice(-10);
+          const pbName = (pb.customerName || '').trim().toLowerCase();
+          const isMatch =
+            (currentPhoneDigits.length === 10 && pbPhoneDigits === currentPhoneDigits) ||
+            (booking.userId && pb.userId === booking.userId && booking.userId !== 'guest') ||
+            (currentNameRaw.length >= 2 && pbName === currentNameRaw);
+
+          if (isMatch) {
+            priorPendingTabs.push({
+              bookingId: pb.bookingId,
+              bookingRef: pb.bookingRef,
+              stationName: pb.stationName,
+              stationType: pb.stationType,
+              gameTitle: pb.gameTitle,
+              amountPaise: pb.amountPaise,
+            });
+          }
+        }
+      }
+
+      const priorUnpaidPaise = priorPendingTabs.reduce((sum, tab) => sum + tab.amountPaise, 0);
+
       const playerMatch = booking.notes?.match(/\[Players:\s*(\d+)\]/i);
       const playerCount = playerMatch ? parseInt(playerMatch[1], 10) : (isSnooker ? 4 : 1);
 
@@ -184,9 +298,6 @@ export async function GET(req: NextRequest) {
       }
       const finalGameTitle = isSnooker ? null : (cleanGameTitle || null);
 
-      const hasActiveFloorSession = Boolean(
-        booking.session && ['ACTIVE', 'PAUSED', 'EXTENDED', 'OVERDUE'].includes(booking.session.status)
-      );
       const effectiveStatus =
         hasActiveFloorSession && (booking.status === 'CONFIRMED' || booking.status === 'PENDING')
           ? 'IN_PROGRESS'
@@ -234,6 +345,11 @@ export async function GET(req: NextRequest) {
         paymentStatus: booking.payments[0]?.status || 'UNPAID',
         paymentMethod: displayPaymentMethod,
         splitPaymentDetails,
+        priorPendingTabs,
+        priorUnpaidPaise,
+        hasTransferredTab: priorPendingTabs.length > 0,
+        isPayOnExit: Boolean(isWalkIn || priorPendingTabs.length > 0 || booking.notes?.includes('[PAY ON EXIT]')),
+        unpaidPaise: (booking.payments[0]?.status === 'PENDING' ? booking.totalPricePaise : 0) + priorUnpaidPaise,
         createdAt: booking.createdAt,
         updatedAt: booking.updatedAt,
         gameTitle: finalGameTitle,
@@ -428,6 +544,26 @@ export async function PATCH(req: NextRequest) {
           await tx.booking.update({
             where: { id: bookingId },
             data: { status: 'CONFIRMED' },
+          });
+        }
+
+        // Also settle any linked prior transferred booking
+        const noteTransferredMatch = booking.notes?.match(/\[TRANSFERRED_FROM:\s*bookingId=([a-zA-Z0-9_-]+)/i);
+        if (noteTransferredMatch && noteTransferredMatch[1]) {
+          const priorBookingId = noteTransferredMatch[1];
+          await tx.payment.updateMany({
+            where: { bookingId: priorBookingId, status: 'PENDING' },
+            data: {
+              status: 'COMPLETED',
+              method: paymentMethod,
+              paidAt: now,
+              recordedByStaffId: session.userId,
+              notes: `Marked paid via ${paymentMethod} alongside transferred booking ${booking.bookingRef} by admin`,
+            },
+          });
+          await tx.booking.update({
+            where: { id: priorBookingId },
+            data: { status: 'COMPLETED' },
           });
         }
 

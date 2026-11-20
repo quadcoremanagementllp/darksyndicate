@@ -12,6 +12,7 @@ const settlePaymentSchema = z.object({
   splitUpiPaise: z.number().int().min(0).optional(),
   discountPaise: z.number().int().min(0).max(100_000_000).optional(),
   finalPricePaise: z.number().int().min(0).max(100_000_000).optional(),
+  settleAdditionalBookingIds: z.array(z.string()).max(20).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       splitUpiPaise,
       discountPaise,
       finalPricePaise,
+      settleAdditionalBookingIds,
     } = settlePaymentSchema.parse(body);
 
     if (discountPaise !== undefined && finalPricePaise !== undefined) {
@@ -62,19 +64,69 @@ export async function POST(req: NextRequest) {
     }
 
     const duePaise = checkout.duePaise;
-    if (duePaise <= 0) {
-      throw new ConflictError(`Booking ${booking.bookingRef} has no outstanding balance.`);
-    }
+    const noteTransferredMatch = booking.notes?.match(/\[TRANSFERRED_FROM:\s*bookingId=([a-zA-Z0-9_-]+)/i);
+    const candidateAdditionalIds = [
+      ...(settleAdditionalBookingIds || []),
+      ...(noteTransferredMatch ? [noteTransferredMatch[1]] : []),
+    ];
+    const uniqueAdditionalIds = [...new Set(candidateAdditionalIds)].filter((id) => id && id !== booking.id);
 
     await prisma.$transaction(async (tx) => {
+      let priorPaidSum = 0;
+      if (uniqueAdditionalIds.length > 0) {
+        const priorPending = await tx.payment.findMany({
+          where: {
+            bookingId: { in: uniqueAdditionalIds },
+            status: 'PENDING',
+          },
+          select: { id: true, amountPaise: true, userId: true },
+        });
+
+        if (priorPending.length > 0) {
+          priorPaidSum = priorPending.reduce((sum, p) => sum + p.amountPaise, 0);
+          await tx.payment.updateMany({
+            where: {
+              bookingId: { in: uniqueAdditionalIds },
+              status: 'PENDING',
+            },
+            data: {
+              status: 'COMPLETED',
+              method: settlePaymentMethod === 'SPLIT' ? 'OTHER' : settlePaymentMethod,
+              paidAt: new Date(),
+              recordedByStaffId: staffSession.userId,
+              notes: `Desk tab settled (${settlePaymentMethod === 'SPLIT' ? 'Split payment' : settlePaymentMethod}) in combined multi-game bill by ${staffName}`,
+            },
+          });
+
+          await tx.booking.updateMany({
+            where: { id: { in: uniqueAdditionalIds } },
+            data: { status: 'COMPLETED' },
+          });
+
+          for (const pp of priorPending) {
+            if (pp.amountPaise > 0) {
+              await tx.customerProfile.updateMany({
+                where: { userId: pp.userId },
+                data: { totalSpent: { increment: pp.amountPaise } },
+              });
+            }
+          }
+        }
+      }
+
+      const totalDueAtDesk = duePaise + priorPaidSum;
+      if (totalDueAtDesk <= 0) {
+        throw new ConflictError(`Booking ${booking.bookingRef} has no outstanding balance.`);
+      }
+
       const pendingPayment = booking.payments.find((p) => p.status === 'PENDING');
 
       if (settlePaymentMethod === 'SPLIT') {
         const cashPaise = splitCashPaise || 0;
         const upiPaise = splitUpiPaise || 0;
-        if (cashPaise + upiPaise !== duePaise) {
+        if (cashPaise + upiPaise !== totalDueAtDesk) {
           throw new ValidationError(
-            `Split amounts (Cash ₹${(cashPaise / 100).toFixed(2)} + UPI ₹${(upiPaise / 100).toFixed(2)}) must equal total bill ₹${(duePaise / 100).toFixed(2)}.`
+            `Split amounts (Cash ₹${(cashPaise / 100).toFixed(2)} + UPI ₹${(upiPaise / 100).toFixed(2)}) must equal total bill ₹${(totalDueAtDesk / 100).toFixed(2)}.`
           );
         }
 

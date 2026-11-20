@@ -1316,7 +1316,10 @@ export default function StaffStationGridPage() {
         onTransferTab={(transferData) => {
           setWalkInInitialCustomerName(transferData.customerName);
           setWalkInInitialCustomerPhone(transferData.customerPhone);
-          setWalkInInitialCategory('POOL_TABLE');
+          const isFromPool =
+            transferData.stationName.toUpperCase().includes('SNOOKER') ||
+            transferData.stationName.toUpperCase().includes('POOL');
+          setWalkInInitialCategory(isFromPool ? 'PS5' : 'POOL_TABLE');
           setWalkInLinkedPriorTab({
             bookingId: transferData.priorBookingId,
             stationName: transferData.stationName,

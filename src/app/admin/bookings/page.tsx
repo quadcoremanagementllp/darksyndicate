@@ -58,6 +58,7 @@ interface SelectedBooking {
   splitPaymentDetails?: string | null;
   paymentStatus: string;
   status: string;
+  notes?: string | null;
   session?: { startedAt: string; endedAt?: string | null } | null;
 }
 
@@ -1063,6 +1064,12 @@ export default function AdminBookingsPage() {
                   <p className="mt-1 font-semibold text-ds-text">
                     {Math.max(0, Math.round((new Date(selectedBooking.session.endedAt).getTime() - new Date(selectedBooking.session.startedAt).getTime()) / 60000))} minutes
                   </p>
+                </div>
+              )}
+              {selectedBooking.notes && (
+                <div className="col-span-1 sm:col-span-2 rounded-xl border border-ds-border bg-ds-dark/60 px-3 py-2.5 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider font-mono text-ds-text-dim">Session Notes & Transfer History</p>
+                  <p className="mt-1 text-xs text-ds-text whitespace-pre-line font-mono leading-relaxed">{selectedBooking.notes}</p>
                 </div>
               )}
             </div>

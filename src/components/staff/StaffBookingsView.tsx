@@ -19,6 +19,7 @@ import {
   X,
   Download,
   CreditCard,
+  Layers,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
@@ -264,8 +265,10 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       sessionId: booking.session?.id,
       stationId: booking.stationId,
       stationName: booking.stationName,
+      stationType: booking.stationType,
       bookingId: booking.id,
       customerName: booking.customerName,
+      customerPhone: booking.customerPhone,
       bookingRef: booking.bookingRef,
       scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
       pricePerHourPaise: sessionHourlyRatePaise(booking.stationType, booking.pricePerHourPaise || 15000, booking.playerCount || 1),
@@ -273,6 +276,10 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       paymentStatus: booking.paymentStatus,
       paymentMethod: booking.paymentMethod,
       totalPricePaise: booking.totalPricePaise,
+      unpaidPaise: booking.unpaidPaise,
+      isPayOnExit: booking.isPayOnExit || booking.paymentStatus === 'PENDING' || booking.notes?.includes('[PAY ON EXIT]'),
+      priorPendingTabs: booking.priorPendingTabs || [],
+      priorUnpaidPaise: booking.priorUnpaidPaise || 0,
     });
   };
 
@@ -869,13 +876,33 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                         </div>
                       )}
 
+                      {b.priorPendingTabs && b.priorPendingTabs.length > 0 && (
+                        <div className="flex items-center justify-between text-[11px] font-heading font-bold text-cyan-300 bg-cyan-950/40 border border-cyan-500/30 px-2.5 py-1 rounded-lg">
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                            <span className="truncate">🔗 Transferred: {b.priorPendingTabs[0].stationName}</span>
+                          </span>
+                          <span className="font-mono text-white shrink-0">
+                            +₹{((b.priorUnpaidPaise || 0) / 100).toFixed(0)}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between items-center text-[10px] font-mono text-ds-text-dim pt-1 border-t border-ds-border/40">
                         <span suppressHydrationWarning>
                           {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="font-bold text-ds-text">
-                          ₹{(b.totalPricePaise / 100).toFixed(0)} ({b.paymentMethod || 'CASH'})
+                          {b.priorUnpaidPaise > 0 ? (
+                            <span>
+                              ₹{(((b.totalPricePaise || 0) + (b.priorUnpaidPaise || 0)) / 100).toFixed(0)} ({b.paymentMethod || 'OTHER'})
+                            </span>
+                          ) : (
+                            <span>
+                              ₹{(b.totalPricePaise / 100).toFixed(0)} ({b.paymentMethod || 'CASH'})
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
@@ -1240,6 +1267,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
         isOpen={!!endSessionTarget}
         onClose={() => setEndSessionTarget(null)}
         target={endSessionTarget}
+        stations={walkInStations}
         onSuccess={() => {
           setEndSessionTarget(null);
           setSelectedBookingForGrid(null);
