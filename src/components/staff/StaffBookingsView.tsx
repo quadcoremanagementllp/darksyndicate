@@ -18,9 +18,11 @@ import {
   RotateCcw,
   X,
   Download,
+  CreditCard,
 } from 'lucide-react';
 import { ExtendSessionModal } from '@/components/staff/ExtendSessionModal';
 import { EndSessionModal, type EndSessionTarget } from '@/components/staff/EndSessionModal';
+import { SettlePendingPaymentModal } from '@/components/staff/SettlePendingPaymentModal';
 import { WalkInModal } from '@/components/staff/WalkInModal';
 import { StaffArenaPickerModal } from '@/components/staff/StaffArenaPickerModal';
 import { useToast } from '@/components/ui/Toast';
@@ -49,6 +51,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
   const [selectedBookingForGrid, setSelectedBookingForGrid] = useState<any | null>(null);
   const [extendStation, setExtendStation] = useState<any | null>(null);
   const [endSessionTarget, setEndSessionTarget] = useState<EndSessionTarget | null>(null);
+  const [settleBookingTarget, setSettleBookingTarget] = useState<any | null>(null);
   const [updatingPlayerBookingId, setUpdatingPlayerBookingId] = useState<string | null>(null);
   const [liveCategoryPickerOpen, setLiveCategoryPickerOpen] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
@@ -114,7 +117,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
     if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (view !== 'ACTIVE') params.set('status', view === 'UPCOMING' ? 'CONFIRMED' : 'COMPLETED');
+      if (view === 'PENDING') {
+        params.set('paymentStatus', 'PENDING');
+      } else if (view !== 'ACTIVE') {
+        params.set('status', view === 'UPCOMING' ? 'CONFIRMED' : 'COMPLETED');
+      }
       if (requestedDay) params.set('day', requestedDay);
       if (requestedFrom) params.set('from', requestedFrom);
       if (requestedTo) params.set('to', requestedTo);
@@ -336,10 +343,10 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
             <h1 className={view === 'COMPLETED'
               ? 'text-2xl font-heading font-black uppercase text-ds-text'
               : 'text-xl sm:text-2xl font-heading font-black uppercase text-ds-text tracking-tight'}>
-              {view === 'ACTIVE' ? 'In Sessions' : view === 'UPCOMING' ? 'Online Booking' : 'History'}
+              {view === 'ACTIVE' ? 'In Sessions' : view === 'UPCOMING' ? 'Online Booking' : view === 'PENDING' ? 'Pending Payments' : 'History'}
             </h1>
-            <Badge variant="accent" size="sm" className="font-mono whitespace-nowrap shrink-0">
-              {filteredBookings.length} {view === 'ACTIVE' ? 'In Session' : view === 'UPCOMING' ? 'Upcoming' : 'Completed'}
+            <Badge variant={view === 'PENDING' ? 'warning' : 'accent'} size="sm" className="font-mono whitespace-nowrap shrink-0">
+              {filteredBookings.length} {view === 'ACTIVE' ? 'In Session' : view === 'UPCOMING' ? 'Upcoming' : view === 'PENDING' ? 'Pending' : 'Completed'}
             </Badge>
             {view === 'UPCOMING' && nearUpcomingBookings.length > 0 && (
               <Badge
@@ -360,6 +367,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
           {view === 'COMPLETED' && (
             <p className="text-xs text-ds-text-muted mt-0.5">
               Review completed sessions, player details, and booking history.
+            </p>
+          )}
+          {view === 'PENDING' && (
+            <p className="text-xs text-ds-text-muted mt-0.5">
+              Unpaid balances from concluded sessions. Settle desk payments anytime via Cash, UPI, or Split.
             </p>
           )}
         </div>
@@ -560,10 +572,20 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
         ) : filteredBookings.length === 0 ? (
           <div className="p-12 text-center bg-ds-surface/30 rounded-2xl border border-dashed border-ds-border text-ds-text-dim space-y-2">
             <p className="text-sm font-heading font-bold text-ds-text">
-              {view === 'ACTIVE' ? 'No live sessions right now' : view === 'UPCOMING' ? 'No upcoming online bookings found' : 'No completed sessions found'}
+              {view === 'ACTIVE'
+                ? 'No live sessions right now'
+                : view === 'UPCOMING'
+                ? 'No upcoming online bookings found'
+                : view === 'PENDING'
+                ? 'No pending payments'
+                : 'No completed sessions found'}
             </p>
             <p className="text-xs text-ds-text-muted">
-              {view === 'ACTIVE' ? 'Active sessions will appear here as soon as players check in.' : 'Try another date or turn off Today Only.'}
+              {view === 'ACTIVE'
+                ? 'Active sessions will appear here as soon as players check in.'
+                : view === 'PENDING'
+                ? 'All concluded sessions have been paid and settled.'
+                : 'Try another date or turn off Today Only.'}
             </p>
           </div>
         ) : view === 'COMPLETED' ? (
@@ -641,7 +663,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                       </span>
                       <Badge
                         variant={
-                          countdown?.isOverdue || isSlotDue
+                          view === 'PENDING'
+                            ? 'warning'
+                            : countdown?.isOverdue || isSlotDue
                             ? 'default'
                             : countdown?.isCriticalEnding || isSlotNear
                             ? 'warning'
@@ -657,14 +681,18 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                         }
                         size="sm"
                         className={`font-mono text-[10px] uppercase tracking-wider shrink-0 ${
-                          countdown?.isOverdue || isSlotDue
+                          view === 'PENDING'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 font-bold'
+                            : countdown?.isOverdue || isSlotDue
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 animate-pulse font-bold'
                             : isSlotNear
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold'
                             : ''
                         }`}
                       >
-                        {countdown?.isOverdue
+                        {view === 'PENDING'
+                          ? '⏳ PENDING PAYMENT'
+                          : countdown?.isOverdue
                           ? '🚨 OVERDUE'
                           : isSlotDue
                           ? '🚨 DUE NOW'
@@ -778,7 +806,9 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-[9px] uppercase font-mono text-ds-text-dim block">
-                            {isSessionActive
+                            {view === 'PENDING'
+                              ? 'Amount Due'
+                              : isSessionActive
                               ? countdown?.isOverdue
                                 ? 'Extra Time'
                                 : 'Time Left'
@@ -788,7 +818,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                               ? 'Slot Starts In'
                               : 'Window'}
                           </span>
-                          {isSessionActive && countdown ? (
+                          {view === 'PENDING' ? (
+                            <span className="text-base sm:text-lg font-mono font-black text-amber-300 tracking-tight">
+                              ₹{(b.totalPricePaise / 100).toFixed(0)}
+                            </span>
+                          ) : isSessionActive && countdown ? (
                             <span
                               className={`text-base sm:text-lg font-mono font-black tracking-tight ${
                                 countdown.isOverdue
@@ -873,6 +907,16 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                       </>
                     ) : isSessionActive ? (
                       <span className="text-xs text-ds-text-muted">Managed by {b.staffName || 'another staff member'}</span>
+                    ) : view === 'PENDING' ? (
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => setSettleBookingTarget(b)}
+                        className="flex-1 justify-center text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20"
+                      >
+                        <CreditCard className="w-3.5 h-3.5 mr-1" />
+                        <span>Complete Payment</span>
+                      </Button>
                     ) : b.status === 'CONFIRMED' ? (
                       <Button
                         variant={isSlotNear || isSlotDue ? 'accent' : 'outline'}
@@ -1198,6 +1242,18 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
         target={endSessionTarget}
         onSuccess={() => {
           setEndSessionTarget(null);
+          setSelectedBookingForGrid(null);
+          loadBookings(true);
+        }}
+      />
+
+      {/* ─── SETTLE PENDING PAYMENT MODAL ─── */}
+      <SettlePendingPaymentModal
+        isOpen={!!settleBookingTarget}
+        onClose={() => setSettleBookingTarget(null)}
+        booking={settleBookingTarget}
+        onSuccess={() => {
+          setSettleBookingTarget(null);
           setSelectedBookingForGrid(null);
           loadBookings(true);
         }}

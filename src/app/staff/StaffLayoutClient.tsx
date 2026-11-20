@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   Menu,
   X,
+  AlertCircle,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/shared/NotificationBell';
 import { SoundAlarmToggle } from '@/components/staff/SoundAlarmToggle';
@@ -28,6 +29,7 @@ const sessionLinks = [
   { name: 'In Session', href: '/staff/bookings/in-session', icon: Clock },
   { name: 'Reservation', href: '/staff/bookings/reservations', icon: BookMarked },
   { name: 'Online Booking', href: '/staff/bookings/online', icon: Calendar },
+  { name: 'Pending', href: '/staff/bookings/pending', icon: AlertCircle },
   { name: 'History', href: '/staff/bookings/history', icon: History },
 ];
 

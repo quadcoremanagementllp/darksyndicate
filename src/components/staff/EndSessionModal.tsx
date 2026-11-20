@@ -43,6 +43,7 @@ interface EndSessionModalProps {
   onClose: () => void;
   target: EndSessionTarget | null;
   onSuccess: () => void;
+  hidePendingOption?: boolean;
   onTransferTab?: (data: {
     customerName: string;
     customerPhone?: string;
@@ -57,12 +58,13 @@ export function EndSessionModal({
   onClose,
   target,
   onSuccess,
+  hidePendingOption = false,
   onTransferTab,
 }: EndSessionModalProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [transferring, setTransferring] = useState<boolean>(false);
   const [chargeOvertime, setChargeOvertime] = useState<boolean>(true);
-  const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI' | 'SPLIT'>('CASH');
+  const [settleMethod, setSettleMethod] = useState<'CASH' | 'UPI' | 'SPLIT' | 'PENDING'>('CASH');
   const [splitCash, setSplitCash] = useState<string>('');
   const [splitUpi, setSplitUpi] = useState<string>('');
   const [cashTendered, setCashTendered] = useState<string>('');
@@ -574,7 +576,7 @@ export function EndSessionModal({
               <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-amber-200 block">
                 How is customer paying at desk?
               </span>
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid ${hidePendingOption ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'} gap-2`}>
                 <button
                   type="button"
                   onClick={() => setSettleMethod('CASH')}
@@ -616,7 +618,34 @@ export function EndSessionModal({
                   <Layers className="w-4 h-4 text-amber-400" />
                   <span>Split (Both)</span>
                 </button>
+                {!hidePendingOption && (
+                  <button
+                    type="button"
+                    onClick={() => setSettleMethod('PENDING')}
+                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all font-heading font-bold text-xs ${
+                      settleMethod === 'PENDING'
+                        ? 'bg-amber-500/25 border-amber-400 text-amber-300 shadow-sm ring-1 ring-amber-400'
+                        : 'bg-black/40 border-white/10 text-white/60 hover:text-white'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span>Pending</span>
+                  </button>
+                )}
               </div>
+
+              {/* Pending Payment Notice */}
+              {settleMethod === 'PENDING' && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1.5 animate-in fade-in duration-200 mt-2">
+                  <div className="flex items-center gap-2 font-heading font-bold text-amber-300">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Mark Payment as Pending</span>
+                  </div>
+                  <p className="text-[11px] text-amber-100/90 leading-relaxed">
+                    Station <strong>{target.stationName}</strong> will instantly switch to <strong>AVAILABLE</strong> for new players. The balance of <strong>₹{totalCollectRupees}</strong> will be stored in the <strong>Pending</strong> section on the sidebar for later collection.
+                  </p>
+                </div>
+              )}
 
               {/* Split Payment Inputs */}
               {settleMethod === 'SPLIT' && (
@@ -760,8 +789,14 @@ export function EndSessionModal({
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Booking status moves to <strong className="text-white">COMPLETED</strong> in reservation history.</span>
+              <CheckCircle2 className={`w-3.5 h-3.5 ${settleMethod === 'PENDING' ? 'text-amber-400' : 'text-emerald-400'} shrink-0`} />
+              <span>
+                {settleMethod === 'PENDING' ? (
+                  <>Payment of <strong className="text-amber-300">₹{totalCollectRupees}</strong> moves to <strong className="text-amber-400">PENDING</strong> in Pending section.</>
+                ) : (
+                  <>Booking status moves to <strong className="text-white">COMPLETED</strong> in reservation history.</>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -820,7 +855,9 @@ export function EndSessionModal({
               onClick={handleConfirmEnd}
               disabled={submitting || transferring || Boolean(priceError) || gatewayRefundRequired || (checkout.refundPaise > 0 && !refundConfirmed) || (settleMethod === 'SPLIT' && !isSplitValid)}
               className={`text-xs sm:text-sm font-bold flex items-center gap-1.5 py-1.5 sm:py-2 px-3.5 sm:px-4 ${
-                totalCollectPaise > 0
+                settleMethod === 'PENDING'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20'
+                  : totalCollectPaise > 0
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
                   : 'bg-rose-600 hover:bg-rose-500 text-white'
               }`}
@@ -829,6 +866,8 @@ export function EndSessionModal({
               <span>
                 {submitting
                   ? 'Processing...'
+                  : settleMethod === 'PENDING'
+                  ? `End Session & Mark ₹${totalCollectRupees} as Pending`
                   : settleMethod === 'SPLIT'
                   ? `Collect ₹${splitCashNum} Cash + ₹${splitUpiNum} UPI & End`
                   : totalCollectPaise > 0

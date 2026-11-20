@@ -1,4 +1,4 @@
-export type StaffBookingView = 'ACTIVE' | 'UPCOMING' | 'COMPLETED';
+export type StaffBookingView = 'ACTIVE' | 'UPCOMING' | 'COMPLETED' | 'PENDING';
 
 export type StaffDateFilter = {
   kind: 'ALL' | 'TODAY' | 'DATE' | 'RANGE';
@@ -17,6 +17,7 @@ type StaffBooking = {
   startTime?: string | null;
   date?: string | null;
   updatedAt?: string | null;
+  paymentStatus?: string | null;
   session?: { status?: string; endedAt?: string | null } | null;
 };
 
@@ -37,8 +38,8 @@ export function isStaffReservation(booking: StaffBooking): boolean {
 }
 
 export function staffBookingDateInIST(booking: StaffBooking, view: StaffBookingView): string {
-  const value = view === 'COMPLETED'
-    ? booking.session?.endedAt || booking.updatedAt
+  const value = (view === 'COMPLETED' || view === 'PENDING')
+    ? booking.session?.endedAt || booking.updatedAt || booking.startTime || booking.date
     : booking.startTime || booking.date;
   if (!value) return '';
   const date = new Date(value);
@@ -71,6 +72,16 @@ export function filterStaffBookings<T extends StaffBooking>(
     if (view === 'ACTIVE') return active;
     if (view === 'UPCOMING' && (active || booking.status !== 'CONFIRMED' || !isOnlineStaffBooking(booking))) return false;
     if (view === 'COMPLETED' && (active || booking.status !== 'COMPLETED')) return false;
+    if (view === 'PENDING') {
+      if (active) return false;
+      if (booking.status === 'CANCELLED' || booking.status === 'NO_SHOW') return false;
+      const isPendingPayment =
+        booking.paymentStatus === 'PENDING' ||
+        booking.paymentStatus === 'UNPAID' ||
+        Boolean(booking.notes?.includes('[PENDING_SETTLEMENT]')) ||
+        Boolean(booking.notes?.includes('[PENDING_PAYMENT]'));
+      if (!isPendingPayment) return false;
+    }
     if (dateFilter.kind === 'ALL') return true;
     const day = staffBookingDateInIST(booking, view);
     if (dateFilter.kind === 'RANGE') return Boolean(day) && (!dateFilter.from || day >= dateFilter.from) && (!dateFilter.to || day <= dateFilter.to);

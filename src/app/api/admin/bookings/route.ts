@@ -24,9 +24,10 @@ const deleteBookingSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const viewer = await requireRole('ADMIN', 'SUPER_ADMIN', 'STAFF');
-    const { searchParams } = new URL(req.url);
+    const searchParams = new URL(req.url).searchParams;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    const paymentStatus = searchParams.get('paymentStatus') || '';
     const stationId = searchParams.get('stationId') || '';
     const day = searchParams.get('day');
     const from = searchParams.get('from') || undefined;
@@ -72,6 +73,17 @@ export async function GET(req: NextRequest) {
         where: {
           ...(status ? { status: status as any } : {}),
           ...(stationId ? { stationId } : {}),
+          ...(paymentStatus === 'PENDING'
+            ? {
+                OR: [
+                  { payments: { some: { status: 'PENDING' } } },
+                  { notes: { contains: '[PENDING_SETTLEMENT]' } },
+                  { notes: { contains: '[PENDING_PAYMENT]' } },
+                ],
+              }
+            : paymentStatus
+            ? { payments: { some: { status: paymentStatus as any } } }
+            : {}),
           AND: [
             ...(dayFilter ? [dayFilter] : []),
             // Allow staff and admins to view venue bookings
@@ -92,7 +104,7 @@ export async function GET(req: NextRequest) {
         },
         include: bookingInclude,
         orderBy: { createdAt: 'desc' },
-        take: status === 'COMPLETED' || dayFilter ? undefined : 500,
+        take: status === 'COMPLETED' || paymentStatus === 'PENDING' || dayFilter ? undefined : 500,
       }),
       !status && !dayFilter
         ? prisma.booking.findMany({

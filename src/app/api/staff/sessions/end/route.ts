@@ -11,7 +11,7 @@ const endSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
-  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']).optional(),
+  settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT', 'PENDING']).optional(),
   splitCashPaise: z.number().int().min(0).optional(),
   splitUpiPaise: z.number().int().min(0).optional(),
   transferTab: z.boolean().optional(),
@@ -185,7 +185,44 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (transferTab) {
+          if (settlePaymentMethod === 'PENDING') {
+            // PENDING SETTLEMENT FLOW:
+            // Station will be freed immediately, but payment remains unpaid in the Pending section!
+            await tx.booking.update({
+              where: { id: session.bookingId },
+              data: {
+                notes: `${session.booking?.notes || ''}\n[PENDING_SETTLEMENT: ₹${(checkout.duePaise / 100).toFixed(2)} pending collection marked by ${staffName}]`.trim(),
+              },
+            });
+
+            const hasPendingPayment = payments.some((payment) => payment.status === 'PENDING');
+            if (hasPendingPayment) {
+              await tx.payment.updateMany({
+                where: {
+                  bookingId: session.bookingId,
+                  status: 'PENDING',
+                },
+                data: {
+                  amountPaise: checkout.duePaise,
+                  method: 'OTHER',
+                  notes: `Pending exit payment (₹${(checkout.duePaise / 100).toFixed(2)}) marked by ${staffName}`,
+                  recordedByStaffId: staffSession.userId,
+                },
+              });
+            } else if (checkout.duePaise > 0 && session.booking) {
+              await tx.payment.create({
+                data: {
+                  bookingId: session.bookingId,
+                  userId: session.booking.userId,
+                  amountPaise: checkout.duePaise,
+                  method: 'OTHER',
+                  status: 'PENDING',
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Pending exit payment (₹${(checkout.duePaise / 100).toFixed(2)}) marked by ${staffName}`,
+                },
+              });
+            }
+          } else if (transferTab) {
             // TRANSFER TAB FLOW:
             // Keep pending payments as PENDING so they can be settled at final game checkout!
             // If overtime occurred, record it as an additional PENDING payment on this booking
@@ -364,7 +401,10 @@ export async function POST(req: NextRequest) {
 
       return apiSuccess({
         transferred: Boolean(transferTab),
-        message: transferTab
+        isPending: settlePaymentMethod === 'PENDING',
+        message: settlePaymentMethod === 'PENDING'
+          ? `Session on ${session.station?.name || 'station'} ended. Station is now Available. Payment of ₹${(checkoutResult.duePaise / 100).toFixed(2)} moved to Pending payments.`
+          : transferTab
           ? `Session on ${session.station?.name || 'station'} ended and station is now Available! Open tab preserved for next game.`
           : `Session on ${session.station?.name || 'station'} ended at ₹${(checkoutResult.finalPricePaise / 100).toFixed(2)}. Station is now Available.`,
         extraMinutes: overtimeMinutes,
@@ -443,7 +483,39 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (!transferTab) {
+          if (settlePaymentMethod === 'PENDING') {
+            await tx.booking.update({
+              where: { id: fallbackBooking.id },
+              data: {
+                notes: `${fallbackBooking.notes || ''}\n[PENDING_SETTLEMENT: ₹${(checkout.duePaise / 100).toFixed(2)} pending collection marked by ${staffName}]`.trim(),
+              },
+            });
+
+            const hasPendingPayment = payments.some((p) => p.status === 'PENDING');
+            if (hasPendingPayment) {
+              await tx.payment.updateMany({
+                where: { bookingId: fallbackBooking.id, status: 'PENDING' },
+                data: {
+                  amountPaise: checkout.duePaise,
+                  method: 'OTHER',
+                  notes: `Pending exit payment (₹${(checkout.duePaise / 100).toFixed(2)}) marked by ${staffName}`,
+                  recordedByStaffId: staffSession.userId,
+                },
+              });
+            } else if (checkout.duePaise > 0) {
+              await tx.payment.create({
+                data: {
+                  bookingId: fallbackBooking.id,
+                  userId: fallbackBooking.userId,
+                  amountPaise: checkout.duePaise,
+                  method: 'OTHER',
+                  status: 'PENDING',
+                  recordedByStaffId: staffSession.userId,
+                  notes: `Pending exit payment (₹${(checkout.duePaise / 100).toFixed(2)}) marked by ${staffName}`,
+                },
+              });
+            }
+          } else if (!transferTab) {
             if (payments.some((p) => p.status === 'PENDING')) {
               try {
                 await tx.payment.deleteMany({
@@ -593,7 +665,10 @@ export async function POST(req: NextRequest) {
 
       return apiSuccess({
         transferred: Boolean(transferTab),
-        message: transferTab
+        isPending: settlePaymentMethod === 'PENDING',
+        message: settlePaymentMethod === 'PENDING'
+          ? `Booking on ${targetStation?.name || 'station'} concluded. Station is now Available. Payment of ₹${(fallbackResult.duePaise / 100).toFixed(2)} moved to Pending payments.`
+          : transferTab
           ? `Booking on ${targetStation?.name || 'station'} concluded and station is now Available! Open tab preserved for next game.`
           : `Booking on ${targetStation?.name || 'station'} concluded at ₹${(fallbackResult.finalPricePaise / 100).toFixed(2)}. Station is now Available.`,
         extraMinutes: overtimeMinutes,
