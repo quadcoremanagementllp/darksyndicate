@@ -68,45 +68,39 @@ export async function GET(req: NextRequest) {
       payments: { orderBy: { createdAt: 'desc' as const }, take: 5 },
     };
 
+    const whereConditions: Prisma.BookingWhereInput[] = [];
+    if (status) whereConditions.push({ status: status as any });
+    if (stationId) whereConditions.push({ stationId });
+    if (dayFilter) whereConditions.push(dayFilter);
+    if (paymentStatus === 'PENDING') {
+      whereConditions.push({
+        OR: [
+          { payments: { some: { status: 'PENDING' } } },
+          { status: 'PENDING' },
+        ],
+      });
+    } else if (paymentStatus) {
+      whereConditions.push({ payments: { some: { status: paymentStatus as any } } });
+    }
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { bookingRef: { contains: search } },
+          { customerName: { contains: search } },
+          { customerPhone: { contains: search } },
+          { user: { email: { contains: search } } },
+        ],
+      });
+    }
+
     const [recentBookings, activeFloorBookings] = await Promise.all([
       prisma.booking.findMany({
-        where: {
-          ...(status ? { status: status as any } : {}),
-          ...(stationId ? { stationId } : {}),
-          ...(paymentStatus === 'PENDING'
-            ? {
-                OR: [
-                  { payments: { some: { status: 'PENDING' } } },
-                  { notes: { contains: '[PENDING_SETTLEMENT]' } },
-                  { notes: { contains: '[PENDING_PAYMENT]' } },
-                ],
-              }
-            : paymentStatus
-            ? { payments: { some: { status: paymentStatus as any } } }
-            : {}),
-          AND: [
-            ...(dayFilter ? [dayFilter] : []),
-            // Allow staff and admins to view venue bookings
-            ...(viewer.role === 'STAFF' && !status
-              ? []
-              : []),
-          ],
-          ...(search
-            ? {
-                OR: [
-                  { bookingRef: { contains: search } },
-                  { customerName: { contains: search } },
-                  { customerPhone: { contains: search } },
-                  { user: { email: { contains: search } } },
-                ],
-              }
-            : {}),
-        },
+        where: whereConditions.length > 0 ? { AND: whereConditions } : {},
         include: bookingInclude,
         orderBy: { createdAt: 'desc' },
         take: status === 'COMPLETED' || paymentStatus === 'PENDING' || dayFilter ? undefined : 500,
       }),
-      !status && !dayFilter
+      !status && !dayFilter && paymentStatus !== 'PENDING'
         ? prisma.booking.findMany({
             where: {
               ...(stationId ? { stationId } : {}),
