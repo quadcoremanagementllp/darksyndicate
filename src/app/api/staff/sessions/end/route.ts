@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
                   data: {
                     bookingId: session.bookingId,
                     userId: session.booking.userId,
-                    amountPaise: checkout.duePaise > 0 ? checkout.duePaise : checkout.finalPricePaise,
+                    amountPaise: 0,
                     method: 'OTHER',
                     status: 'COMPLETED',
                     paidAt: new Date(),
@@ -388,6 +388,7 @@ export async function POST(req: NextRequest) {
                 await tx.booking.update({
                   where: { id: session.bookingId },
                   data: {
+                    totalPricePaise: 0,
                     membershipPlanName: activePass.planNameSnapshot,
                     notes: `${session.booking.notes || ''}\n[SYNDICATE_PASS: ${deduction.hoursDeducted} hrs deducted from ${activePass.planNameSnapshot}. ${deduction.balanceAfterHours} hrs remaining. Authorized by ${staffName}]`.trim(),
                   },
@@ -692,7 +693,7 @@ export async function POST(req: NextRequest) {
                 data: {
                   bookingId: fallbackBooking.id,
                   userId: fallbackBooking.userId,
-                  amountPaise: checkout.duePaise > 0 ? checkout.duePaise : checkout.finalPricePaise,
+                  amountPaise: 0,
                   method: 'OTHER',
                   status: 'COMPLETED',
                   paidAt: new Date(),
@@ -705,6 +706,7 @@ export async function POST(req: NextRequest) {
               await tx.booking.update({
                 where: { id: fallbackBooking.id },
                 data: {
+                  totalPricePaise: 0,
                   membershipPlanName: activePass.planNameSnapshot,
                   notes: `${fallbackBooking.notes || ''}\n[SYNDICATE_PASS: ${deduction.hoursDeducted} hrs deducted from ${activePass.planNameSnapshot}. ${deduction.balanceAfterHours} hrs remaining. Authorized by ${staffName}]`.trim(),
                 },

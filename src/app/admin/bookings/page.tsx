@@ -20,6 +20,7 @@ import {
   CheckSquare,
   Square,
   Info,
+  Crown,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
@@ -56,6 +57,8 @@ interface SelectedBooking {
   totalPricePaise: number;
   paymentMethod?: string | null;
   splitPaymentDetails?: string | null;
+  isPassRedeemed?: boolean;
+  membershipPlanName?: string | null;
   paymentStatus: string;
   status: string;
   notes?: string | null;
@@ -653,32 +656,49 @@ export default function AdminBookingsPage() {
 
                     <div className="space-y-0.5 min-w-0 text-right">
                       <span className="text-[10px] font-mono text-ds-text-dim uppercase tracking-wider block">Amount & Mode</span>
-                      <p className="font-heading font-extrabold text-white text-sm">
-                        ₹{(b.totalPricePaise / 100).toFixed(0)}
-                      </p>
-                      {b.paymentMethod === 'SPLIT' ? (
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-[10px] font-mono font-bold text-cyan-300">SPLIT</span>
-                          {b.splitPaymentDetails && (
-                            <span className="text-[9px] font-mono text-ds-text-dim truncate max-w-[140px]">
-                              {b.splitPaymentDetails}
-                            </span>
-                          )}
+                      {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' ? (
+                        <div>
+                          <p className="font-heading font-extrabold text-cyan-300 text-sm">
+                            ₹0 <span className="text-[10px] font-mono text-purple-300 font-normal">({((b.durationMinutes || 60) / 60).toFixed(1)}h pass)</span>
+                          </p>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-purple-300">
+                            <Crown className="w-3 h-3 text-purple-400" />
+                            <span>{b.membershipPlanName || 'VIP PASS'}</span>
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-emerald-400 block uppercase">
+                            HOURS DEDUCTED
+                          </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-mono text-ds-text-muted">{b.paymentMethod || '—'}</span>
+                        <>
+                          <p className="font-heading font-extrabold text-white text-sm">
+                            ₹{(b.totalPricePaise / 100).toFixed(0)}
+                          </p>
+                          {b.paymentMethod === 'SPLIT' ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-[10px] font-mono font-bold text-cyan-300">SPLIT</span>
+                              {b.splitPaymentDetails && (
+                                <span className="text-[9px] font-mono text-ds-text-dim truncate max-w-[140px]">
+                                  {b.splitPaymentDetails}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-mono text-ds-text-muted">{b.paymentMethod || '—'}</span>
+                          )}
+                          <span
+                            className={`text-[9px] font-mono font-semibold block uppercase ${
+                              b.paymentStatus === 'COMPLETED'
+                                ? 'text-emerald-400'
+                                : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
+                                ? 'text-amber-400'
+                                : 'text-rose-400'
+                            }`}
+                          >
+                            {b.paymentStatus}
+                          </span>
+                        </>
                       )}
-                      <span
-                        className={`text-[9px] font-mono font-semibold block uppercase ${
-                          b.paymentStatus === 'COMPLETED'
-                            ? 'text-emerald-400'
-                            : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
-                            ? 'text-amber-400'
-                            : 'text-rose-400'
-                        }`}
-                      >
-                        {b.paymentStatus}
-                      </span>
                     </div>
                   </div>
 
@@ -887,11 +907,32 @@ export default function AdminBookingsPage() {
                           {new Date(b.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap font-heading font-extrabold text-ds-text text-sm min-w-[90px]">
-                        ₹{(b.totalPricePaise / 100).toFixed(0)}
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[90px]">
+                        {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' ? (
+                          <div>
+                            <span className="font-heading font-black text-cyan-300 text-sm block">₹0</span>
+                            <span className="text-[10px] font-mono text-purple-300 block font-normal">
+                              {((b.durationMinutes || 60) / 60).toFixed(1)}h pass
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-heading font-extrabold text-ds-text text-sm">
+                            ₹{(b.totalPricePaise / 100).toFixed(0)}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
-                        {b.paymentMethod === 'SPLIT' ? (
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[120px]">
+                        {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-purple-500/15 border border-purple-500/40 text-purple-300 w-fit shadow-sm">
+                              <Crown className="w-3 h-3 text-purple-400" />
+                              <span>{b.membershipPlanName || 'VIP PASS'}</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-400 font-semibold block">
+                              HOURS DEDUCTED
+                            </span>
+                          </div>
+                        ) : b.paymentMethod === 'SPLIT' ? (
                           <div className="flex flex-col gap-0.5">
                             <span className="text-[11px] font-mono font-bold text-cyan-300 block whitespace-nowrap">
                               SPLIT
@@ -901,23 +942,36 @@ export default function AdminBookingsPage() {
                                 {b.splitPaymentDetails}
                               </span>
                             )}
+                            <span
+                              className={`text-[10px] font-semibold whitespace-nowrap ${
+                                b.paymentStatus === 'COMPLETED'
+                                  ? 'text-emerald-400'
+                                  : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
+                                  ? 'text-amber-400'
+                                  : 'text-rose-400'
+                              }`}
+                            >
+                              {b.paymentStatus}
+                            </span>
                           </div>
                         ) : (
-                          <span className="text-[11px] font-mono block text-ds-text whitespace-nowrap">
-                            {b.paymentMethod || '—'}
-                          </span>
+                          <>
+                            <span className="text-[11px] font-mono block text-ds-text whitespace-nowrap">
+                              {b.paymentMethod || '—'}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold whitespace-nowrap ${
+                                b.paymentStatus === 'COMPLETED'
+                                  ? 'text-emerald-400'
+                                  : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
+                                  ? 'text-amber-400'
+                                  : 'text-rose-400'
+                              }`}
+                            >
+                              {b.paymentStatus}
+                            </span>
+                          </>
                         )}
-                        <span
-                          className={`text-[10px] font-semibold whitespace-nowrap ${
-                            b.paymentStatus === 'COMPLETED'
-                              ? 'text-emerald-400'
-                              : b.paymentStatus === 'PENDING' || b.paymentStatus === 'UNPAID'
-                              ? 'text-amber-400'
-                              : 'text-rose-400'
-                          }`}
-                        >
-                          {b.paymentStatus}
-                        </span>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap min-w-[110px]">
                         <Badge
@@ -1048,8 +1102,8 @@ export default function AdminBookingsPage() {
                 ['Start (IST)', new Date(selectedBooking.startTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })],
                 ['End (IST)', new Date(selectedBooking.endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })],
                 ['Duration', `${Math.floor(selectedBooking.durationMinutes / 60)}h ${selectedBooking.durationMinutes % 60}m`],
-                ['Price', `₹${(selectedBooking.totalPricePaise / 100).toLocaleString('en-IN')}`],
-                ['Payment Mode', selectedBooking.paymentMethod === 'SPLIT' && selectedBooking.splitPaymentDetails ? `SPLIT (${selectedBooking.splitPaymentDetails})` : selectedBooking.paymentMethod || 'Unpaid'],
+                ['Price', (selectedBooking.isPassRedeemed || selectedBooking.paymentMethod === 'SYNDICATE_PASS') ? `₹0 (Pass Allowance - ${((selectedBooking.durationMinutes || 60) / 60).toFixed(1)}h deducted)` : `₹${(selectedBooking.totalPricePaise / 100).toLocaleString('en-IN')}`],
+                ['Payment Mode', (selectedBooking.isPassRedeemed || selectedBooking.paymentMethod === 'SYNDICATE_PASS') ? `👑 Syndicate Pass (${selectedBooking.membershipPlanName || 'VIP Black Card'}) - Hours Deducted` : selectedBooking.paymentMethod === 'SPLIT' && selectedBooking.splitPaymentDetails ? `SPLIT (${selectedBooking.splitPaymentDetails})` : selectedBooking.paymentMethod || 'Unpaid'],
                 ['Payment Status', selectedBooking.paymentStatus],
                 ['Booking Status', selectedBooking.status],
               ] as [string, string][]).map(([label, value]) => (

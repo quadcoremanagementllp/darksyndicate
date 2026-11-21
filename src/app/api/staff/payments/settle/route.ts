@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
           await tx.payment.update({
             where: { id: pendingPayment.id },
             data: {
-              amountPaise: duePaise,
+              amountPaise: 0,
               method: 'OTHER',
               status: 'COMPLETED',
               paidAt: new Date(),
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
             data: {
               bookingId: booking.id,
               userId: booking.userId,
-              amountPaise: duePaise,
+              amountPaise: 0,
               method: 'OTHER',
               status: 'COMPLETED',
               paidAt: new Date(),
@@ -220,6 +220,15 @@ export async function POST(req: NextRequest) {
             },
           });
         }
+
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            totalPricePaise: 0,
+            membershipPlanName: activePass.planNameSnapshot,
+            notes: `${booking.notes || ''}\n[SYNDICATE_PASS: ${deduction.hoursDeducted} hrs deducted from ${activePass.planNameSnapshot}. ${deduction.balanceAfterHours} hrs remaining. Authorized by ${staffName}]`.trim(),
+          },
+        });
       } else {
         // Single method (CASH or UPI)
         if (pendingPayment) {

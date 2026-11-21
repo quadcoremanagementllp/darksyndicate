@@ -228,22 +228,30 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 6. Check Active Membership Discount for Registered Users
+      // 6. Check Active Membership Discount / Pass Allowance for Registered Users
       let membershipDiscountPaise = 0;
       let membershipPlanName: string | null = null;
+      let isPassCovered = false;
       if (registeredUser) {
         try {
           const activeMem = await getActiveUserMembership(registeredUser.id);
-          const effectiveDiscount = activeMem?.plan?.discountPercent ?? activeMem?.discountPercent ?? 0;
-          if (activeMem && effectiveDiscount > 0) {
+          if (activeMem) {
             membershipPlanName = activeMem.planNameSnapshot;
-            membershipDiscountPaise = Math.round((subtotalPaise * effectiveDiscount) / 100);
+            const remainingMinutes = Math.max(0, (activeMem.totalHours || 0) * 60 - (activeMem.usedMinutes || 0));
+            if (activeMem.totalHours > 0 && remainingMinutes >= (data.durationMinutes || 60)) {
+              isPassCovered = true;
+            } else {
+              const effectiveDiscount = activeMem?.plan?.discountPercent ?? activeMem?.discountPercent ?? 0;
+              if (effectiveDiscount > 0) {
+                membershipDiscountPaise = Math.round((subtotalPaise * effectiveDiscount) / 100);
+              }
+            }
           }
         } catch {
           // Non-fatal if membership lookup fails
         }
       }
-      const totalPricePaise = Math.max(0, subtotalPaise - membershipDiscountPaise);
+      const totalPricePaise = isPassCovered ? 0 : Math.max(0, subtotalPaise - membershipDiscountPaise);
 
       const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
       const bookingRef = `DS-WALK-${new Date().getFullYear()}-${randomHex}`;
@@ -272,6 +280,7 @@ export async function POST(req: NextRequest) {
           gameTitle: data.gameTitle || null,
           notes:
             `${PAY_ON_EXIT_MARKER} ` +
+            (isPassCovered ? `[Syndicate Pass: ${membershipPlanName} Covered]. ` : '') +
             (data.gameTitle ? `Game: ${data.gameTitle}. ` : '') +
             (cleanEmail ? `Email: ${cleanEmail}. ` : '') +
             `[Players: ${playerCount}]. ` +
@@ -291,7 +300,9 @@ export async function POST(req: NextRequest) {
           method: 'OTHER',
           status: 'PENDING',
           recordedByStaffId: staffSession?.userId || null,
-          notes: `Pay-on-Exit desk walk-in - balance to be collected on checkout${staffName ? ` [Registered by ${staffName}]` : ''}`,
+          notes: isPassCovered
+            ? `Syndicate Pass session (${membershipPlanName}) - hours to be deducted at checkout${staffName ? ` [Registered by ${staffName}]` : ''}`
+            : `Pay-on-Exit desk walk-in - balance to be collected on checkout${staffName ? ` [Registered by ${staffName}]` : ''}`,
         },
       });
 

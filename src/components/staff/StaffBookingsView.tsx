@@ -618,8 +618,27 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                   {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && <p>Booked by staff: {b.staffName || 'Unassigned'}</p>}
                 </div>
                 <div className="lg:text-right shrink-0">
-                  <p className="font-mono font-bold text-white">₹{(b.totalPricePaise / 100).toFixed(0)}</p>
-                  <p className="text-[10px] font-mono uppercase text-ds-text-muted">{b.paymentMethod === 'SPLIT' && b.splitPaymentDetails ? `SPLIT (${b.splitPaymentDetails})` : b.paymentMethod || 'OTHER'} · Completed</p>
+                  {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' ? (
+                    <>
+                      <p className="font-mono font-bold text-cyan-300">₹0</p>
+                      <div className="flex flex-col items-start lg:items-end gap-0.5">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-purple-300">
+                          <Crown className="w-3 h-3 text-purple-400" />
+                          <span>{b.membershipPlanName || 'VIP PASS'}</span>
+                        </span>
+                        <span className="text-[9px] font-mono text-emerald-400 font-semibold uppercase">
+                          Hours Deducted
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-mono font-bold text-white">₹{(b.totalPricePaise / 100).toFixed(0)}</p>
+                      <p className="text-[10px] font-mono uppercase text-ds-text-muted">
+                        {b.paymentMethod === 'SPLIT' && b.splitPaymentDetails ? `SPLIT (${b.splitPaymentDetails})` : b.paymentMethod || 'OTHER'} · Completed
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Link href={`/booking/confirmation/${b.bookingRef || b.id}`} target="_blank" aria-label={`Receipt for ${b.bookingRef}`} className="p-2.5 rounded-xl border border-ds-border text-ds-ice hover:border-ds-accent">
@@ -910,9 +929,10 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="font-bold text-ds-text">
-                          {b.syndicatePass?.hasHoursAvailable ? (
-                            <span className="text-cyan-300 font-mono font-bold">
-                              👑 Pass Covered
+                          {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' || b.syndicatePass?.hasHoursAvailable ? (
+                            <span className="text-cyan-300 font-mono font-bold flex items-center gap-1">
+                              <Crown className="w-3 h-3 text-purple-400 inline" />
+                              <span>Pass Covered (₹0)</span>
                             </span>
                           ) : b.priorUnpaidPaise > 0 ? (
                             <span>
@@ -1244,11 +1264,21 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                   )}
                   <div className="flex justify-between items-center">
                     <span className="text-ds-text-dim">Price:</span>
-                    <span className="font-bold text-ds-text">₹{(b.totalPricePaise / 100).toLocaleString('en-IN')}</span>
+                    <span className="font-bold text-ds-text">
+                      {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' || b.syndicatePass?.hasHoursAvailable
+                        ? `₹0 (Pass Allowance - ${((b.durationMinutes || 60) / 60).toFixed(1)}h)`
+                        : `₹${(b.totalPricePaise / 100).toLocaleString('en-IN')}`}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-ds-text-dim">Payment Mode:</span>
-                    <span className="font-bold text-ds-text">{b.paymentMethod === 'SPLIT' && b.splitPaymentDetails ? `SPLIT (${b.splitPaymentDetails})` : b.paymentMethod || 'Unpaid'}</span>
+                    <span className="font-bold text-ds-text">
+                      {b.isPassRedeemed || b.paymentMethod === 'SYNDICATE_PASS' || b.syndicatePass?.hasHoursAvailable
+                        ? `👑 Syndicate Pass (${b.membershipPlanName || b.syndicatePass?.planName || 'VIP Black Card'}) - Hours Deducted`
+                        : b.paymentMethod === 'SPLIT' && b.splitPaymentDetails
+                        ? `SPLIT (${b.splitPaymentDetails})`
+                        : b.paymentMethod || 'Unpaid'}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-ds-text-dim">Payment Status:</span>

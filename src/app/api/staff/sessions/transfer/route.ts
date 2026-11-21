@@ -171,9 +171,12 @@ export async function POST(req: NextRequest) {
     if (sourceBooking.userId && sourceBooking.userId !== 'guest') {
       try {
         const activeMem = await getActiveUserMembership(sourceBooking.userId);
-        if (activeMem && activeMem.discountPercent > 0) {
+        if (activeMem) {
           membershipPlanName = activeMem.planNameSnapshot;
-          membershipDiscountPaise = Math.round((newSubtotalPaise * activeMem.discountPercent) / 100);
+          const effectiveDiscount = activeMem?.plan?.discountPercent ?? activeMem?.discountPercent ?? 0;
+          if (effectiveDiscount > 0) {
+            membershipDiscountPaise = Math.round((newSubtotalPaise * effectiveDiscount) / 100);
+          }
         }
       } catch {
         // Non-fatal

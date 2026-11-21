@@ -341,6 +341,22 @@ export async function GET(req: NextRequest) {
         splitPaymentDetails = `₹${cashAmt} Cash + ₹${upiAmt} UPI`;
       }
 
+      const passPayment = (booking.payments || []).find((p) =>
+        p.receiptNumber?.startsWith('PASS-') ||
+        (p.notes && (p.notes.toLowerCase().includes('syndicate pass') || p.notes.toLowerCase().includes('pass: deducted')))
+      );
+      const isPassRedeemed = Boolean(
+        passPayment ||
+        (booking.notes && booking.notes.toLowerCase().includes('syndicate pass')) ||
+        (booking.notes && booking.notes.includes('[SYNDICATE_PASS:')) ||
+        (booking.notes && booking.notes.includes('Deducted') && (booking.notes.includes('hrs on') || booking.notes.includes('hrs ('))) ||
+        (booking.membershipPlanName && (booking.totalPricePaise === 0 || booking.payments[0]?.method === 'OTHER'))
+      );
+
+      if (isPassRedeemed) {
+        displayPaymentMethod = 'SYNDICATE_PASS';
+      }
+
       // Check if player has an active Syndicate Pass
       const matchedPass =
         passByUserId.get(booking.userId) ||
@@ -392,7 +408,9 @@ export async function GET(req: NextRequest) {
         startTime: booking.startTime,
         endTime: booking.endTime,
         durationMinutes: booking.durationMinutes,
-        totalPricePaise: booking.totalPricePaise,
+        totalPricePaise: isPassRedeemed ? 0 : booking.totalPricePaise,
+        isPassRedeemed,
+        membershipPlanName: booking.membershipPlanName || (isPassRedeemed ? (matchedPass?.planNameSnapshot || 'VIP Black Card') : null),
         status: effectiveStatus,
         isWalkIn,
         channel: isWalkIn ? 'DESK' : 'ONLINE',
