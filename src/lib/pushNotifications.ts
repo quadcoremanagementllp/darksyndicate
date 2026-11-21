@@ -134,17 +134,21 @@ export async function sendMobilePushNotification(
     console.warn('[PushNotification] SW showNotification failed, falling back:', swErr);
   }
 
-  // 3. Fallback to standard Window Notification constructor
+  // 3. Fallback to standard Window Notification constructor (Only on non-iOS browsers)
   try {
-    const notif = new Notification(title, notificationOptions);
-    notif.onclick = () => {
-      window.focus();
-      notif.close();
-      if (options.url && window.location.pathname !== options.url) {
-        window.location.href = options.url;
-      }
-    };
-    return true;
+    const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (!isIos && typeof Notification === 'function') {
+      const notif = new Notification(title, notificationOptions);
+      notif.onclick = () => {
+        window.focus();
+        notif.close();
+        if (options.url && window.location.pathname !== options.url) {
+          window.location.href = options.url;
+        }
+      };
+      return true;
+    }
+    return false;
   } catch (notifErr) {
     console.warn('[PushNotification] Window Notification failed:', notifErr);
     return false;

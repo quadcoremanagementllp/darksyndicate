@@ -39,9 +39,16 @@ export function PwaSplashScreen() {
       setMounted(true);
     }, 850);
 
+    // Hard failsafe: Unconditionally unmount after 1200ms to guarantee no stuck overlay
+    const failsafeTimer = setTimeout(() => {
+      setVisible(false);
+      setMounted(true);
+    }, 1200);
+
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(removeTimer);
+      clearTimeout(failsafeTimer);
     };
   }, [isStaffOrAdmin]);
 

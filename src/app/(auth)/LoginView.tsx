@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -35,6 +35,7 @@ interface LoginViewProps {
 }
 
 function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { user, login, register: authRegister } = useAuth();
@@ -51,13 +52,13 @@ function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
   React.useEffect(() => {
     if (!user) return;
     if (portal === 'admin' && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
-      window.location.href = redirectParam || '/admin';
+      router.push(redirectParam || '/admin');
     } else if (portal === 'staff' && ['SUPER_ADMIN', 'ADMIN', 'STAFF'].includes(user.role)) {
-      window.location.href = redirectParam || '/staff';
+      router.push(redirectParam || '/staff');
     } else if (portal === 'player' && !errorParam) {
-      window.location.href = redirectParam || '/account';
+      router.push(redirectParam || '/account');
     }
-  }, [user, portal, redirectParam, errorParam]);
+  }, [user, portal, redirectParam, errorParam, router]);
 
   // Initialize active tab from prop, query parameter, or default to signin
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>(() => {
@@ -115,13 +116,13 @@ function LoginContent({ defaultTab = 'signin' }: LoginViewProps) {
       } catch {}
 
       if (redirectParam) {
-        window.location.href = redirectParam;
+        router.push(redirectParam);
       } else if (loggedInUser?.role && ['SUPER_ADMIN', 'ADMIN'].includes(loggedInUser.role)) {
-        window.location.href = '/admin';
+        router.push('/admin');
       } else if (loggedInUser?.role === 'STAFF') {
-        window.location.href = '/staff';
+        router.push('/staff');
       } else {
-        window.location.href = '/account';
+        router.push('/account');
       }
     } catch (error) {
       toast.error(

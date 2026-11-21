@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const pathname = usePathname();
-  const lastRefreshTimeRef = useRef<number>(Date.now());
+  const lastRefreshTimeRef = useRef<number>(0);
   const isPublicAuthPage = useMemo(
     () => ['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname),
     [pathname]
@@ -69,11 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [saveUser]);
 
   useEffect(() => {
+    if (lastRefreshTimeRef.current === 0) {
+      lastRefreshTimeRef.current = Date.now();
+    }
+
     // Restore cached session immediately on client mount
     try {
       const cached = localStorage.getItem('ds_auth_user');
       if (cached) {
-        setUser(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        setUser(parsed);
         setIsLoading(false);
       }
     } catch {}

@@ -1,8 +1,8 @@
 // Dark Syndicate Gaming World - Progressive Web App (PWA) Service Worker
-// Version: 1.4.1
+// Version: 1.4.6
 // Features: Offline Caching, Cache-First Static Assets, Network-First Pages, Web Push & Mobile Vibration
 
-const CACHE_NAME = 'ds-pwa-v1.4.5';
+const CACHE_NAME = 'ds-pwa-v1.4.6';
 const STATIC_ASSETS = [
   '/manifest-admin.json',
   '/manifest-staff.json',
@@ -181,20 +181,33 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) return cached;
-        return fetch(req).then((res) => {
-          if (res && res.status === 200) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
-          }
-          return res;
-        });
+        return fetch(req)
+          .then((res) => {
+            if (res && res.status === 200) {
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            }
+            return res;
+          })
+          .catch(async () => {
+            // Network fetch failed (e.g. iPad waking up before Wi-Fi reconnected)
+            const fallback = await caches.match(req);
+            if (fallback) return fallback;
+            // Return 503 instead of rejecting the fetch event promise
+            return new Response('/* Chunk offline or reconnecting */', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'application/javascript; charset=utf-8' },
+            });
+          });
       })
     );
     return;
   }
 
-  // C. HTML Navigation Requests: Network-First with Offline Fallback
-  if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html')) {
+  // C. HTML Navigation Requests & RSC Payloads: Network-First with Offline Fallback
+  const isRsc = req.headers.get('RSC') === '1' || req.headers.get('accept')?.includes('text/x-component');
+  if (req.mode === 'navigate' || req.headers.get('accept')?.includes('text/html') || isRsc) {
     event.respondWith(
       fetch(req)
         .then((networkResponse) => {
@@ -206,6 +219,9 @@ self.addEventListener('fetch', (event) => {
             }
             return networkResponse;
           }
+          if (isRsc) {
+            return new Response('', { status: 503, statusText: 'RSC Offline' });
+          }
           return new Response(OFFLINE_HTML, {
             headers: { 'Content-Type': 'text/html; charset=utf-8' },
           });
@@ -215,6 +231,10 @@ self.addEventListener('fetch', (event) => {
           const cachedPage = await caches.match(req);
           if (cachedPage) {
             return cachedPage;
+          }
+
+          if (isRsc) {
+            return new Response('', { status: 503, statusText: 'RSC Offline' });
           }
 
           return new Response(OFFLINE_HTML, {

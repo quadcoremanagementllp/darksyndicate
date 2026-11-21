@@ -401,13 +401,31 @@ export async function POST(req: NextRequest) {
         const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
         const bookingRef = `DS-${new Date().getFullYear()}-${randomHex}`;
         const qrToken = `ds-${crypto.randomUUID()}`;
+        const bookingDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+
+        // Free unique slot if a prior cancelled/no-show booking occupied this exact timestamp
+        const staleBooking = await tx.booking.findFirst({
+          where: {
+            stationId: assignedStationId,
+            date: bookingDate,
+            startTime: startDateTime,
+            status: { in: ['CANCELLED', 'NO_SHOW', 'PAYMENT_FAILED'] as any },
+          },
+          select: { id: true },
+        });
+        if (staleBooking) {
+          await tx.booking.update({
+            where: { id: staleBooking.id },
+            data: { startTime: new Date(startDateTime.getTime() - 1000) },
+          });
+        }
 
         const booking = await tx.booking.create({
           data: {
             bookingRef,
             userId,
             stationId: assignedStationId,
-            date: new Date(Date.UTC(year, month - 1, day, 0, 0, 0)),
+            date: bookingDate,
             startTime: startDateTime,
             endTime: endDateTime,
             durationMinutes: data.durationMinutes,

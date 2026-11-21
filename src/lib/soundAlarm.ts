@@ -14,16 +14,21 @@ const ALARM_VOLUME_KEY = 'ds_staff_alarm_volume';
 export function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
 
-  if (!audioCtx) {
-    const AudioContextClass =
-      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+  try {
+    const isInterrupted = audioCtx && ((audioCtx.state as string) === 'interrupted' || (audioCtx.state as string) === 'closed');
+    if (!audioCtx || isInterrupted) {
+      const AudioContextClass =
+        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
     }
-  }
 
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  } catch {
+    return null;
   }
 
   return audioCtx;

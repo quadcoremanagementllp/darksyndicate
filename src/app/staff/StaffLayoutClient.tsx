@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Gamepad2,
@@ -187,6 +187,7 @@ function StaffSidebarNav({
 }
 
 export default function StaffLayoutClient({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
   const [mounted, setMounted] = useState<boolean>(false);
@@ -203,9 +204,9 @@ export default function StaffLayoutClient({ children }: { children: React.ReactN
   // Guard: Redirect unauthorized users or customers out of the staff operations floor
   useEffect(() => {
     if (mounted && !isLoading && (!user || !isStaffOrAdmin)) {
-      window.location.href = '/login?portal=staff';
+      router.push('/login?portal=staff');
     }
-  }, [mounted, user, isLoading, isStaffOrAdmin]);
+  }, [mounted, user, isLoading, isStaffOrAdmin, router]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -284,15 +285,33 @@ export default function StaffLayoutClient({ children }: { children: React.ReactN
     };
 
     let loggingOut = false;
+    const performRedirect = () => {
+      router.push('/login?portal=staff&reason=inactive');
+    };
+
     const checkInactivity = async () => {
       const lastActiveTimestamp = lastActivity();
       if (Date.now() - lastActiveTimestamp < INACTIVITY_LIMIT_MS) return false;
       if (loggingOut) return true;
       loggingOut = true;
+
       try {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          // Device is offline on wake-up; defer logout redirect until connection is re-established
+          window.addEventListener(
+            'online',
+            () => {
+              void logout('SYSTEM_INACTIVE', lastActiveTimestamp).finally(performRedirect);
+            },
+            { once: true }
+          );
+          return true;
+        }
         await logout('SYSTEM_INACTIVE', lastActiveTimestamp);
+      } catch {
+        // Fallback if network dropped mid-logout
       } finally {
-        window.location.href = '/login?portal=staff&reason=inactive';
+        performRedirect();
       }
       return true;
     };
@@ -314,10 +333,14 @@ export default function StaffLayoutClient({ children }: { children: React.ReactN
     const trackedEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
     trackedEvents.forEach((evt) => window.addEventListener(evt, onUserInteraction, { passive: true }));
 
-    // Check a suspended tab before accepting activity on return.
+    // Check a suspended tab with a 2-second stabilization window to allow Wi-Fi reconnect
+    let wakeTimer: ReturnType<typeof setTimeout> | null = null;
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        void checkInactivity();
+        if (wakeTimer) clearTimeout(wakeTimer);
+        wakeTimer = setTimeout(() => {
+          void checkInactivity();
+        }, 2000);
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -328,9 +351,10 @@ export default function StaffLayoutClient({ children }: { children: React.ReactN
     return () => {
       trackedEvents.forEach((evt) => window.removeEventListener(evt, onUserInteraction));
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (wakeTimer) clearTimeout(wakeTimer);
       clearInterval(inactivityInterval);
     };
-  }, [logout, isLoading, user, isStaffOrAdmin]);
+  }, [logout, isLoading, user, isStaffOrAdmin, router]);
 
   const handleLogout = async () => {
     try {
