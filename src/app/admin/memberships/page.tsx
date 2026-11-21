@@ -162,6 +162,8 @@ export default function AdminMembershipsPage() {
   const [historyMembership, setHistoryMembership] = useState<Membership | null>(null);
   const [usageLogs, setUsageLogs] = useState<UsageLogItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [clearingHistory, setClearingHistory] = useState(false);
 
   const toast = useToast();
 
@@ -430,6 +432,78 @@ export default function AdminMembershipsPage() {
       toast.error('Network error loading history');
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const handleDeleteHistoryLog = async (logId: string, hoursDeducted: number) => {
+    if (!historyMembership) return;
+    const gamerName = historyMembership.user?.firstName || 'this gamer';
+    if (!confirm(`Delete this session record and restore ${hoursDeducted} hrs back to ${gamerName}'s pass?`)) {
+      return;
+    }
+
+    setDeletingLogId(logId);
+    try {
+      const res = await fetch(`/api/admin/memberships/${historyMembership.id}/history?logId=${logId}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || 'Session log deleted and hours restored');
+        const refreshedRes = await fetch(`/api/admin/memberships/${historyMembership.id}/history`);
+        const refreshedJson = await refreshedRes.json();
+        if (refreshedJson.success && refreshedJson.data) {
+          setUsageLogs(refreshedJson.data.usageLogs || []);
+          if (refreshedJson.data.membership) {
+            setHistoryMembership((prev) => (prev ? { ...prev, ...refreshedJson.data.membership } : null));
+          }
+        }
+        loadData();
+      } else {
+        toast.error(json.error?.message || 'Failed to delete session record');
+      }
+    } catch {
+      toast.error('Network error deleting session record');
+    } finally {
+      setDeletingLogId(null);
+    }
+  };
+
+  const handleClearAllHistory = async () => {
+    if (!historyMembership) return;
+    const gamerName = historyMembership.user?.firstName || 'this gamer';
+    if (!confirm(`Clear ALL session usage history and reset used hours to 0 for ${gamerName}?`)) {
+      return;
+    }
+
+    setClearingHistory(true);
+    try {
+      const res = await fetch(`/api/admin/memberships/${historyMembership.id}/history?clearAll=true`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.data?.message || 'All session history cleared and pass hours restored');
+        setUsageLogs([]);
+        setHistoryMembership((prev) =>
+          prev
+            ? {
+                ...prev,
+                usedMinutes: 0,
+                usedHours: 0,
+                remainingHours: prev.totalHours,
+                remainingMinutes: (prev.totalHours || 0) * 60,
+              }
+            : null
+        );
+        loadData();
+      } else {
+        toast.error(json.error?.message || 'Failed to clear session history');
+      }
+    } catch {
+      toast.error('Network error clearing history');
+    } finally {
+      setClearingHistory(false);
     }
   };
 
@@ -1441,14 +1515,28 @@ export default function AdminMembershipsPage() {
 
           {/* Sessions Usage Table */}
           <div className="rounded-xl border border-ds-border overflow-hidden bg-ds-surface/40">
-            <div className="p-3 bg-ds-dark/60 border-b border-ds-border flex items-center justify-between">
+            <div className="p-3 bg-ds-dark/60 border-b border-ds-border flex items-center justify-between gap-2">
               <span className="font-heading font-bold text-xs uppercase tracking-wider text-ds-text flex items-center gap-1.5">
                 <History className="w-4 h-4 text-purple-400" />
                 <span>Session Timings & Redeemed Hours Log</span>
               </span>
-              <span className="text-[11px] font-mono text-ds-text-dim">
-                {usageLogs.length} records
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono text-ds-text-dim">
+                  {usageLogs.length} records
+                </span>
+                {usageLogs.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAllHistory}
+                    disabled={clearingHistory}
+                    className="h-6 px-2 text-[10px] font-mono border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/60"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    <span>{clearingHistory ? 'Clearing...' : 'Clear All'}</span>
+                  </Button>
+                )}
+              </div>
             </div>
 
             {loadingHistory ? (
@@ -1478,6 +1566,7 @@ export default function AdminMembershipsPage() {
                       <th className="py-2.5 px-3">Balance After</th>
                       <th className="py-2.5 px-3">Staff Operator</th>
                       <th className="py-2.5 px-3">Reference / Notes</th>
+                      <th className="py-2.5 px-3 text-right">Delete</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ds-border/40 font-mono text-[11px]">
@@ -1519,8 +1608,20 @@ export default function AdminMembershipsPage() {
                         <td className="py-2.5 px-3 text-ds-text-dim whitespace-nowrap">
                           {log.staffName || 'Staff Operator'}
                         </td>
-                        <td className="py-2.5 px-3 text-[10px] text-ds-text-dim truncate max-w-[200px]" title={log.notes || ''}>
+                        <td className="py-2.5 px-3 text-[10px] text-ds-text-dim truncate max-w-[180px]" title={log.notes || ''}>
                           {log.notes || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHistoryLog(log.id, log.hoursDeducted)}
+                            disabled={deletingLogId === log.id}
+                            title="Delete session log and restore hours"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 transition-all disabled:opacity-40"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>{deletingLogId === log.id ? '...' : 'Delete'}</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
