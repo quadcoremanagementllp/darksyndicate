@@ -910,7 +910,11 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
                           {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="font-bold text-ds-text">
-                          {b.priorUnpaidPaise > 0 ? (
+                          {b.syndicatePass?.hasHoursAvailable ? (
+                            <span className="text-cyan-300 font-mono font-bold">
+                              👑 Pass Covered
+                            </span>
+                          ) : b.priorUnpaidPaise > 0 ? (
                             <span>
                               ₹{(((b.totalPricePaise || 0) + (b.priorUnpaidPaise || 0)) / 100).toFixed(0)} ({b.paymentMethod || 'OTHER'})
                             </span>

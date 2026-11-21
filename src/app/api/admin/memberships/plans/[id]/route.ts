@@ -81,6 +81,13 @@ export async function PUT(
       data: updateData,
     });
 
+    if (data.discountPercent !== undefined) {
+      await prisma.membership.updateMany({
+        where: { planId: id, status: 'ACTIVE' },
+        data: { discountPercent: data.discountPercent },
+      });
+    }
+
     await prisma.auditLog.create({
       data: {
         userId: session.userId,

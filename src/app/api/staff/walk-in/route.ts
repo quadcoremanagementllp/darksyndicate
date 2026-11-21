@@ -234,9 +234,10 @@ export async function POST(req: NextRequest) {
       if (registeredUser) {
         try {
           const activeMem = await getActiveUserMembership(registeredUser.id);
-          if (activeMem && activeMem.discountPercent > 0) {
+          const effectiveDiscount = activeMem?.plan?.discountPercent ?? activeMem?.discountPercent ?? 0;
+          if (activeMem && effectiveDiscount > 0) {
             membershipPlanName = activeMem.planNameSnapshot;
-            membershipDiscountPaise = Math.round((subtotalPaise * activeMem.discountPercent) / 100);
+            membershipDiscountPaise = Math.round((subtotalPaise * effectiveDiscount) / 100);
           }
         } catch {
           // Non-fatal if membership lookup fails

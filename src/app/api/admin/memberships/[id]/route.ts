@@ -13,6 +13,7 @@ const updateMembershipSchema = z.object({
   expiresAt: z.string().optional(),
   totalHours: z.number().int().min(0).optional(),
   usedMinutes: z.number().int().min(0).optional(),
+  discountPercent: z.number().int().min(0).max(100).optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -37,6 +38,7 @@ export async function PATCH(
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.totalHours !== undefined) updateData.totalHours = data.totalHours;
     if (data.usedMinutes !== undefined) updateData.usedMinutes = data.usedMinutes;
+    if (data.discountPercent !== undefined) updateData.discountPercent = data.discountPercent;
     if (data.expiresAt) {
       const parsedDate = new Date(data.expiresAt);
       if (!isNaN(parsedDate.getTime())) {
