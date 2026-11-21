@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   AlertCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { NotificationBell } from '@/components/shared/NotificationBell';
 import { SoundAlarmToggle } from '@/components/staff/SoundAlarmToggle';
@@ -150,6 +151,29 @@ function StaffSidebarNav({
               </Link>
             ))}
           </div>
+
+          {/* Quick Desk Notes Navigation */}
+          <Link
+            href="/staff/notes"
+            onClick={() => {
+              setSessionsExpanded(null);
+              if (isMobile) onClose?.();
+            }}
+            aria-current={pathname === '/staff/notes' ? 'page' : undefined}
+            title={collapsed ? 'Quick Notes' : undefined}
+            aria-label="Quick Notes"
+            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+              pathname === '/staff/notes'
+                ? 'bg-ds-accent text-white shadow-md shadow-ds-accent/20'
+                : 'text-ds-text-muted hover:text-white hover:bg-ds-surface/60'
+            }`}
+          >
+            <span className="flex items-center gap-3 truncate">
+              <ClipboardList className="w-4 h-4 shrink-0" />
+              {!collapsed && <span className="truncate">Quick Notes</span>}
+            </span>
+            {!collapsed && pathname === '/staff/notes' && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0" />}
+          </Link>
 
         </nav>
 

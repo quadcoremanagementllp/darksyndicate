@@ -709,3 +709,23 @@ model Game {
   @@map("games")
 }
 
+/// Front-desk scratchpad notes for staff floor operations
+model StaffQuickNote {
+  id                String   @id @default(uuid())
+  customerName      String   @map("customer_name")
+  timeSlot          String   @map("time_slot")
+  phone             String?
+  stationPreference String?  @map("station_preference")
+  playerCount       Int      @default(1) @map("player_count")
+  note              String?  @db.Text
+  status            String   @default("PENDING") // PENDING, SEATED, COMPLETED, CANCELLED
+  staffName         String?  @map("staff_name")
+  createdById       String?  @map("created_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("staff_quick_notes")
+}
+
