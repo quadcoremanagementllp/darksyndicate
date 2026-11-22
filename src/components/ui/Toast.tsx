@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 
@@ -104,20 +104,22 @@ export function useToast(): UseToastReturn {
     throw new Error('useToast must be used within a ToastProvider');
   }
 
-  const toastFn = ((title: string, type?: ToastType) => {
-    context.toast(title, type);
-  }) as UseToastReturn;
+  return useMemo(() => {
+    const toastFn = ((title: string, type?: ToastType) => {
+      context.toast(title, type);
+    }) as UseToastReturn;
 
-  toastFn.toast = context.toast;
-  toastFn.success = context.success;
-  toastFn.error = context.error;
-  toastFn.warning = context.warning;
-  toastFn.info = context.info;
-  toastFn.toasts = context.toasts;
-  toastFn.addToast = context.addToast;
-  toastFn.removeToast = context.removeToast;
+    toastFn.toast = context.toast;
+    toastFn.success = context.success;
+    toastFn.error = context.error;
+    toastFn.warning = context.warning;
+    toastFn.info = context.info;
+    toastFn.toasts = context.toasts;
+    toastFn.addToast = context.addToast;
+    toastFn.removeToast = context.removeToast;
 
-  return toastFn;
+    return toastFn;
+  }, [context]);
 }
 
 // ─── Toast Container ────────────────────────────────────────────────────────

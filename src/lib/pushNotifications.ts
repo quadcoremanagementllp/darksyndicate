@@ -97,13 +97,26 @@ export async function sendMobilePushNotification(
     return false;
   }
 
-  // 1. Trigger mobile haptic vibration (Android & compatible devices)
+  // 1. Trigger mobile haptic vibration (Android & compatible devices with prior user gesture)
   try {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    const hasUserActivation =
+      typeof navigator !== 'undefined' &&
+      'userActivation' in navigator &&
+      navigator.userActivation &&
+      typeof (navigator.userActivation as { hasBeenActive?: boolean }).hasBeenActive === 'boolean'
+        ? (navigator.userActivation as { hasBeenActive?: boolean }).hasBeenActive
+        : true;
+
+    if (
+      hasUserActivation &&
+      typeof navigator !== 'undefined' &&
+      'vibrate' in navigator &&
+      typeof navigator.vibrate === 'function'
+    ) {
       navigator.vibrate([250, 100, 250, 100, 250]);
     }
   } catch {
-    // Ignore vibration failure on unsupported devices
+    // Ignore vibration failure on unsupported devices or restricted browser policies
   }
 
   const notificationOptions: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {

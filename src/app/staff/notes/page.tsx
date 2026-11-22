@@ -57,31 +57,45 @@ export default function StaffQuickNotesPage() {
   const [noteText, setNoteText] = useState('');
 
   // Fetch Notes
-  const fetchNotes = useCallback(async (silent = false) => {
+  const fetchNotes = useCallback(async (tab: 'ACTIVE' | 'SEATED' | 'ALL' = filterTab, silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/staff/notes?status=${filterTab}&search=${encodeURIComponent(searchQuery)}`, {
+      const res = await fetch(`/api/staff/notes?status=${tab}`, {
         headers: { 'Cache-Control': 'no-cache' },
       });
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
         setNotes(json.data);
+      } else {
+        if (!silent) toast.error(json.error?.message || 'Failed to load quick notes');
       }
     } catch {
       if (!silent) toast.error('Failed to load quick notes');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [filterTab, searchQuery, toast]);
+  }, [filterTab]);
 
   useEffect(() => {
-    fetchNotes();
+    fetchNotes(filterTab, false);
     // Silent auto-refresh every 20 seconds so all staff iPads stay in sync
     const interval = setInterval(() => {
-      fetchNotes(true);
+      fetchNotes(filterTab, true);
     }, 20000);
     return () => clearInterval(interval);
-  }, [fetchNotes]);
+  }, [filterTab, fetchNotes]);
+
+  // Real-time client-side search filtering across name, phone, console preference, and note
+  const filteredNotes = notes.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      item.customerName.toLowerCase().includes(q) ||
+      (item.phone && item.phone.toLowerCase().includes(q)) ||
+      (item.stationPreference && item.stationPreference.toLowerCase().includes(q)) ||
+      (item.note && item.note.toLowerCase().includes(q))
+    );
+  });
 
   // Quick preset helper for arrival time
   const handleTimePreset = (minutesAhead: number) => {
@@ -132,7 +146,7 @@ export default function StaffQuickNotesPage() {
         setNoteText('');
         setPlayerCount(1);
         setShowCreateModal(false);
-        fetchNotes(true);
+        fetchNotes(filterTab, true);
       } else {
         toast.error(json.error?.message || 'Failed to save note');
       }
@@ -211,7 +225,7 @@ export default function StaffQuickNotesPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => fetchNotes(false)}
+            onClick={() => fetchNotes(filterTab, false)}
             disabled={loading}
             className="p-2.5 rounded-xl bg-ds-surface border border-ds-border hover:border-ds-border-light text-ds-text-muted hover:text-white transition-all cursor-pointer"
             title="Refresh notes"
@@ -291,14 +305,16 @@ export default function StaffQuickNotesPage() {
             />
           ))}
         </div>
-      ) : notes.length === 0 ? (
+      ) : filteredNotes.length === 0 ? (
         <div className="bg-ds-surface border border-ds-border rounded-2xl p-12 text-center max-w-lg mx-auto">
           <ClipboardList className="w-12 h-12 text-ds-text-dim mx-auto mb-3 opacity-60" />
           <h3 className="text-base font-heading font-bold uppercase tracking-wider text-white mb-1">
-            No Desk Notes Found
+            {searchQuery.trim() ? 'No Matching Notes' : 'No Desk Notes Found'}
           </h3>
           <p className="text-xs text-ds-text-muted mb-5">
-            {filterTab === 'ACTIVE'
+            {searchQuery.trim()
+              ? `No notes match "${searchQuery}".`
+              : filterTab === 'ACTIVE'
               ? 'No customers currently on the waiting list or pending arrival.'
               : 'No notes match your current filter.'}
           </p>
@@ -308,12 +324,12 @@ export default function StaffQuickNotesPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-ds-surface-2 border border-ds-accent/40 text-ds-ice text-xs font-heading font-bold uppercase tracking-wider hover:bg-ds-accent hover:text-ds-darker transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Add First Quick Note
+            Add Quick Note
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {notes.map((item) => {
+          {filteredNotes.map((item) => {
             const isPending = item.status === 'PENDING';
             const isSeated = item.status === 'SEATED';
 
