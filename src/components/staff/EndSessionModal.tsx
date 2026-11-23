@@ -934,39 +934,59 @@ export function EndSessionModal({
               )}
             </div>
 
-            {/* Payment Settlement Card (if Post-Paid Tab or Overtime Fee due) */}
-            {totalCollectPaise > 0 && (
-              <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border-2 border-amber-500/40 space-y-3 animate-in fade-in">
+            {/* Payment Settlement Card or Syndicate Pass Card */}
+            {(totalCollectPaise > 0 || (activePass && activePass.hasHoursAvailable) || settleMethod === 'SYNDICATE_PASS') && (
+              <div className={`p-4 rounded-xl border-2 space-y-3 animate-in fade-in ${
+                settleMethod === 'SYNDICATE_PASS'
+                  ? 'bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-transparent border-purple-500/40'
+                  : 'bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border-amber-500/40'
+              }`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-300 font-heading font-black text-xs uppercase tracking-wider">
-                    <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className={`flex items-center gap-2 font-heading font-black text-xs uppercase tracking-wider ${
+                    settleMethod === 'SYNDICATE_PASS' ? 'text-purple-300' : 'text-amber-300'
+                  }`}>
+                    {settleMethod === 'SYNDICATE_PASS' ? (
+                      <Crown className="w-4 h-4 text-purple-400 shrink-0" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                    )}
                     <span>
-                      {isPostPaidPending ? 'Collect Desk Payment (Open Tab)' : 'Collect Overtime Fee'}
+                      {settleMethod === 'SYNDICATE_PASS'
+                        ? 'Redeem Syndicate Pass Allowance'
+                        : isPostPaidPending
+                        ? 'Collect Desk Payment (Open Tab)'
+                        : 'Collect Overtime Fee'}
                     </span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full font-mono text-xs font-black bg-amber-500 text-black shadow-sm">
-                    Total Due: ₹{totalCollectRupees}
+                  <span className={`px-2.5 py-0.5 rounded-full font-mono text-xs font-black shadow-sm ${
+                    settleMethod === 'SYNDICATE_PASS'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-amber-500 text-black'
+                  }`}>
+                    {settleMethod === 'SYNDICATE_PASS' ? `Deduct: ${passHoursToDeduct}h` : `Total Due: ₹${totalCollectRupees}`}
                   </span>
                 </div>
 
-                <div className="space-y-1.5 text-xs text-ds-text-dim">
-                  {priorTabs.length === 0 && checkout.duePaise > 0 && (
-                    <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
-                      <span>Current Session Balance:</span>
-                      <span className="font-mono font-bold text-white">₹{(checkout.duePaise / 100).toFixed(2)}</span>
+                {totalCollectPaise > 0 && (
+                  <div className="space-y-1.5 text-xs text-ds-text-dim">
+                    {priorTabs.length === 0 && checkout.duePaise > 0 && (
+                      <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
+                        <span>Current Session Balance:</span>
+                        <span className="font-mono font-bold text-white">₹{(checkout.duePaise / 100).toFixed(2)}</span>
+                      </div>
+                    )}
+                    {overtimePaise > 0 && (
+                      <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
+                        <span>Includes Overtime (+{extraMinutes} mins):</span>
+                        <span className="font-mono font-bold text-rose-300">₹{(overtimePaise / 100).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-1 text-sm font-heading font-black text-amber-300">
+                      <span>{priorTabs.length > 0 ? 'Combined Multi-Game Bill:' : 'Total Desk Collection:'}</span>
+                      <span className="text-base font-mono text-white">₹{totalCollectRupees}</span>
                     </div>
-                  )}
-                  {overtimePaise > 0 && (
-                    <div className="flex items-center justify-between py-1 border-b border-amber-500/20">
-                      <span>Includes Overtime (+{extraMinutes} mins):</span>
-                      <span className="font-mono font-bold text-rose-300">₹{(overtimePaise / 100).toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-1 text-sm font-heading font-black text-amber-300">
-                    <span>{priorTabs.length > 0 ? 'Combined Multi-Game Bill:' : 'Total Desk Collection:'}</span>
-                    <span className="text-base font-mono text-white">₹{totalCollectRupees}</span>
                   </div>
-                </div>
+                )}
 
                 {/* Settle Method Selector */}
                 <div className="pt-2 border-t border-amber-500/30 space-y-2">
