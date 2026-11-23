@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
               include: {
                 booking: {
                   include: {
-                    user: { select: { firstName: true, lastName: true, phone: true } },
+                    user: { select: { id: true, firstName: true, lastName: true, phone: true } },
                     payments: {
                       select: { id: true, amountPaise: true, status: true, method: true, refunds: { where: { status: 'COMPLETED' }, select: { amountPaise: true } } },
                       orderBy: { createdAt: 'desc' },
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
               orderBy: { startTime: 'asc' },
               take: 20,
               include: {
-                user: { select: { firstName: true, lastName: true, phone: true } },
+                user: { select: { id: true, firstName: true, lastName: true, phone: true } },
                 payments: {
                   select: { id: true, amountPaise: true, status: true, method: true, refunds: { where: { status: 'COMPLETED' }, select: { amountPaise: true } } },
                   orderBy: { createdAt: 'desc' },
@@ -266,6 +266,9 @@ export async function GET(req: NextRequest) {
                     activeSession.booking?.user?.lastName || ''
                   }`.trim(),
                 customerPhone: activeSession.booking?.customerPhone || activeSession.booking?.user?.phone,
+                userId: activeSession.booking?.userId || activeSession.booking?.user?.id || null,
+                durationMinutes: activeSession.booking?.durationMinutes || 60,
+                membershipPlanName: activeSession.booking?.membershipPlanName || null,
                 bookingRef: activeSession.booking?.bookingRef,
                 startedAt: activeSession.startedAt,
                 scheduledEndAt: activeSession.scheduledEndAt,
@@ -301,6 +304,9 @@ export async function GET(req: NextRequest) {
                     currentBooking.user?.lastName || ''
                   }`.trim(),
                 customerPhone: currentBooking.customerPhone || currentBooking.user?.phone,
+                userId: currentBooking.userId || currentBooking.user?.id || null,
+                durationMinutes: currentBooking.durationMinutes || 60,
+                membershipPlanName: currentBooking.membershipPlanName || null,
                 bookingRef: currentBooking.bookingRef,
                 startedAt: currentBooking.startTime,
                 scheduledEndAt: currentBooking.endTime,

@@ -190,6 +190,7 @@ export async function POST(req: NextRequest) {
           staffId: staffSession.userId,
           staffName,
           notes: deductionNotes,
+          tx,
         });
 
         if (pendingPayment) {

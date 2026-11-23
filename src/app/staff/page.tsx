@@ -63,9 +63,12 @@ interface Station {
     id: string;
     staffId?: string | null;
     bookingId: string;
+    userId?: string | null;
     customerName: string;
     customerPhone?: string;
     bookingRef?: string;
+    durationMinutes?: number;
+    membershipPlanName?: string | null;
     startedAt: string;
     scheduledEndAt: string;
     extensionMinutes?: number;
@@ -283,14 +286,16 @@ export default function StaffStationGridPage() {
       stationName: station.name,
       stationType: station.stationType,
       bookingId: station.activeSession.bookingId,
+      userId: station.activeSession.userId || undefined,
       customerName: station.activeSession.customerName,
       customerPhone: station.activeSession.customerPhone,
       bookingRef: station.activeSession.bookingRef,
       scheduledEndAt: station.activeSession.scheduledEndAt,
+      durationMinutes: station.activeSession.durationMinutes || 60,
       pricePerHourPaise: sessionHourlyRatePaise(station.stationType, station.pricePerHourPaise, station.activeSession.playerCount || 1),
       gameTitle: station.activeSession.gameTitle || null,
       paymentStatus: station.activeSession.paymentStatus,
-      paymentMethod: station.activeSession.paymentMethod,
+      paymentMethod: station.activeSession.membershipPlanName ? 'SYNDICATE_PASS' : station.activeSession.paymentMethod,
       totalPricePaise: station.activeSession.totalPricePaise,
       paidPaise: station.activeSession.paidPaise,
       unpaidPaise: station.activeSession.unpaidPaise,

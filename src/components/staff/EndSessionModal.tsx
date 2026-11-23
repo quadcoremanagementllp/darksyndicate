@@ -270,7 +270,8 @@ export function EndSessionModal({
       // Auto-default to waive overtime if session was left open for > 3 hours
       setChargeOvertime(extraMinutes > 0 && extraMinutes <= 180);
       setCashTendered('');
-      setSettleMethod('CASH');
+      const isInitiallyPass = target.paymentMethod === 'SYNDICATE_PASS' || Boolean(target.syndicatePass?.hasHoursAvailable);
+      setSettleMethod(isInitiallyPass ? 'SYNDICATE_PASS' : 'CASH');
       setSplitCash('');
       setSplitUpi('');
       setShowQrPopup(false);
@@ -287,6 +288,9 @@ export function EndSessionModal({
       // Check active Syndicate Pass for this customer
       if (target.syndicatePass !== undefined) {
         setActivePass(target.syndicatePass);
+        if (target.syndicatePass && target.syndicatePass.hasHoursAvailable) {
+          setSettleMethod('SYNDICATE_PASS');
+        }
       } else if (target.userId || target.customerPhone) {
         setCheckingPass(true);
         const params = new URLSearchParams();
@@ -297,6 +301,9 @@ export function EndSessionModal({
           .then((json) => {
             if (json.success && json.data?.hasPass) {
               setActivePass(json.data.pass);
+              if (json.data.pass.hasHoursAvailable && (target.paymentMethod === 'SYNDICATE_PASS' || target.totalPricePaise === 0)) {
+                setSettleMethod('SYNDICATE_PASS');
+              }
             } else {
               setActivePass(null);
             }
@@ -342,7 +349,7 @@ export function EndSessionModal({
           stationId: target.stationId,
           bookingId: target.bookingId,
           extraMinutes: chargeOvertime ? extraMinutes : 0,
-          settlePaymentMethod: totalCollectPaise > 0 ? settleMethod : undefined,
+          settlePaymentMethod: settleMethod === 'SYNDICATE_PASS' ? 'SYNDICATE_PASS' : (totalCollectPaise > 0 ? settleMethod : undefined),
           splitCashPaise: settleMethod === 'SPLIT' ? Math.round(splitCashNum * 100) : undefined,
           splitUpiPaise: settleMethod === 'SPLIT' ? Math.round(splitUpiNum * 100) : undefined,
           settleAdditionalBookingIds: additionalBookingIds.length > 0 ? additionalBookingIds : undefined,

@@ -295,7 +295,11 @@ export async function getGamerActivePass(params: { userId?: string | null; phone
     if (cleanDigits.length >= 10) {
       const user = await prisma.user.findFirst({
         where: {
-          phone: { contains: cleanDigits },
+          OR: [
+            { phone: cleanDigits },
+            { phone: `+91${cleanDigits}` },
+            { phone: `91${cleanDigits}` },
+          ],
         },
         select: { id: true },
       });
@@ -351,9 +355,10 @@ export async function redeemMembershipHours(params: {
   staffId?: string;
   staffName?: string;
   notes?: string;
+  tx?: any;
 }) {
-  return await prisma.$transaction(async (tx) => {
-    const mem = await tx.membership.findUnique({
+  const runner = async (db: any) => {
+    const mem = await db.membership.findUnique({
       where: { id: params.membershipId },
       include: { user: true },
     });
@@ -373,13 +378,13 @@ export async function redeemMembershipHours(params: {
     const balanceAfterHours = Number((balanceAfterMinutes / 60).toFixed(2));
 
     // Update membership usedMinutes
-    await tx.membership.update({
+    await db.membership.update({
       where: { id: mem.id },
       data: { usedMinutes: newUsedMinutes },
     });
 
     // Create usage log
-    const log = await tx.membershipUsageLog.create({
+    const log = await db.membershipUsageLog.create({
       data: {
         id: randomUUID(),
         membershipId: mem.id,
@@ -408,5 +413,11 @@ export async function redeemMembershipHours(params: {
       usedMinutes: newUsedMinutes,
       log,
     };
-  });
+  };
+
+  if (params.tx) {
+    return await runner(params.tx);
+  } else {
+    return await prisma.$transaction(runner, { maxWait: 15000, timeout: 25000 });
+  }
 }

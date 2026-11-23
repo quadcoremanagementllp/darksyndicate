@@ -665,8 +665,8 @@ export default function AdminBookingsPage() {
                             <Crown className="w-3 h-3 text-purple-400" />
                             <span>{b.membershipPlanName || 'VIP PASS'}</span>
                           </span>
-                          <span className="text-[9px] font-mono font-bold text-emerald-400 block uppercase">
-                            HOURS DEDUCTED
+                          <span className={`text-[9px] font-mono font-bold block uppercase ${b.status === 'COMPLETED' ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                            {b.status === 'COMPLETED' ? 'HOURS DEDUCTED' : 'PASS COVERED'}
                           </span>
                         </div>
                       ) : (
@@ -928,8 +928,8 @@ export default function AdminBookingsPage() {
                               <Crown className="w-3 h-3 text-purple-400" />
                               <span>{b.membershipPlanName || 'VIP PASS'}</span>
                             </span>
-                            <span className="text-[10px] font-mono text-emerald-400 font-semibold block">
-                              HOURS DEDUCTED
+                            <span className={`text-[10px] font-mono font-semibold block ${b.status === 'COMPLETED' ? 'text-emerald-400' : 'text-cyan-400'}`}>
+                              {b.status === 'COMPLETED' ? 'HOURS DEDUCTED' : 'PASS COVERED'}
                             </span>
                           </div>
                         ) : b.paymentMethod === 'SPLIT' ? (

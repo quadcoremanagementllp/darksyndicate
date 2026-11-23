@@ -345,15 +345,21 @@ export async function GET(req: NextRequest) {
         p.receiptNumber?.startsWith('PASS-') ||
         (p.notes && (p.notes.toLowerCase().includes('syndicate pass') || p.notes.toLowerCase().includes('pass: deducted')))
       );
-      const isPassRedeemed = Boolean(
+      const hasPassDeductionRecord = Boolean(
         passPayment ||
-        (booking.notes && booking.notes.toLowerCase().includes('syndicate pass')) ||
         (booking.notes && booking.notes.includes('[SYNDICATE_PASS:')) ||
-        (booking.notes && booking.notes.includes('Deducted') && (booking.notes.includes('hrs on') || booking.notes.includes('hrs ('))) ||
+        (booking.notes && booking.notes.includes('Deducted') && (booking.notes.includes('hrs on') || booking.notes.includes('hrs (')))
+      );
+      const isPassCoveredSession = Boolean(
+        hasPassDeductionRecord ||
+        (booking.notes && booking.notes.toLowerCase().includes('syndicate pass')) ||
         (booking.membershipPlanName && (booking.totalPricePaise === 0 || booking.payments[0]?.method === 'OTHER'))
       );
+      const isPassRedeemed = Boolean(
+        booking.status === 'COMPLETED' ? hasPassDeductionRecord : isPassCoveredSession
+      );
 
-      if (isPassRedeemed) {
+      if (isPassCoveredSession || isPassRedeemed) {
         displayPaymentMethod = 'SYNDICATE_PASS';
       }
 
@@ -420,6 +426,8 @@ export async function GET(req: NextRequest) {
         paymentId: booking.payments[0]?.id || null,
         paymentStatus: booking.payments[0]?.status || 'UNPAID',
         paymentMethod: displayPaymentMethod,
+        hasPassDeductionRecord,
+        isPassCoveredSession,
         splitPaymentDetails,
         priorPendingTabs,
         priorUnpaidPaise,

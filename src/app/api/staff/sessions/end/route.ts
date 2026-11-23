@@ -343,7 +343,16 @@ export async function POST(req: NextRequest) {
                   data: { totalSpent: { increment: checkout.duePaise } },
                 });
               }
-            } else if (settlePaymentMethod === 'SYNDICATE_PASS') {
+            } else if (
+              settlePaymentMethod === 'SYNDICATE_PASS' ||
+              (!settlePaymentMethod && Boolean(
+                session.booking?.membershipPlanName ||
+                (session.booking?.notes && (
+                  session.booking.notes.toLowerCase().includes('syndicate pass') ||
+                  session.booking.notes.includes('[SYNDICATE_PASS:')
+                ))
+              ))
+            ) {
               // Syndicate Pass hour deduction flow
               const activePass = await getGamerActivePass({
                 userId: session.booking?.userId,
@@ -368,6 +377,7 @@ export async function POST(req: NextRequest) {
                 staffId: staffSession.userId,
                 staffName,
                 notes: deductionNotes,
+                tx,
               });
 
               if (session.booking) {
@@ -663,7 +673,16 @@ export async function POST(req: NextRequest) {
                   data: { totalSpent: { increment: checkout.duePaise } },
                 });
               }
-            } else if (settlePaymentMethod === 'SYNDICATE_PASS') {
+            } else if (
+              settlePaymentMethod === 'SYNDICATE_PASS' ||
+              (!settlePaymentMethod && Boolean(
+                fallbackBooking.membershipPlanName ||
+                (fallbackBooking.notes && (
+                  fallbackBooking.notes.toLowerCase().includes('syndicate pass') ||
+                  fallbackBooking.notes.includes('[SYNDICATE_PASS:')
+                ))
+              ))
+            ) {
               const activePass = await getGamerActivePass({
                 userId: fallbackBooking.userId,
                 phone: fallbackBooking.customerPhone,
@@ -687,6 +706,7 @@ export async function POST(req: NextRequest) {
                 staffId: staffSession.userId,
                 staffName,
                 notes: deductionNotes,
+                tx,
               });
 
               await tx.payment.create({

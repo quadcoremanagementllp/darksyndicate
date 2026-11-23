@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/session';
 import { canManageStaffSession, sessionHourlyRatePaise, sessionPlayerCount } from '@/lib/staffSessionRules';
 import { z } from 'zod';
 import { isPayAfterBooking } from '@/lib/staffPaymentPolicy';
+import { getGamerActivePass } from '@/lib/memberships';
 
 const extendSessionSchema = z.object({
   sessionId: z.string().optional(),
@@ -82,8 +83,25 @@ export async function POST(req: NextRequest) {
           session.station?.pricePerHourPaise || 15000,
           sessionPlayerCount(session.booking?.notes, stationType)
         );
-        const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
-        const isPayOnExit = isPayAfterBooking(session.booking?.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
+
+        // Check active Syndicate Pass for this customer
+        const activePass = await getGamerActivePass({
+          userId: session.booking?.userId,
+          phone: session.booking?.customerPhone,
+        });
+
+        const isPassEligible = Boolean(
+          activePass &&
+          activePass.hasHoursAvailable &&
+          activePass.remainingMinutes >= data.additionalMinutes &&
+          (session.booking?.membershipPlanName ||
+            (session.booking?.notes && session.booking.notes.toLowerCase().includes('syndicate pass')) ||
+            session.booking?.totalPricePaise === 0)
+        );
+
+        const calculatedExtensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
+        const extensionFeePaise = isPassEligible ? 0 : calculatedExtensionFeePaise;
+        const isPayOnExit = isPassEligible || isPayAfterBooking(session.booking?.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
         const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
         const updated = await prisma.$transaction(async (tx) => {
@@ -132,10 +150,26 @@ export async function POST(req: NextRequest) {
                 endTime: newEnd,
                 durationMinutes: { increment: data.additionalMinutes },
                 totalPricePaise: { increment: extensionFeePaise },
+                ...(isPassEligible && activePass ? {
+                  membershipPlanName: activePass.planNameSnapshot,
+                  notes: `${session.booking.notes || ''} [Extension: +${data.additionalMinutes}m covered by ${activePass.planNameSnapshot}]`.trim(),
+                } : {}),
               },
             });
 
-            if (isPayOnExit) {
+            if (isPassEligible && activePass) {
+              const existingPending = await tx.payment.findFirst({
+                where: { bookingId: session.bookingId, status: 'PENDING' },
+              });
+              if (existingPending) {
+                await tx.payment.update({
+                  where: { id: existingPending.id },
+                  data: {
+                    notes: `${existingPending.notes || ''} [Ext +${data.additionalMinutes}m: Covered by ${activePass.planNameSnapshot}]`.trim(),
+                  },
+                });
+              }
+            } else if (isPayOnExit) {
               // Add to open desk tab
               const existingPending = await tx.payment.findFirst({
                 where: { bookingId: session.bookingId, status: 'PENDING' },
@@ -252,7 +286,9 @@ export async function POST(req: NextRequest) {
         });
 
         return apiSuccess({
-          message: isPayOnExit
+          message: isPassEligible && activePass
+            ? `Session extended by +${data.additionalMinutes} mins (Covered by ${activePass.planNameSnapshot})!`
+            : isPayOnExit
             ? `Session extended by +${data.additionalMinutes} minutes and added to exit tab (₹${(extensionFeePaise / 100).toFixed(0)})!`
             : `Session extended by +${data.additionalMinutes} minutes!`,
           newScheduledEndAt: updated.scheduledEndAt,
@@ -276,8 +312,25 @@ export async function POST(req: NextRequest) {
             booking.station?.pricePerHourPaise || 15000,
             sessionPlayerCount(booking.notes, booking.station?.stationType)
           );
-          const extensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
-          const isPayOnExit = isPayAfterBooking(booking.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
+
+          // Check active Syndicate Pass for this customer
+          const activePass = await getGamerActivePass({
+            userId: booking.userId,
+            phone: booking.customerPhone,
+          });
+
+          const isPassEligible = Boolean(
+            activePass &&
+            activePass.hasHoursAvailable &&
+            activePass.remainingMinutes >= data.additionalMinutes &&
+            (booking.membershipPlanName ||
+              (booking.notes && booking.notes.toLowerCase().includes('syndicate pass')) ||
+              booking.totalPricePaise === 0)
+          );
+
+          const calculatedExtensionFeePaise = Math.round(hourlyRate * (data.additionalMinutes / 60));
+          const extensionFeePaise = isPassEligible ? 0 : calculatedExtensionFeePaise;
+          const isPayOnExit = isPassEligible || isPayAfterBooking(booking.notes) || data.paymentTiming === 'PAY_ON_EXIT' || data.paymentMethod === 'PAY_ON_EXIT';
           const recordedMethod = data.paymentMethod === 'UPI' ? 'UPI' : data.paymentMethod === 'CARD' ? 'OTHER' : 'CASH';
 
           await prisma.$transaction(async (tx) => {
@@ -287,10 +340,26 @@ export async function POST(req: NextRequest) {
                 endTime: newEnd,
                 durationMinutes: { increment: data.additionalMinutes },
                 totalPricePaise: { increment: extensionFeePaise },
+                ...(isPassEligible && activePass ? {
+                  membershipPlanName: activePass.planNameSnapshot,
+                  notes: `${booking.notes || ''} [Extension: +${data.additionalMinutes}m covered by ${activePass.planNameSnapshot}]`.trim(),
+                } : {}),
               },
             });
 
-            if (isPayOnExit) {
+            if (isPassEligible && activePass) {
+              const existingPending = await tx.payment.findFirst({
+                where: { bookingId: booking.id, status: 'PENDING' },
+              });
+              if (existingPending) {
+                await tx.payment.update({
+                  where: { id: existingPending.id },
+                  data: {
+                    notes: `${existingPending.notes || ''} [Ext +${data.additionalMinutes}m: Covered by ${activePass.planNameSnapshot}]`.trim(),
+                  },
+                });
+              }
+            } else if (isPayOnExit) {
               const existingPending = await tx.payment.findFirst({
                 where: { bookingId: booking.id, status: 'PENDING' },
               });
@@ -341,7 +410,9 @@ export async function POST(req: NextRequest) {
           });
 
           return apiSuccess({
-            message: isPayOnExit
+            message: isPassEligible && activePass
+              ? `Session extended by +${data.additionalMinutes} mins (Covered by ${activePass.planNameSnapshot})!`
+              : isPayOnExit
               ? `Session extended by +${data.additionalMinutes} minutes and added to exit tab (₹${(extensionFeePaise / 100).toFixed(0)})!`
               : `Session extended by +${data.additionalMinutes} minutes!`,
             newScheduledEndAt: newEnd.toISOString(),
