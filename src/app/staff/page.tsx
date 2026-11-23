@@ -132,6 +132,7 @@ export default function StaffStationGridPage() {
   const [walkInInitialCustomerName, setWalkInInitialCustomerName] = useState<string | undefined>(undefined);
   const [walkInInitialCustomerPhone, setWalkInInitialCustomerPhone] = useState<string | undefined>(undefined);
   const [walkInInitialCategory, setWalkInInitialCategory] = useState<string | undefined>(undefined);
+  const [walkInInitialPlayerCount, setWalkInInitialPlayerCount] = useState<number | undefined>(undefined);
   const [walkInLinkedPriorTab, setWalkInLinkedPriorTab] = useState<{
     bookingId: string;
     stationName: string;
@@ -191,6 +192,57 @@ export default function StaffStationGridPage() {
   useEffect(() => {
     const tick = setInterval(() => setCurrentTime(Date.now()), 1000);
     return () => clearInterval(tick);
+  }, []);
+
+  // Auto-open Walk-In modal when routed from Quick Desk Notes (SEAT shortcut)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qName = params.get('quickname');
+    const qPhone = params.get('quickphone');
+    const qPref = params.get('quickpref');
+    const qPlayers = params.get('quickplayers');
+    const qNoteId = params.get('quicknoteid');
+
+    if (qName) {
+      setWalkInInitialCustomerName(qName);
+      if (qPhone) setWalkInInitialCustomerPhone(qPhone);
+      if (qPlayers) {
+        const count = parseInt(qPlayers, 10);
+        if (!isNaN(count) && count >= 1) {
+          setWalkInInitialPlayerCount(count);
+        }
+      }
+
+      // Map preference to category if valid
+      if (qPref) {
+        const prefUpper = qPref.toUpperCase().trim();
+        if (prefUpper.includes('POOL') || prefUpper.includes('SNOOKER')) {
+          setWalkInInitialCategory('POOL_TABLE');
+        } else if (prefUpper.includes('PS5') || prefUpper.includes('PLAYSTATION')) {
+          setWalkInInitialCategory('PS5');
+        } else if (prefUpper.includes('PC')) {
+          setWalkInInitialCategory('PC');
+        } else if (prefUpper.includes('VR')) {
+          setWalkInInitialCategory('VR');
+        }
+      }
+
+      setWalkInOpen(true);
+
+      // Clean the query parameters from URL without reloading
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+
+      // If a quick note ID was passed, mark note as SEATED in background
+      if (qNoteId) {
+        fetch('/api/staff/notes', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ noteId: qNoteId, status: 'SEATED' }),
+        }).catch(() => {});
+      }
+    }
   }, []);
 
   const handleExtraPlayerAction = async (station: Station, action: 'ADD' | 'REMOVE' = 'ADD') => {
@@ -1078,6 +1130,7 @@ export default function StaffStationGridPage() {
           setWalkInInitialCustomerName(undefined);
           setWalkInInitialCustomerPhone(undefined);
           setWalkInInitialCategory(undefined);
+          setWalkInInitialPlayerCount(undefined);
           setWalkInLinkedPriorTab(null);
         }}
         stations={stations}
@@ -1085,6 +1138,7 @@ export default function StaffStationGridPage() {
         initialCustomerName={walkInInitialCustomerName}
         initialCustomerPhone={walkInInitialCustomerPhone}
         initialCategory={walkInInitialCategory}
+        initialPlayerCount={walkInInitialPlayerCount}
         linkedPriorTab={walkInLinkedPriorTab}
         onSuccess={loadData}
       />

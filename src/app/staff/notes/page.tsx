@@ -405,9 +405,9 @@ export default function StaffQuickNotesPage() {
                     {isPending ? (
                       <>
                         <Link
-                          href={`/staff?quickname=${encodeURIComponent(item.customerName)}&quickphone=${encodeURIComponent(item.phone || '')}`}
+                          href={`/staff?quickname=${encodeURIComponent(item.customerName)}&quickphone=${encodeURIComponent(item.phone || '')}&quickpref=${encodeURIComponent(item.stationPreference || '')}&quickplayers=${encodeURIComponent(item.playerCount || 1)}&quicknoteid=${encodeURIComponent(item.id)}`}
                           className="px-2.5 py-1.5 rounded-lg bg-ds-accent/20 border border-ds-accent/40 text-ds-ice hover:bg-ds-accent hover:text-ds-darker text-[11px] font-heading font-bold uppercase transition-all flex items-center gap-1"
-                          title="Open Floor Arena to Seat"
+                          title="Seat Customer"
                         >
                           Seat
                           <ArrowRight className="w-3 h-3" />

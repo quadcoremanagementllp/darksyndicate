@@ -49,6 +49,7 @@ interface WalkInModalProps {
   initialCustomerName?: string;
   initialCustomerPhone?: string;
   initialCategory?: string;
+  initialPlayerCount?: number;
   linkedPriorTab?: {
     bookingId: string;
     stationName: string;
@@ -153,6 +154,7 @@ export function WalkInModal({
   initialCustomerName,
   initialCustomerPhone,
   initialCategory,
+  initialPlayerCount,
   linkedPriorTab,
   onSuccess,
 }: WalkInModalProps) {
@@ -163,7 +165,7 @@ export function WalkInModal({
   const [customerName, setCustomerName] = useState<string>(initialCustomerName || '');
   const [customerPhone, setCustomerPhone] = useState<string>(initialCustomerPhone || '');
   const [customerEmail, setCustomerEmail] = useState<string>('');
-  const [playerCount, setPlayerCount] = useState<number>(1);
+  const [playerCount, setPlayerCount] = useState<number>(initialPlayerCount || 1);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const toast = useToast();
@@ -326,14 +328,14 @@ export function WalkInModal({
       setCustomerName(initialCustomerName || '');
       setCustomerPhone(initialCustomerPhone || '');
       setCustomerEmail('');
-      setPlayerCount(1);
+      setPlayerCount(initialPlayerCount || 1);
       setFormErrors({});
       setTouched({});
       setActiveMembership(null);
       setSearchResults([]);
       setShowSearchDropdown(false);
     }
-  }, [isOpen, preselectedStationId, initialCategory, initialCustomerName, initialCustomerPhone, stations, durationMinutes, activeCategory]);
+  }, [isOpen, preselectedStationId, initialCategory, initialPlayerCount, initialCustomerName, initialCustomerPhone, stations, durationMinutes, activeCategory]);
 
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   const categoryStations = stations.filter((s) => s.stationType === activeCategory);
