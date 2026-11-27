@@ -37,6 +37,7 @@ export interface EndSessionTarget {
   customerName: string;
   customerPhone?: string;
   bookingRef?: string;
+  startedAt?: string;
   scheduledEndAt?: string;
   pricePerHourPaise?: number;
   durationMinutes?: number;
@@ -232,12 +233,27 @@ export function EndSessionModal({
   const combinedProjectedPaise = totalCollectPaise + newStationFeePaise;
   const combinedProjectedRupees = combinedProjectedPaise / 100;
 
-  // Pass Hours Deduction calculation
+  // Pass Hours Deduction calculation (with 10-minute round-up rule)
   const scheduledMinutes = target?.durationMinutes || 60;
-  const sessionMinutes = Math.max(15, scheduledMinutes + (chargeOvertime ? extraMinutes : 0));
-  const passHoursToDeduct = Number((sessionMinutes / 60).toFixed(1));
+  const startedAtDate = target?.startedAt ? new Date(target.startedAt) : null;
+  const elapsedMinutes = startedAtDate && !isNaN(startedAtDate.getTime())
+    ? Math.max(1, Math.ceil((now.getTime() - startedAtDate.getTime()) / (60 * 1000)))
+    : scheduledMinutes;
+
+  const isEarlyStop = !isOverdue && elapsedMinutes < scheduledMinutes;
+  const actualOrOvertimeMinutes = isOverdue
+    ? scheduledMinutes + (chargeOvertime ? extraMinutes : 0)
+    : elapsedMinutes;
+
+  // Round up to nearest 10 minutes (e.g. 18m -> 20m, 22m -> 30m, min 10m)
+  const roundedPassMinutes = Math.max(10, Math.ceil(actualOrOvertimeMinutes / 10) * 10);
+  const sessionMinutes = isEarlyStop
+    ? Math.min(scheduledMinutes, roundedPassMinutes)
+    : roundedPassMinutes;
+
+  const passHoursToDeduct = Number((sessionMinutes / 60).toFixed(2));
   const passRemainingAfter = activePass
-    ? Math.max(0, Number((activePass.remainingHours - passHoursToDeduct).toFixed(1)))
+    ? Math.max(0, Number((activePass.remainingHours - passHoursToDeduct).toFixed(2)))
     : 0;
 
   const handleSelectSplit = () => {
@@ -349,6 +365,7 @@ export function EndSessionModal({
           stationId: target.stationId,
           bookingId: target.bookingId,
           extraMinutes: chargeOvertime ? extraMinutes : 0,
+          passMinutes: sessionMinutes,
           settlePaymentMethod: settleMethod === 'SYNDICATE_PASS' ? 'SYNDICATE_PASS' : (totalCollectPaise > 0 ? settleMethod : undefined),
           splitCashPaise: settleMethod === 'SPLIT' ? Math.round(splitCashNum * 100) : undefined,
           splitUpiPaise: settleMethod === 'SPLIT' ? Math.round(splitUpiNum * 100) : undefined,
@@ -1087,6 +1104,12 @@ export function EndSessionModal({
                           <span className="text-ds-text-dim">Current Remaining Hours:</span>
                           <span className="text-emerald-400 font-bold">{activePass.remainingHours} hrs</span>
                         </div>
+                        {isEarlyStop && (
+                          <div className="flex items-center justify-between py-0.5 px-2 rounded bg-cyan-950/40 border border-cyan-500/30 text-[11px] text-cyan-300">
+                            <span>Early Stop ({elapsedMinutes}m played):</span>
+                            <span className="font-bold">Rounded to {sessionMinutes}m</span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between py-1 border-t border-b border-purple-500/20 text-amber-300 font-bold">
                           <span>Session Time to Deduct ({sessionMinutes} mins):</span>
                           <span className="text-rose-400">-{passHoursToDeduct} hrs</span>
@@ -1363,7 +1386,7 @@ export function EndSessionModal({
                     {submitting
                       ? 'Processing...'
                       : settleMethod === 'SYNDICATE_PASS'
-                      ? `Deduct ${passHoursToDeduct}h & End Session`
+                      ? `Deduct ${passHoursToDeduct}h (${sessionMinutes}m) & End Session`
                       : settleMethod === 'PENDING'
                       ? `End Session & Mark ₹${totalCollectRupees} as Pending`
                       : settleMethod === 'SPLIT'

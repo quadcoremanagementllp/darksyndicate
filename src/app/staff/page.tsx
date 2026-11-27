@@ -290,6 +290,7 @@ export default function StaffStationGridPage() {
       customerName: station.activeSession.customerName,
       customerPhone: station.activeSession.customerPhone,
       bookingRef: station.activeSession.bookingRef,
+      startedAt: station.activeSession.startedAt,
       scheduledEndAt: station.activeSession.scheduledEndAt,
       durationMinutes: station.activeSession.durationMinutes || 60,
       pricePerHourPaise: sessionHourlyRatePaise(station.stationType, station.pricePerHourPaise, station.activeSession.playerCount || 1),

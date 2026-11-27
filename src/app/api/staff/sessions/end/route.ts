@@ -12,6 +12,7 @@ const endSessionSchema = z.object({
   stationId: z.string().optional(),
   bookingId: z.string().optional(),
   extraMinutes: z.number().optional(),
+  passMinutes: z.number().int().min(10).max(600).optional(),
   settlePaymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT', 'PENDING', 'SYNDICATE_PASS']).optional(),
   splitCashPaise: z.number().int().min(0).optional(),
   splitUpiPaise: z.number().int().min(0).optional(),
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     const staffSession = await requireRole('STAFF', 'ADMIN', 'SUPER_ADMIN');
     const staffName = `${staffSession.firstName} ${staffSession.lastName}`.trim();
     const body = await req.json();
-    const { sessionId, stationId, bookingId, extraMinutes, settlePaymentMethod, splitCashPaise, splitUpiPaise, transferTab, settleAdditionalBookingIds, discountPaise, finalPricePaise, refundConfirmed } = endSessionSchema.parse(body);
+    const { sessionId, stationId, bookingId, extraMinutes, passMinutes, settlePaymentMethod, splitCashPaise, splitUpiPaise, transferTab, settleAdditionalBookingIds, discountPaise, finalPricePaise, refundConfirmed } = endSessionSchema.parse(body);
     if (discountPaise !== undefined && finalPricePaise !== undefined) {
       throw new ValidationError('Choose a discount or a final price, not both.');
     }
@@ -363,8 +364,19 @@ export async function POST(req: NextRequest) {
               }
 
               const scheduledMins = session.booking?.durationMinutes || 60;
-              const sessionMinutes = Math.max(15, scheduledMins + overtimeMinutes);
-              const deductionNotes = `Deducted ${(sessionMinutes / 60).toFixed(1)} hrs on ${session.station?.name || 'station'} (${activePass.planNameSnapshot})`;
+              let sessionMinutes = scheduledMins + overtimeMinutes;
+              if (passMinutes && passMinutes >= 10) {
+                sessionMinutes = Math.min(scheduledMins + overtimeMinutes, passMinutes);
+              } else if (session.startedAt) {
+                const elapsedMins = Math.max(1, Math.ceil((Date.now() - new Date(session.startedAt).getTime()) / 60000));
+                if (elapsedMins < scheduledMins) {
+                  sessionMinutes = Math.min(scheduledMins, Math.max(10, Math.ceil(elapsedMins / 10) * 10));
+                } else if (overtimeMinutes > 0) {
+                  sessionMinutes = Math.max(10, Math.ceil((scheduledMins + overtimeMinutes) / 10) * 10);
+                }
+              }
+              const hoursDeductedDec = (sessionMinutes / 60).toFixed(2);
+              const deductionNotes = `Deducted ${hoursDeductedDec} hrs (${sessionMinutes}m) on ${session.station?.name || 'station'} (${activePass.planNameSnapshot})`;
 
               const deduction = await redeemMembershipHours({
                 membershipId: activePass.id,
@@ -484,7 +496,7 @@ export async function POST(req: NextRequest) {
       const fallbackBooking = bookingId
         ? await prisma.booking.findUnique({
             where: { id: bookingId },
-            include: { station: true, user: true },
+            include: { station: true, user: true, session: true },
           })
         : null;
 
@@ -692,9 +704,21 @@ export async function POST(req: NextRequest) {
               }
 
               const scheduledMins = fallbackBooking.durationMinutes || 60;
-              const sessionMinutes = Math.max(15, scheduledMins + overtimeMinutes);
+              let sessionMinutes = scheduledMins + overtimeMinutes;
+              if (passMinutes && passMinutes >= 10) {
+                sessionMinutes = Math.min(scheduledMins + overtimeMinutes, passMinutes);
+              } else if (fallbackBooking.session?.startedAt || fallbackBooking.startTime) {
+                const startRef = fallbackBooking.session?.startedAt || fallbackBooking.startTime;
+                const elapsedMins = Math.max(1, Math.ceil((Date.now() - new Date(startRef).getTime()) / 60000));
+                if (elapsedMins < scheduledMins) {
+                  sessionMinutes = Math.min(scheduledMins, Math.max(10, Math.ceil(elapsedMins / 10) * 10));
+                } else if (overtimeMinutes > 0) {
+                  sessionMinutes = Math.max(10, Math.ceil((scheduledMins + overtimeMinutes) / 10) * 10);
+                }
+              }
               const stationObj = targetStation || fallbackBooking.station;
-              const deductionNotes = `Deducted ${(sessionMinutes / 60).toFixed(1)} hrs on ${stationObj?.name || 'station'} (${activePass.planNameSnapshot})`;
+              const hoursDeductedDec = (sessionMinutes / 60).toFixed(2);
+              const deductionNotes = `Deducted ${hoursDeductedDec} hrs (${sessionMinutes}m) on ${stationObj?.name || 'station'} (${activePass.planNameSnapshot})`;
 
               const deduction = await redeemMembershipHours({
                 membershipId: activePass.id,
