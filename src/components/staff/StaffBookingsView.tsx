@@ -274,6 +274,7 @@ export function StaffBookingsView({ view }: { view: StaffBookingView }) {
       bookingRef: booking.bookingRef,
       durationMinutes: booking.durationMinutes,
       syndicatePass: booking.syndicatePass || null,
+      startedAt: booking.session?.startedAt || booking.startTime,
       scheduledEndAt: booking.session?.scheduledEndAt || booking.endTime,
       pricePerHourPaise: sessionHourlyRatePaise(booking.stationType, booking.pricePerHourPaise || 15000, booking.playerCount || 1),
       gameTitle: booking.gameTitle || booking.session?.gameTitle || null,
